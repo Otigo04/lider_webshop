@@ -5,54 +5,11 @@
 -- =============================================================================
 
 -- -----------------------------------------------------------------------------
--- 1. Hilfsfunktionen
--- -----------------------------------------------------------------------------
-
--- SECURITY DEFINER ist hier zwingend: die Funktion liest public.users, und
--- public.users hat selbst RLS. Ohne DEFINER würde jede Policy, die is_admin()
--- aufruft, rekursiv wieder RLS auf users auswerten -> "infinite recursion
--- detected in policy". search_path wird fest gesetzt, damit die erhöhten Rechte
--- nicht über untergeschobene Schemas ausgenutzt werden können.
-CREATE OR REPLACE FUNCTION public.is_admin()
-RETURNS BOOLEAN
-LANGUAGE SQL
-SECURITY DEFINER
-STABLE
-SET search_path = public, pg_temp
-AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM public.users
-    WHERE id = auth.uid() AND role = 'admin' AND is_active
-  );
-$$;
-
--- Angemeldet UND nicht deaktiviert. Deaktivierte Kunden behalten ihre
--- Bestellhistorie in der DB, kommen aber an keine Daten mehr heran.
-CREATE OR REPLACE FUNCTION public.is_active_user()
-RETURNS BOOLEAN
-LANGUAGE SQL
-SECURITY DEFINER
-STABLE
-SET search_path = public, pg_temp
-AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM public.users
-    WHERE id = auth.uid() AND is_active
-  );
-$$;
-
-CREATE OR REPLACE FUNCTION public.set_updated_at()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-AS $$
-BEGIN
-  NEW.updated_at = now();
-  RETURN NEW;
-END;
-$$;
-
--- -----------------------------------------------------------------------------
--- 2. Tabellen
+-- 1. Tabellen
+--
+-- Muss vor den Hilfsfunktionen stehen: `LANGUAGE SQL`-Funktionen prüfen ihren
+-- Rumpf bereits beim Anlegen. Stünde is_admin() weiter oben, bricht das Skript
+-- mit `42P01: relation "public.users" does not exist` ab.
 -- -----------------------------------------------------------------------------
 
 -- Profildaten zu auth.users. Rolle und Aktiv-Status leben hier.
@@ -141,6 +98,53 @@ CREATE TABLE IF NOT EXISTS public.order_items (
   subtotal           NUMERIC(12, 2) NOT NULL CHECK (subtotal >= 0),
   created_at         TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- -----------------------------------------------------------------------------
+-- 2. Hilfsfunktionen
+-- -----------------------------------------------------------------------------
+
+-- SECURITY DEFINER ist hier zwingend: die Funktion liest public.users, und
+-- public.users hat selbst RLS. Ohne DEFINER würde jede Policy, die is_admin()
+-- aufruft, rekursiv wieder RLS auf users auswerten -> "infinite recursion
+-- detected in policy". search_path wird fest gesetzt, damit die erhöhten Rechte
+-- nicht über untergeschobene Schemas ausgenutzt werden können.
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS BOOLEAN
+LANGUAGE SQL
+SECURITY DEFINER
+STABLE
+SET search_path = public, pg_temp
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.users
+    WHERE id = auth.uid() AND role = 'admin' AND is_active
+  );
+$$;
+
+-- Angemeldet UND nicht deaktiviert. Deaktivierte Kunden behalten ihre
+-- Bestellhistorie in der DB, kommen aber an keine Daten mehr heran.
+CREATE OR REPLACE FUNCTION public.is_active_user()
+RETURNS BOOLEAN
+LANGUAGE SQL
+SECURITY DEFINER
+STABLE
+SET search_path = public, pg_temp
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.users
+    WHERE id = auth.uid() AND is_active
+  );
+$$;
+
+CREATE OR REPLACE FUNCTION public.set_updated_at()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$;
 
 -- -----------------------------------------------------------------------------
 -- 3. Indizes
@@ -319,20 +323,32 @@ CREATE POLICY order_items_admin_all ON public.order_items
   FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
 
 -- -----------------------------------------------------------------------------
--- 6. Storage: Bucket `products`
--- Bucket vorher im Dashboard anlegen (Storage -> New bucket -> Name: products,
--- Public: an). Öffentliche Leserechte betreffen nur Produktfotos, keine Preise.
+-- 6. Storage: Bucket `products` (PRIVAT)
+--
+-- Der Bucket wird von diesem Skript angelegt, im Dashboard ist nichts zu tun.
+-- `public = false`: Produktfotos sind nicht per direkter URL abrufbar. Die App
+-- erzeugt serverseitig kurzlebige Signed URLs (siehe lib/storage.ts).
+-- Lesen dürfen nur angemeldete, aktive Kunden – genau wie beim Katalog.
 -- -----------------------------------------------------------------------------
 
-INSERT INTO storage.buckets (id, name, public)
-VALUES ('products', 'products', true)
-ON CONFLICT (id) DO NOTHING;
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'products', 'products', false,
+  5242880,  -- 5 MB pro Datei
+  ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/avif']
+)
+ON CONFLICT (id) DO UPDATE
+  SET public             = EXCLUDED.public,
+      file_size_limit    = EXCLUDED.file_size_limit,
+      allowed_mime_types = EXCLUDED.allowed_mime_types;
 
 DROP POLICY IF EXISTS "product images public read"  ON storage.objects;
+DROP POLICY IF EXISTS "product images read"         ON storage.objects;
 DROP POLICY IF EXISTS "product images admin write"  ON storage.objects;
 
-CREATE POLICY "product images public read" ON storage.objects
-  FOR SELECT USING (bucket_id = 'products');
+CREATE POLICY "product images read" ON storage.objects
+  FOR SELECT TO authenticated
+  USING (bucket_id = 'products' AND public.is_active_user());
 
 CREATE POLICY "product images admin write" ON storage.objects
   FOR ALL TO authenticated

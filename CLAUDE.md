@@ -60,7 +60,7 @@
 | **Styling** | Tailwind CSS v4 + shadcn/ui | Professionell, schnell, keine KI-Vibes |
 | **Database** | Supabase (PostgreSQL) | Real-time, Auth, Storage für Bilder |
 | **Auth** | Supabase Auth via `@supabase/ssr` | Einfach, sicher, keine externe OAuth nötig |
-| **File Storage** | Supabase Storage (Bucket `products`) | Bilder getrennt von den Metadaten |
+| **File Storage** | Supabase Storage, Bucket `products` (**privat**) | Fotos nur über Signed URLs, `lib/storage.ts` |
 | **Hosting** | Vercel | Native Next.js Support, Auto-Deploy |
 | **API** | Next.js Route Handlers + Server Actions | TypeScript, Type-Safe |
 

@@ -419,9 +419,16 @@ Design-Anforderungen:
 - Error Handling
 - Redirect nach erfolgreichem Login (zu `/shop` oder `/admin`)
 
-#### 2.3 Auth Guard Components
-- `AuthGuard.tsx` – Redirect auf `/login` wenn nicht authentifiziert
-- `AdminGuard.tsx` – Redirect auf `/shop` wenn nicht Admin
+#### 2.3 Auth Guards  ✅ erledigt
+
+Umgesetzt serverseitig statt als Client-Komponenten – ein Client-Guard rendert
+die Seite erst und leitet danach um, das Flackern und der kurze Datenabfluss
+entfallen so:
+
+| Statt | Umgesetzt als |
+|-------|---------------|
+| `AuthGuard.tsx` | `proxy.ts` (Redirect vor dem Rendern) + `requireUser()` in `lib/auth.ts` |
+| `AdminGuard.tsx` | `app/admin/layout.tsx` mit `requireAdmin()` |
 
 #### 2.4 Header/Navigation
 - Logo (Lider)
