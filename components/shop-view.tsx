@@ -32,9 +32,12 @@ export function ShopView({
     <div className="mx-auto max-w-6xl px-4 py-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{heading}</h1>
+          <p className="eyebrow text-muted-foreground">Sortiment</p>
+          <h1 className="headline mt-2 text-3xl font-bold">{heading}</h1>
           {description ? (
-            <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+            <p className="mt-2 max-w-xl text-sm text-muted-foreground">
+              {description}
+            </p>
           ) : null}
         </div>
 
@@ -60,7 +63,11 @@ export function ShopView({
         </form>
       </div>
 
-      <nav className="mt-6 flex flex-wrap gap-2 border-b border-border pb-4">
+      {/*
+       * Der Nummernkreis steht mit an der Kategorie: Artikel tragen ihn in
+       * ihrer Artikelnummer, Kunden bestellen und reklamieren darüber.
+       */}
+      <nav className="mt-8 flex flex-wrap gap-2 border-b border-border pb-4">
         <CategoryPill href="/shop" active={activeSlug === null}>
           Alle Artikel
         </CategoryPill>
@@ -69,6 +76,7 @@ export function ShopView({
             key={category.id}
             href={`/shop/${category.slug}`}
             active={category.slug === activeSlug}
+            code={category.sku_prefix}
           >
             {category.name}
           </CategoryPill>
@@ -99,10 +107,12 @@ export function ShopView({
 function CategoryPill({
   href,
   active,
+  code,
   children,
 }: {
   href: string;
   active: boolean;
+  code?: string | null;
   children: React.ReactNode;
 }) {
   return (
@@ -110,12 +120,22 @@ function CategoryPill({
       href={href}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "rounded-md border px-3 py-1.5 text-sm",
+        "inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm transition-colors",
         active
           ? "border-foreground bg-foreground text-background"
           : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground",
       )}
     >
+      {code ? (
+        <span
+          className={cn(
+            "code text-xs",
+            active ? "text-background/60" : "text-muted-foreground/70",
+          )}
+        >
+          {code}
+        </span>
+      ) : null}
       {children}
     </Link>
   );

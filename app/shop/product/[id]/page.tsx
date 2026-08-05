@@ -54,17 +54,19 @@ export default async function ProductPage({
         <ProductGallery urls={product.imageUrls} alt={product.name} />
 
         <div>
-          <p className="text-sm text-muted-foreground tabular">{product.sku}</p>
-          <h1 className="mt-1 text-3xl font-semibold tracking-tight">
-            {product.name}
-          </h1>
-
-          <div className="mt-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="code rounded-md border border-border bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+              {product.sku}
+            </p>
             <StockBadge free={free} />
           </div>
 
+          <h1 className="headline mt-4 text-3xl font-bold sm:text-4xl">
+            {product.name}
+          </h1>
+
           {product.description ? (
-            <p className="mt-6 whitespace-pre-line text-muted-foreground">
+            <p className="mt-5 whitespace-pre-line leading-relaxed text-muted-foreground">
               {product.description}
             </p>
           ) : null}

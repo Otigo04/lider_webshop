@@ -21,7 +21,12 @@ export function MobileNav({ links }: { links: NavLink[] }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label="Menü öffnen">
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Menü öffnen"
+          className="text-surface-dark-muted hover:bg-white/10 hover:text-surface-dark-foreground"
+        >
           <Menu className="size-5" />
         </Button>
       </DropdownMenuTrigger>

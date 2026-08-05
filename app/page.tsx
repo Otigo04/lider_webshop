@@ -8,6 +8,24 @@ import { Button } from "@/components/ui/button";
  * erfunden werden. Vor dem ersten Deploy ersetzen.
  */
 
+const WARENGRUPPEN = [
+  {
+    kreis: "10",
+    name: "Spielzeug",
+    text: "Saisonware und Ganzjahressortiment.",
+  },
+  {
+    kreis: "11",
+    name: "Multimedia",
+    text: "Unterhaltungselektronik und Zubehör.",
+  },
+  {
+    kreis: "12",
+    name: "Handyzubehör",
+    text: "Hüllen, Kabel, Ladegeräte, Schutzglas.",
+  },
+];
+
 const LEISTUNGEN = [
   {
     title: "Staffelpreise ohne Nachfragen",
@@ -31,41 +49,74 @@ export default function HomePage() {
   return (
     <>
       {/* Hero */}
-      <section className="border-b border-border bg-secondary">
-        <div className="mx-auto max-w-6xl px-4 py-20">
-          <p className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+      <section className="bg-surface-dark text-surface-dark-foreground">
+        <div className="mx-auto max-w-6xl px-4 py-20 sm:py-28">
+          <p className="eyebrow text-surface-dark-muted">
             Großhandel für Gewerbekunden
           </p>
-          <h1 className="mt-3 max-w-2xl text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">
-            Spielzeug, Multimedia und Handyzubehör aus Berlin
+          <h1 className="headline mt-4 max-w-3xl text-4xl font-bold leading-[1.08] sm:text-6xl">
+            Spielzeug, Multimedia und Handyzubehör
+            <span className="block text-surface-dark-muted">aus Berlin</span>
           </h1>
-          <p className="mt-5 max-w-xl text-lg text-muted-foreground">
+          <p className="mt-6 max-w-xl text-lg leading-relaxed text-surface-dark-muted">
             LIDER Berlin beliefert Händler seit 2007. Im Kundenportal sehen Sie
             das Sortiment mit Staffelpreisen und aktuellen Beständen und
             bestellen direkt.
           </p>
 
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Button asChild size="lg">
+          <div className="mt-9 flex flex-wrap gap-3">
+            {/* Auf der dunklen Fläche wäre die Primärfarbe (Charcoal) unsichtbar. */}
+            <Button
+              asChild
+              size="lg"
+              className="bg-brand text-brand-foreground hover:bg-brand-hover"
+            >
               <Link href="/login">Zum Kundenportal</Link>
             </Button>
-            <Button asChild size="lg" variant="outline">
+            <Button
+              asChild
+              size="lg"
+              variant="outline"
+              className="border-surface-dark-border bg-transparent text-surface-dark-foreground hover:bg-white/10 hover:text-surface-dark-foreground"
+            >
               <Link href="#kontakt">Zugang anfragen</Link>
             </Button>
           </div>
+
+          {/*
+           * Warengruppen mit ihren Nummernkreisen. Die Nummern sind keine
+           * Dekoration – Artikel dieser Gruppen tragen sie in ihrer
+           * Artikelnummer (12-0001) und Kunden bestellen darüber.
+           */}
+          <ul className="mt-16 grid gap-px overflow-hidden rounded-md border border-surface-dark-border bg-surface-dark-border sm:grid-cols-3">
+            {WARENGRUPPEN.map((gruppe) => (
+              <li key={gruppe.name} className="bg-surface-dark p-5">
+                <p className="code text-xs text-surface-dark-muted">
+                  {gruppe.kreis}
+                </p>
+                <p className="mt-2 font-medium">{gruppe.name}</p>
+                <p className="mt-1 text-sm text-surface-dark-muted">
+                  {gruppe.text}
+                </p>
+              </li>
+            ))}
+          </ul>
         </div>
       </section>
 
       {/* Leistungen */}
-      <section className="mx-auto max-w-6xl px-4 py-16">
-        <h2 className="text-2xl font-semibold tracking-tight">
-          Was Sie im Kundenportal erwartet
+      <section className="mx-auto max-w-6xl px-4 py-20">
+        <p className="eyebrow text-muted-foreground">Kundenportal</p>
+        <h2 className="headline mt-3 text-3xl font-bold">
+          Was Sie im Portal erwartet
         </h2>
-        <div className="mt-8 grid gap-8 sm:grid-cols-2">
+        <div className="mt-10 grid gap-x-12 gap-y-10 sm:grid-cols-2">
           {LEISTUNGEN.map((item) => (
-            <div key={item.title}>
-              <h3 className="font-medium">{item.title}</h3>
-              <p className="mt-2 text-muted-foreground">{item.text}</p>
+            <div key={item.title} className="border-t-2 border-foreground pt-4">
+              <h3 className="font-semibold">{item.title}</h3>
+              <p className="mt-2 leading-relaxed text-muted-foreground">
+                {item.text}
+              </p>
             </div>
           ))}
         </div>
@@ -75,7 +126,10 @@ export default function HomePage() {
       <section className="border-y border-border bg-muted">
         <div className="mx-auto grid max-w-6xl gap-10 px-4 py-16 md:grid-cols-2">
           <div>
-            <h2 className="text-2xl font-semibold tracking-tight">Über uns</h2>
+            <p className="eyebrow text-muted-foreground">Über uns</p>
+            <h2 className="headline mt-3 text-3xl font-bold">
+              Achtzehn Jahre am selben Ort
+            </h2>
             <p className="mt-4 text-muted-foreground">
               LIDER Berlin ist ein Groß- und Einzelhandel und besteht seit 2007.
               Wir führen Spielzeug, Multimedia und Handyzubehör und bauen das
@@ -107,9 +161,10 @@ export default function HomePage() {
       </section>
 
       {/* Kontakt */}
-      <section id="kontakt" className="mx-auto max-w-6xl px-4 py-16">
-        <h2 className="text-2xl font-semibold tracking-tight">Zugang anfragen</h2>
-        <p className="mt-3 max-w-xl text-muted-foreground">
+      <section id="kontakt" className="mx-auto max-w-6xl px-4 py-20">
+        <p className="eyebrow text-muted-foreground">Kontakt</p>
+        <h2 className="headline mt-3 text-3xl font-bold">Zugang anfragen</h2>
+        <p className="mt-4 max-w-xl text-muted-foreground">
           Das Portal steht ausschließlich Gewerbekunden offen. Nennen Sie uns
           Firma, Ansprechpartner und Gewerbenachweis – wir richten den Zugang ein
           und schicken die Zugangsdaten per E-Mail.

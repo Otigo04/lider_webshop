@@ -1,11 +1,16 @@
+import { toNumber } from "@/lib/format";
 import { formatPrice, formatQuantity } from "@/lib/format";
-import { discountPercent, sortTiers } from "@/lib/pricing";
+import { discountPercent, highestUnitPrice, sortTiers } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import type { PriceTier } from "@/lib/types";
 
 /**
- * Staffelpreise als Tabelle. `activeTierId` hebt die Staffel hervor, die zur
- * aktuell eingegebenen Menge gehört.
+ * Staffelpreise als absteigende Leiter.
+ *
+ * Die Balkenlänge ist der Stückpreis im Verhältnis zur teuersten Stufe: die
+ * oberste Staffel füllt die Breite, jede günstigere wird kürzer. Damit ist der
+ * Preisverlauf auf einen Blick erkennbar, ohne Zahlen zu vergleichen. Die
+ * Zahlen stehen trotzdem daneben – der Balken ist die Zugabe, nicht der Ersatz.
  */
 export function PriceTable({
   variants,
@@ -24,48 +29,77 @@ export function PriceTable({
     );
   }
 
+  const maxPrice = highestUnitPrice(tiers) ?? 1;
+
   return (
-    <table className="w-full border-collapse text-sm">
-      <thead>
-        <tr className="border-b border-border text-left text-muted-foreground">
-          <th className="py-2 pr-4 font-medium">Menge</th>
-          <th className="py-2 pr-4 text-right font-medium">Preis / Stück</th>
-          <th className="py-2 text-right font-medium">Ersparnis</th>
-        </tr>
-      </thead>
-      <tbody>
+    <div>
+      <div className="flex items-baseline justify-between border-b border-border pb-2">
+        <h2 className="eyebrow text-muted-foreground">Staffelpreise</h2>
+        <p className="text-xs text-muted-foreground">
+          Preis je Stück, netto
+        </p>
+      </div>
+
+      <ol className="mt-1">
         {tiers.map((tier) => {
+          const price = toNumber(tier.unit_price);
+          // Mindestbreite, damit auch die günstigste Stufe ein Balken bleibt.
+          const width = Math.max((price / maxPrice) * 100, 12);
           const discount = discountPercent(tiers, tier);
           const isActive = tier.id === activeTierId;
 
           return (
-            <tr
+            <li
               key={tier.id}
               className={cn(
-                "border-b border-border last:border-0",
-                isActive && "bg-brand/5",
+                "border-b border-border py-3 last:border-0",
+                isActive && "-mx-3 border-transparent bg-brand/5 px-3",
               )}
             >
-              <td className="py-2 pr-4 tabular">
-                {tier.max_quantity
-                  ? `${formatQuantity(tier.min_quantity)} – ${formatQuantity(tier.max_quantity)} Stück`
-                  : `ab ${formatQuantity(tier.min_quantity)} Stück`}
-              </td>
-              <td
-                className={cn(
-                  "py-2 pr-4 text-right tabular",
-                  isActive ? "font-semibold text-brand" : "font-medium",
-                )}
+              <div className="flex items-baseline justify-between gap-4">
+                <p
+                  className={cn(
+                    "code text-sm",
+                    isActive ? "font-semibold text-foreground" : "text-muted-foreground",
+                  )}
+                >
+                  {tier.max_quantity
+                    ? `${formatQuantity(tier.min_quantity)}–${formatQuantity(tier.max_quantity)}`
+                    : `ab ${formatQuantity(tier.min_quantity)}`}
+                  <span className="ml-1 font-sans text-xs">Stück</span>
+                </p>
+
+                <p className="flex items-baseline gap-2">
+                  {discount ? (
+                    <span className="text-xs text-success">−{discount} %</span>
+                  ) : null}
+                  <span
+                    className={cn(
+                      "tabular text-base",
+                      isActive ? "font-semibold text-brand" : "font-medium",
+                    )}
+                  >
+                    {formatPrice(price)}
+                  </span>
+                </p>
+              </div>
+
+              <div
+                className="mt-2 h-1.5 rounded-xs bg-muted"
+                role="presentation"
               >
-                {formatPrice(tier.unit_price)}
-              </td>
-              <td className="py-2 text-right tabular text-muted-foreground">
-                {discount ? `−${discount} %` : "–"}
-              </td>
-            </tr>
+                <div
+                  className={cn(
+                    "h-full rounded-xs",
+                    isActive ? "bg-brand" : "bg-foreground/25",
+                  )}
+                  style={{ width: `${width}%` }}
+                />
+              </div>
+            </li>
           );
         })}
-      </tbody>
-    </table>
+      </ol>
+    </div>
   );
 }

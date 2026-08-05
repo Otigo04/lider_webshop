@@ -23,9 +23,14 @@ export function UserMenu({ label, email, isAdmin }: UserMenuProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="sm" className="gap-1">
+        {/* Helle Schrift: der Auslöser sitzt in der dunklen Kopfleiste. */}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="gap-1 text-surface-dark-muted hover:bg-white/10 hover:text-surface-dark-foreground"
+        >
           <span className="max-w-40 truncate">{label}</span>
-          <ChevronDown className="size-4 text-muted-foreground" />
+          <ChevronDown className="size-4" />
         </Button>
       </DropdownMenuTrigger>
 

@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
-import { Button } from "@/components/ui/button";
 import { CartLink } from "@/components/cart-link";
 import { MobileNav, type NavLink } from "@/components/mobile-nav";
 import { UserMenu } from "@/components/user-menu";
@@ -18,21 +17,29 @@ export async function Header() {
     : [];
 
   return (
-    <header className="border-b border-border bg-background">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4">
+    <header className="sticky top-0 z-40 border-b border-surface-dark-border bg-surface-dark text-surface-dark-foreground">
+      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4">
         <Link
           href={user ? "/shop" : "/"}
-          className="shrink-0 text-lg font-semibold tracking-tight"
+          className="shrink-0 leading-none focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand"
         >
-          LIDER{" "}
-          <span className="font-normal text-muted-foreground">Berlin</span>
+          <span className="block text-base font-semibold tracking-[0.14em]">
+            LIDER
+          </span>
+          <span className="eyebrow block text-surface-dark-muted">
+            Berlin · Großhandel
+          </span>
         </Link>
 
-        <nav className="hidden items-center gap-1 md:flex">
+        <nav className="hidden items-center gap-6 text-sm md:flex">
           {links.map((link) => (
-            <Button key={link.href} asChild variant="ghost" size="sm">
-              <Link href={link.href}>{link.label}</Link>
-            </Button>
+            <Link
+              key={link.href}
+              href={link.href}
+              className="text-surface-dark-muted transition-colors hover:text-surface-dark-foreground"
+            >
+              {link.label}
+            </Link>
           ))}
         </nav>
 
@@ -45,9 +52,12 @@ export async function Header() {
               isAdmin={isAdmin}
             />
           ) : (
-            <Button asChild size="sm">
-              <Link href="/login">Anmelden</Link>
-            </Button>
+            <Link
+              href="/login"
+              className="rounded-md bg-brand px-3 py-1.5 text-sm font-medium text-brand-foreground hover:bg-brand-hover"
+            >
+              Anmelden
+            </Link>
           )}
           <div className="md:hidden">
             <MobileNav links={links} />

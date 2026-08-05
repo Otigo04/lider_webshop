@@ -13,6 +13,10 @@
   --color-brand: var(--brand);
   --color-brand-foreground: var(--brand-foreground);
   --color-brand-hover: var(--brand-hover);
+  --color-surface-dark: var(--surface-dark);
+  --color-surface-dark-foreground: var(--surface-dark-foreground);
+  --color-surface-dark-muted: var(--surface-dark-muted);
+  --color-surface-dark-border: var(--surface-dark-border);
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
@@ -86,6 +90,12 @@
   --brand: #2563eb;
   --brand-foreground: #ffffff;
   --brand-hover: #1d4ed8;
+
+  /* Dunkle Flächen: Kopfleiste, Hero, Fuß. Wiedererkennungsmerkmal der Seite. */
+  --surface-dark: #111827;
+  --surface-dark-foreground: #f9fafb;
+  --surface-dark-muted: #9ca3af;
+  --surface-dark-border: #374151;
 
   /* Status */
   --success: #059669;
@@ -175,5 +185,37 @@
   /* Tabellenzahlen bündig – wichtig für Preis- und Bestandsspalten */
   .tabular {
     font-variant-numeric: tabular-nums;
+  }
+
+  /*
+   * Kleine Versalzeile über Überschriften. Ersetzt dekorative Trennlinien:
+   * sie benennt den Abschnitt, statt ihn nur optisch abzugrenzen.
+   */
+  .eyebrow {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+  }
+
+  /* Artikel- und Bestellnummern in Monospace – so wie auf dem Lieferschein. */
+  .code {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.01em;
+  }
+
+  /* Große Überschriften laufen enger, das wirkt gesetzt statt getippt. */
+  .headline {
+    letter-spacing: -0.022em;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
   }
 }

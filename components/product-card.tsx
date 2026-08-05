@@ -34,44 +34,49 @@ export function ProductCard({ product }: { product: ProductListItem }) {
       </div>
 
       <div className="flex flex-1 flex-col p-4">
-        <p className="text-xs text-muted-foreground tabular">{product.sku}</p>
-        <h3 className="mt-1 font-medium leading-snug group-hover:underline">
+        <div className="flex items-center justify-between gap-2">
+          <p className="code text-xs text-muted-foreground">{product.sku}</p>
+          <StockBadge free={free} />
+        </div>
+
+        <h3 className="mt-2 font-semibold leading-snug group-hover:underline">
           {product.name}
         </h3>
 
         {product.description ? (
-          <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">
+          <p className="mt-1.5 line-clamp-2 text-sm text-muted-foreground">
             {product.description}
           </p>
         ) : null}
 
-        <div className="mt-4 flex items-end justify-between gap-3 pt-2">
-          <div>
-            {range ? (
-              <>
-                <p className="text-xs text-muted-foreground">
-                  {range.to !== null
-                    ? `Staffelpreis ab ${minQty} Stück`
-                    : `ab ${minQty} Stück`}
-                </p>
-                {/*
-                 * Bei mehreren Staffeln die Spanne von günstig nach teuer:
-                 * der erreichbare Bestpreis steht vorn.
-                 */}
-                <p className="text-lg font-semibold tabular">
-                  {range.to !== null
-                    ? `${formatPrice(range.from)} – ${formatPrice(range.to)}`
-                    : formatPrice(range.from)}
-                  <span className="ml-1 text-xs font-normal text-muted-foreground">
-                    / Stück
+        {/* Preisblock unten bündig, damit er über alle Karten auf einer Linie steht */}
+        <div className="mt-auto border-t border-border pt-3">
+          {range ? (
+            <>
+              <p className="eyebrow text-muted-foreground">
+                {range.to !== null
+                  ? `${product.variants.length} Staffeln · ab ${minQty} Stück`
+                  : `ab ${minQty} Stück`}
+              </p>
+              {/*
+               * Bei mehreren Staffeln die Spanne von günstig nach teuer:
+               * der erreichbare Bestpreis steht vorn.
+               */}
+              <p className="mt-1 flex items-baseline gap-1">
+                <span className="text-xl font-bold tabular">
+                  {formatPrice(range.from)}
+                </span>
+                {range.to !== null ? (
+                  <span className="tabular text-sm text-muted-foreground">
+                    – {formatPrice(range.to)}
                   </span>
-                </p>
-              </>
-            ) : (
-              <p className="text-sm text-muted-foreground">Preis auf Anfrage</p>
-            )}
-          </div>
-          <StockBadge free={free} />
+                ) : null}
+                <span className="text-xs text-muted-foreground">/ Stück</span>
+              </p>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">Preis auf Anfrage</p>
+          )}
         </div>
       </div>
     </Link>
