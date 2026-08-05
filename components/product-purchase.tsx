@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useCart } from "@/lib/cart-context";
 import { formatPrice, formatQuantity } from "@/lib/format";
@@ -34,6 +35,7 @@ export function ProductPurchase({
   const min = minOrderQuantity(tiers);
   const [quantity, setQuantity] = useState<number>(min);
   const { addItem } = useCart();
+  const router = useRouter();
 
   const soldOut = freeStock <= 0;
   const noPrices = tiers.length === 0;
@@ -58,7 +60,7 @@ export function ProductPurchase({
       maxStock: freeStock,
     });
     toast.success(`${formatQuantity(quantity)} × ${productName} im Warenkorb`, {
-      action: { label: "Warenkorb", onClick: () => location.assign("/cart") },
+      action: { label: "Warenkorb", onClick: () => router.push("/cart") },
     });
   }
 
