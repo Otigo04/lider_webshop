@@ -16,7 +16,7 @@ export default function ImpressumPage() {
         <section>
           <h2 className="font-medium">Angaben gemäß § 5 DDG</h2>
           <p className="mt-2 text-muted-foreground">
-            [FIRMIERUNG]
+            LIDER Berlin Groß- und Einzelhandel
             <br />
             [STRASSE]
             <br />

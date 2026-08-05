@@ -6,11 +6,11 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "Lider Großhandel",
-    template: "%s | Lider Großhandel",
+    default: "LIDER Berlin – Großhandel für Spielzeug, Multimedia, Handyzubehör",
+    template: "%s | LIDER Berlin",
   },
   description:
-    "Großhandel für Gewerbekunden. Sortiment, Staffelpreise und Bestellung im Kundenportal.",
+    "Großhandel aus Berlin seit 2007. Spielzeug, Multimedia und Handyzubehör mit Staffelpreisen und aktuellen Beständen im Kundenportal.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

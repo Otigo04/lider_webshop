@@ -4,8 +4,8 @@ import { Button } from "@/components/ui/button";
 /**
  * Landingpage für nicht angemeldete Besucher.
  *
- * Die mit [ ... ] markierten Stellen sind bewusst offen: Sortiment, Anschrift
- * und Kontaktdaten dürfen nicht erfunden werden. Vor dem ersten Deploy ersetzen.
+ * Offen bleiben nur die mit [ ... ] markierten Kontaktdaten – die dürfen nicht
+ * erfunden werden. Vor dem ersten Deploy ersetzen.
  */
 
 const LEISTUNGEN = [
@@ -37,11 +37,12 @@ export default function HomePage() {
             Großhandel für Gewerbekunden
           </p>
           <h1 className="mt-3 max-w-2xl text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">
-            [HEADLINE – z. B. „Ihr Lieferant für Warengruppe X in Region Y“]
+            Spielzeug, Multimedia und Handyzubehör aus Berlin
           </h1>
           <p className="mt-5 max-w-xl text-lg text-muted-foreground">
-            [KURZBESCHREIBUNG – ein bis zwei Sätze: welches Sortiment, für welche
-            Kunden, welches Liefergebiet.]
+            LIDER Berlin beliefert Händler seit 2007. Im Kundenportal sehen Sie
+            das Sortiment mit Staffelpreisen und aktuellen Beständen und
+            bestellen direkt.
           </p>
 
           <div className="mt-8 flex flex-wrap gap-3">
@@ -76,30 +77,30 @@ export default function HomePage() {
           <div>
             <h2 className="text-2xl font-semibold tracking-tight">Über uns</h2>
             <p className="mt-4 text-muted-foreground">
-              [WER WIR SIND – zwei bis drei Sätze: seit wann am Markt, was Sie
-              beliefern, was Sie von anderen Anbietern unterscheidet.]
+              LIDER Berlin ist ein Groß- und Einzelhandel und besteht seit 2007.
+              Wir führen Spielzeug, Multimedia und Handyzubehör und bauen das
+              Sortiment laufend aus.
+            </p>
+            <p className="mt-4 text-muted-foreground">
+              Gewachsen sind wir über Händler, die wiederkommen: verlässliche
+              Verfügbarkeit, klare Konditionen und ein direkter Draht statt
+              Ticketsystem.
             </p>
           </div>
-          <dl className="grid grid-cols-2 gap-6 self-start">
+          <dl className="grid gap-6 self-start sm:grid-cols-2">
             <div>
               <dt className="text-sm text-muted-foreground">Am Markt seit</dt>
-              <dd className="mt-1 text-2xl font-semibold tabular">[JAHR]</dd>
+              <dd className="mt-1 text-2xl font-semibold tabular">2007</dd>
             </div>
             <div>
-              <dt className="text-sm text-muted-foreground">
-                Artikel im Sortiment
-              </dt>
-              <dd className="mt-1 text-2xl font-semibold tabular">[ANZAHL]</dd>
+              <dt className="text-sm text-muted-foreground">Standort</dt>
+              <dd className="mt-1 text-2xl font-semibold">Berlin</dd>
             </div>
-            <div>
-              <dt className="text-sm text-muted-foreground">Liefergebiet</dt>
-              <dd className="mt-1 text-2xl font-semibold">[REGION]</dd>
-            </div>
-            <div>
-              <dt className="text-sm text-muted-foreground">
-                Mindestbestellwert
-              </dt>
-              <dd className="mt-1 text-2xl font-semibold tabular">[BETRAG]</dd>
+            <div className="sm:col-span-2">
+              <dt className="text-sm text-muted-foreground">Warengruppen</dt>
+              <dd className="mt-1 font-medium">
+                Spielzeug · Multimedia · Handyzubehör
+              </dd>
             </div>
           </dl>
         </div>

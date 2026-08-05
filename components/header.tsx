@@ -25,7 +25,7 @@ export async function Header() {
           className="shrink-0 text-lg font-semibold tracking-tight"
         >
           LIDER{" "}
-          <span className="font-normal text-muted-foreground">Großhandel</span>
+          <span className="font-normal text-muted-foreground">Berlin</span>
         </Link>
 
         <nav className="hidden items-center gap-1 md:flex">
