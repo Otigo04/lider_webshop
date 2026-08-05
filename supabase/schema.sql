@@ -41,6 +41,10 @@ CREATE TABLE IF NOT EXISTS public.products (
   name        TEXT NOT NULL,
   description TEXT,
   is_active   BOOLEAN NOT NULL DEFAULT true,
+  -- Bestand gehört an den Artikel, nicht an die Preisstaffel (siehe
+  -- migrations/001_bestand_auf_produkt.sql).
+  stock_available INT NOT NULL DEFAULT 0 CHECK (stock_available >= 0),
+  stock_reserved  INT NOT NULL DEFAULT 0 CHECK (stock_reserved >= 0),
   created_by  UUID REFERENCES public.users(id) ON DELETE SET NULL,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -48,14 +52,12 @@ CREATE TABLE IF NOT EXISTS public.products (
 
 -- Preisstaffeln. Eine Zeile = ein Mengenbereich mit eigenem Stückpreis.
 CREATE TABLE IF NOT EXISTS public.product_variants (
-  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  product_id      UUID NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
-  min_quantity    INT NOT NULL CHECK (min_quantity > 0),
-  max_quantity    INT CHECK (max_quantity IS NULL OR max_quantity >= min_quantity),
-  unit_price      NUMERIC(10, 2) NOT NULL CHECK (unit_price >= 0),
-  stock_available INT NOT NULL DEFAULT 0 CHECK (stock_available >= 0),
-  stock_reserved  INT NOT NULL DEFAULT 0 CHECK (stock_reserved >= 0),
-  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  product_id   UUID NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
+  min_quantity INT NOT NULL CHECK (min_quantity > 0),
+  max_quantity INT CHECK (max_quantity IS NULL OR max_quantity >= min_quantity),
+  unit_price   NUMERIC(10, 2) NOT NULL CHECK (unit_price >= 0),
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (product_id, min_quantity)
 );
 
@@ -152,6 +154,7 @@ $$;
 
 CREATE INDEX IF NOT EXISTS idx_products_category    ON public.products(category_id);
 CREATE INDEX IF NOT EXISTS idx_products_active      ON public.products(is_active);
+CREATE INDEX IF NOT EXISTS idx_products_stock       ON public.products(stock_available);
 CREATE INDEX IF NOT EXISTS idx_variants_product     ON public.product_variants(product_id);
 CREATE INDEX IF NOT EXISTS idx_images_product       ON public.product_images(product_id, display_order);
 CREATE INDEX IF NOT EXISTS idx_orders_customer      ON public.orders(customer_id, created_at DESC);

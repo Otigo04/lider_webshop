@@ -29,16 +29,23 @@ export interface Category {
   created_at: string;
 }
 
-export interface ProductVariant {
+/**
+ * Nur die Felder, die für die Preisberechnung gebraucht werden. So lässt sich
+ * dieselbe Logik (lib/pricing.ts) auf DB-Zeilen und auf die abgespeckten
+ * Staffeln im Warenkorb anwenden.
+ */
+export interface PriceTier {
   id: string;
-  product_id: string;
   min_quantity: number;
   /** null = offene Staffel nach oben ("200+") */
   max_quantity: number | null;
   /** DECIMAL(10,2) – kommt als string über PostgREST, siehe toNumber() in lib/format.ts */
   unit_price: number;
-  stock_available: number;
-  stock_reserved: number;
+}
+
+/** Eine Preisstaffel wie sie in der DB steht. Der Bestand hängt am Produkt. */
+export interface ProductVariant extends PriceTier {
+  product_id: string;
   created_at: string;
 }
 
@@ -58,6 +65,8 @@ export interface Product {
   name: string;
   description: string | null;
   is_active: boolean;
+  stock_available: number;
+  stock_reserved: number;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -105,12 +114,22 @@ export interface Order {
   customer?: AppUser;
 }
 
-/** Warenkorb-Position (nur Client-State, nicht in der DB) */
+/**
+ * Warenkorb-Position. Reiner Client-State im localStorage, nicht in der DB.
+ *
+ * Die Staffeln liegen bewusst mit in der Position: ändert der Kunde im Warenkorb
+ * die Menge, muss der Stückpreis sofort auf die passende Staffel springen. Ein
+ * eingefrorener `unitPrice` wäre nach jeder Mengenänderung falsch.
+ *
+ * Diese Werte sind vom Client manipulierbar. Beim Bestellen (Phase 4) rechnet
+ * der Server alles gegen die DB neu – hier steht nur die Anzeige.
+ */
 export interface CartItem {
   productId: string;
   productName: string;
   productSku: string;
-  variantId: string;
   quantity: number;
-  unitPrice: number;
+  tiers: PriceTier[];
+  /** Frei verfügbarer Bestand zum Zeitpunkt des Hinzufügens */
+  maxStock: number;
 }

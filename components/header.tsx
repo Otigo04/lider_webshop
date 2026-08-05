@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
+import { CartLink } from "@/components/cart-link";
 import { MobileNav, type NavLink } from "@/components/mobile-nav";
 import { UserMenu } from "@/components/user-menu";
 
@@ -11,7 +12,6 @@ export async function Header() {
   const links: NavLink[] = user
     ? [
         { href: "/shop", label: "Sortiment" },
-        { href: "/cart", label: "Warenkorb" },
         { href: "/orders", label: "Bestellungen" },
         ...(isAdmin ? [{ href: "/admin", label: "Verwaltung" }] : []),
       ]
@@ -37,6 +37,7 @@ export async function Header() {
         </nav>
 
         <div className="flex items-center gap-1">
+          {user ? <CartLink /> : null}
           {user ? (
             <UserMenu
               label={user.company_name || user.full_name || user.email}
