@@ -1,4 +1,5 @@
 import "server-only";
+import { PRODUCT_BUCKET } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -7,8 +8,6 @@ import { createClient } from "@/lib/supabase/server";
  * Ein Kunde ohne gültige Session bekommt keine URL – die Storage-Policy
  * prüft `is_active_user()`.
  */
-
-export const PRODUCT_BUCKET = "products";
 
 /** Gültigkeit der Signed URLs in Sekunden. Deckt eine übliche Sitzung ab. */
 const SIGNED_URL_TTL = 60 * 60;
