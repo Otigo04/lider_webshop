@@ -247,6 +247,11 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 BEGIN
+  -- Kein angemeldeter Nutzer = direkter Datenbankzugriff (SQL Editor,
+  -- Service-Key). Nötig, damit sich der erste Admin überhaupt anlegen lässt.
+  IF auth.uid() IS NULL THEN
+    RETURN NEW;
+  END IF;
   IF public.is_admin() THEN
     RETURN NEW;
   END IF;
