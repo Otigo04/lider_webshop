@@ -8,8 +8,8 @@ import { useCart } from "@/lib/cart-context";
 import { formatPrice, formatQuantity } from "@/lib/format";
 import { lineTotal, minOrderQuantity, resolveTier } from "@/lib/pricing";
 import { PriceTable } from "@/components/price-table";
+import { QuantityInput } from "@/components/quantity-input";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { PriceTier } from "@/lib/types";
 
@@ -71,21 +71,16 @@ export function ProductPurchase({
       {noPrices ? null : (
         <div className="rounded-md border border-border p-4">
           <div className="flex flex-wrap items-end gap-4">
-            <div className="w-32 space-y-2">
+            <div className="space-y-2">
               <Label htmlFor="quantity">Menge</Label>
-              <Input
+              <QuantityInput
                 id="quantity"
-                type="number"
-                inputMode="numeric"
+                label="Menge"
+                value={quantity}
                 min={min}
                 max={freeStock}
-                step={1}
-                value={quantity}
                 disabled={soldOut}
-                onChange={(event) =>
-                  setQuantity(Number.parseInt(event.target.value, 10) || 0)
-                }
-                className="tabular"
+                onChange={setQuantity}
               />
             </div>
 

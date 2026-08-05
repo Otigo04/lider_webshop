@@ -6,6 +6,7 @@ import { OrderStatusBadge } from "@/components/order-status-badge";
 import { requireUser } from "@/lib/auth";
 import { formatDate, formatPrice, formatQuantity } from "@/lib/format";
 import { getOrder } from "@/lib/queries/orders";
+import { DELIVERY_METHOD_LABELS } from "@/lib/shipping";
 
 export async function generateMetadata({
   params,
@@ -44,10 +45,16 @@ export default async function OrderDetailPage({
         <OrderStatusBadge status={order.status} />
       </div>
 
-      <dl className="mt-6 grid gap-4 text-sm sm:grid-cols-3">
+      <dl className="mt-6 grid gap-4 text-sm sm:grid-cols-4">
         <div>
           <dt className="text-muted-foreground">Bestelldatum</dt>
           <dd className="mt-1 tabular">{formatDate(order.created_at)}</dd>
+        </div>
+        <div>
+          <dt className="text-muted-foreground">Lieferung</dt>
+          <dd className="mt-1">
+            {DELIVERY_METHOD_LABELS[order.delivery_method]}
+          </dd>
         </div>
         <div>
           <dt className="text-muted-foreground">Positionen</dt>

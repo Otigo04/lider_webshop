@@ -5,6 +5,10 @@ import { ChevronLeft } from "lucide-react";
 import { OrderStatusSelect } from "@/components/admin/order-status-select";
 import { formatDate, formatPrice, formatQuantity } from "@/lib/format";
 import { getAdminOrder } from "@/lib/queries/admin";
+import {
+  DELIVERY_METHOD_LABELS,
+  qualifiesForFreeShipping,
+} from "@/lib/shipping";
 
 export async function generateMetadata({
   params,
@@ -40,7 +44,7 @@ export default async function AdminOrderDetailPage({
         <OrderStatusSelect orderId={order.id} status={order.status} />
       </div>
 
-      <dl className="mt-6 grid gap-4 text-sm sm:grid-cols-4">
+      <dl className="mt-6 grid gap-4 text-sm sm:grid-cols-3 lg:grid-cols-5">
         <div>
           <dt className="text-muted-foreground">Bestelldatum</dt>
           <dd className="mt-1 tabular">{formatDate(order.created_at)}</dd>
@@ -59,6 +63,19 @@ export default async function AdminOrderDetailPage({
           <dt className="text-muted-foreground">Summe netto</dt>
           <dd className="mt-1 font-semibold tabular">
             {formatPrice(order.total_amount)}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-muted-foreground">Lieferung</dt>
+          <dd className="mt-1">
+            {DELIVERY_METHOD_LABELS[order.delivery_method]}
+            {order.delivery_method === "shipping" ? (
+              <span className="ml-2 text-xs text-muted-foreground">
+                {qualifiesForFreeShipping(Number(order.total_amount))
+                  ? "versandkostenfrei"
+                  : "Versandkosten berechnen"}
+              </span>
+            ) : null}
           </dd>
         </div>
       </dl>

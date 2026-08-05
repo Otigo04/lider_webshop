@@ -25,6 +25,7 @@ const checkoutSchema = z.object({
     )
     .min(1, "Der Warenkorb ist leer."),
   deliveryAddress: z.string().trim().max(500).optional(),
+  deliveryMethod: z.enum(["pickup", "shipping"]).default("shipping"),
   notes: z.string().trim().max(2000).optional(),
 });
 
@@ -44,6 +45,7 @@ export async function createOrder(
   const parsed = checkoutSchema.safeParse({
     items: rawItems,
     deliveryAddress: formData.get("deliveryAddress") ?? undefined,
+    deliveryMethod: formData.get("deliveryMethod") ?? "shipping",
     notes: formData.get("notes") ?? undefined,
   });
 
@@ -55,7 +57,13 @@ export async function createOrder(
   const { data, error } = await supabase.rpc("create_order", {
     p_items: parsed.data.items,
     p_notes: parsed.data.notes ?? null,
-    p_delivery_address: parsed.data.deliveryAddress ?? null,
+    // Bei Abholung wird keine Adresse gespeichert, auch wenn das Feld
+    // vorher ausgefüllt und dann umgeschaltet wurde.
+    p_delivery_address:
+      parsed.data.deliveryMethod === "pickup"
+        ? null
+        : (parsed.data.deliveryAddress ?? null),
+    p_delivery_method: parsed.data.deliveryMethod,
   });
 
   if (error) {

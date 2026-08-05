@@ -36,6 +36,7 @@ export default async function AdminCategoriesPage({
                 <tr className="border-b border-border text-left text-muted-foreground">
                   <th className="py-2 pr-4 font-medium">Reihenfolge</th>
                   <th className="py-2 pr-4 font-medium">Name</th>
+                  <th className="py-2 pr-4 font-medium">Nummernkreis</th>
                   <th className="py-2 pr-4 font-medium">Kürzel</th>
                   <th className="py-2 text-right font-medium">Aktionen</th>
                 </tr>
@@ -50,6 +51,15 @@ export default async function AdminCategoriesPage({
                       {category.order_index}
                     </td>
                     <td className="py-3 pr-4 font-medium">{category.name}</td>
+                    <td className="py-3 pr-4 tabular">
+                      {category.sku_prefix ? (
+                        <span className="text-muted-foreground">
+                          {category.sku_prefix}-0001 …
+                        </span>
+                      ) : (
+                        "–"
+                      )}
+                    </td>
                     <td className="py-3 pr-4 tabular text-muted-foreground">
                       {category.slug}
                     </td>

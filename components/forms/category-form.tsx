@@ -79,6 +79,23 @@ export function CategoryForm({ category }: { category?: Category }) {
       </div>
 
       <div className="space-y-2">
+        <Label htmlFor="sku_prefix">Nummernkreis</Label>
+        <Input
+          id="sku_prefix"
+          name="sku_prefix"
+          defaultValue={category?.sku_prefix ?? ""}
+          maxLength={2}
+          inputMode="numeric"
+          placeholder="wird automatisch vergeben"
+          className="tabular w-32"
+        />
+        <p className="text-xs text-muted-foreground">
+          Zwei Ziffern. Artikel dieser Kategorie bekommen daraus ihre Nummer,
+          z. B. {category?.sku_prefix ?? "12"}-0001.
+        </p>
+      </div>
+
+      <div className="space-y-2">
         <Label htmlFor="order_index">Reihenfolge</Label>
         <Input
           id="order_index"

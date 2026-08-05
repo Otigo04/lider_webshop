@@ -1,7 +1,14 @@
 -- =============================================================================
--- Lider Großhandel – Datenbankschema
--- Ausführen im Supabase SQL Editor (einmalig, in dieser Reihenfolge).
--- Das Skript ist idempotent: es kann gefahrlos erneut ausgeführt werden.
+-- Lider Großhandel – Datenbankschema (Grundgerüst)
+--
+-- Reihenfolge beim Neuaufsetzen, jeweils im Supabase SQL Editor:
+--   1. supabase/schema.sql                              (diese Datei)
+--   2. supabase/migrations/001_bestand_auf_produkt.sql
+--   3. supabase/migrations/002_bestellung_anlegen.sql
+--   4. supabase/migrations/003_erstadmin_ermoeglichen.sql
+--   5. supabase/migrations/004_artikelnummern_und_versand.sql
+--
+-- Alle Skripte sind idempotent und können gefahrlos erneut laufen.
 -- =============================================================================
 
 -- -----------------------------------------------------------------------------

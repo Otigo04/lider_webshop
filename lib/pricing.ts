@@ -43,6 +43,26 @@ export function lowestUnitPrice(variants: PriceTier[]): number | null {
   return Math.min(...variants.map((v) => toNumber(v.unit_price)));
 }
 
+/** Höchster Stückpreis – zusammen mit lowestUnitPrice die Preisspanne. */
+export function highestUnitPrice(variants: PriceTier[]): number | null {
+  if (variants.length === 0) return null;
+  return Math.max(...variants.map((v) => toNumber(v.unit_price)));
+}
+
+/**
+ * Preisspanne für die Artikelübersicht: { from, to }. `to` ist null, wenn es
+ * nur einen Preis gibt – dann steht in der Karte kein Bereich, sondern ein
+ * einzelner Preis.
+ */
+export function priceRange(
+  variants: PriceTier[],
+): { from: number; to: number | null } | null {
+  const low = lowestUnitPrice(variants);
+  const high = highestUnitPrice(variants);
+  if (low === null || high === null) return null;
+  return { from: low, to: high > low ? high : null };
+}
+
 /** Preis der kleinsten Staffel. Basis für die Rabattangabe. */
 export function baseUnitPrice(variants: PriceTier[]): number | null {
   const sorted = sortTiers(variants);

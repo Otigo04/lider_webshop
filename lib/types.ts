@@ -20,12 +20,16 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   delivered: "Geliefert",
 };
 
+export type DeliveryMethod = "pickup" | "shipping";
+
 export interface Category {
   id: string;
   name: string;
   slug: string;
   description: string | null;
   order_index: number;
+  /** Zweistelliger Nummernkreis für Artikelnummern, z. B. "12" → 12-0001 */
+  sku_prefix: string | null;
   created_at: string;
 }
 
@@ -105,8 +109,10 @@ export interface Order {
   customer_id: string;
   order_number: string;
   status: OrderStatus;
+  /** Reiner Warenwert netto. Versandkosten sind nicht enthalten. */
   total_amount: number;
   notes: string | null;
+  delivery_method: DeliveryMethod;
   delivery_address: string | null;
   created_at: string;
   updated_at: string;

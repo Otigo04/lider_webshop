@@ -5,8 +5,10 @@ import { Trash2 } from "lucide-react";
 import { useCart } from "@/lib/cart-context";
 import { formatPrice, formatQuantity } from "@/lib/format";
 import { lineTotal, minOrderQuantity, resolveTier } from "@/lib/pricing";
+import { qualifiesForFreeShipping, shippingNote } from "@/lib/shipping";
+import { cn } from "@/lib/utils";
+import { QuantityInput } from "@/components/quantity-input";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export function CartContents() {
@@ -63,23 +65,15 @@ export function CartContents() {
                 </p>
               </div>
 
-              <div className="w-28">
-                <Input
-                  type="number"
-                  min={min}
-                  max={item.maxStock}
-                  step={1}
-                  value={item.quantity}
-                  aria-label={`Menge für ${item.productName}`}
-                  onChange={(event) =>
-                    updateQuantity(
-                      item.productId,
-                      Number.parseInt(event.target.value, 10) || min,
-                    )
-                  }
-                  className="tabular"
-                />
-              </div>
+              <QuantityInput
+                value={item.quantity}
+                min={min}
+                max={item.maxStock}
+                label={`Menge für ${item.productName}`}
+                onChange={(next) => updateQuantity(item.productId, next)}
+              />
+
+
 
               <div className="w-28 text-right">
                 <p className="font-semibold tabular">
@@ -121,8 +115,16 @@ export function CartContents() {
             {formatPrice(total)}
           </span>
         </div>
-        <p className="mt-1 text-xs text-muted-foreground">
-          zzgl. USt. und Versand
+        <p className="mt-1 text-xs text-muted-foreground">zzgl. USt.</p>
+        <p
+          className={cn(
+            "mt-3 rounded-md border px-3 py-2 text-xs",
+            qualifiesForFreeShipping(total)
+              ? "border-success/30 bg-success/10 text-success"
+              : "border-border bg-muted text-muted-foreground",
+          )}
+        >
+          {shippingNote(total)}
         </p>
 
         <Button asChild size="lg" className="mt-5 w-full">

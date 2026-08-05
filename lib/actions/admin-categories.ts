@@ -17,6 +17,11 @@ const categorySchema = z.object({
   slug: z.string().trim().max(80).optional(),
   description: z.string().trim().max(500).optional(),
   order_index: z.coerce.number().int().min(0).max(9999),
+  sku_prefix: z
+    .string()
+    .trim()
+    .regex(/^[0-9]{2}$/, "Der Nummernkreis besteht aus genau zwei Ziffern")
+    .optional(),
 });
 
 export async function saveCategory(
@@ -31,13 +36,14 @@ export async function saveCategory(
     slug: formData.get("slug") || undefined,
     description: formData.get("description") || undefined,
     order_index: formData.get("order_index") || 0,
+    sku_prefix: formData.get("sku_prefix") || undefined,
   });
 
   if (!parsed.success) {
     return { error: parsed.error.issues[0].message };
   }
 
-  const { id, name, description, order_index } = parsed.data;
+  const { id, name, description, order_index, sku_prefix } = parsed.data;
   const slug = slugify(parsed.data.slug || name);
   if (!slug) {
     return { error: "Aus dem Namen lässt sich kein Kürzel bilden." };
@@ -49,6 +55,8 @@ export async function saveCategory(
     slug,
     description: description || null,
     order_index,
+    // Leer lassen: der Trigger assign_sku_prefix vergibt den nächsten freien.
+    ...(sku_prefix ? { sku_prefix } : {}),
   };
 
   const { error } = id
@@ -60,7 +68,9 @@ export async function saveCategory(
     return {
       error:
         error.code === "23505"
-          ? `Das Kürzel „${slug}“ ist bereits vergeben.`
+          ? error.message.includes("sku_prefix")
+            ? `Der Nummernkreis „${sku_prefix}“ ist bereits vergeben.`
+            : `Das Kürzel „${slug}“ ist bereits vergeben.`
           : "Die Kategorie konnte nicht gespeichert werden.",
     };
   }

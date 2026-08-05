@@ -2,12 +2,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { ImageOff } from "lucide-react";
 import { formatPrice } from "@/lib/format";
-import { freeStock, lowestUnitPrice, minOrderQuantity } from "@/lib/pricing";
+import { freeStock, minOrderQuantity, priceRange } from "@/lib/pricing";
 import { StockBadge } from "@/components/stock-badge";
 import type { ProductListItem } from "@/lib/queries/products";
 
 export function ProductCard({ product }: { product: ProductListItem }) {
-  const from = lowestUnitPrice(product.variants);
+  const range = priceRange(product.variants);
   const minQty = minOrderQuantity(product.variants);
   const free = freeStock(product);
 
@@ -47,13 +47,21 @@ export function ProductCard({ product }: { product: ProductListItem }) {
 
         <div className="mt-4 flex items-end justify-between gap-3 pt-2">
           <div>
-            {from !== null ? (
+            {range ? (
               <>
                 <p className="text-xs text-muted-foreground">
-                  ab {minQty} Stück
+                  {range.to !== null
+                    ? `Staffelpreis ab ${minQty} Stück`
+                    : `ab ${minQty} Stück`}
                 </p>
+                {/*
+                 * Bei mehreren Staffeln die Spanne von günstig nach teuer:
+                 * der erreichbare Bestpreis steht vorn.
+                 */}
                 <p className="text-lg font-semibold tabular">
-                  {formatPrice(from)}
+                  {range.to !== null
+                    ? `${formatPrice(range.from)} – ${formatPrice(range.to)}`
+                    : formatPrice(range.from)}
                   <span className="ml-1 text-xs font-normal text-muted-foreground">
                     / Stück
                   </span>

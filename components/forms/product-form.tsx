@@ -157,7 +157,6 @@ export function ProductForm({
   const payload = {
     id: productId,
     category_id: "",
-    sku: "",
     name: "",
     description: "",
     is_active: true,
@@ -181,7 +180,6 @@ export function ProductForm({
         const merged = {
           ...payload,
           category_id: String(formData.get("category_id") ?? ""),
-          sku: String(formData.get("sku") ?? ""),
           name: String(formData.get("name") ?? ""),
           description: String(formData.get("description") ?? ""),
           is_active: formData.get("is_active") === "on",
@@ -197,12 +195,15 @@ export function ProductForm({
           <Label htmlFor="sku">Artikelnummer</Label>
           <Input
             id="sku"
-            name="sku"
-            defaultValue={product?.sku}
-            required
-            maxLength={60}
+            value={product?.sku ?? "wird beim Speichern vergeben"}
+            readOnly
+            disabled
             className="tabular"
           />
+          <p className="text-xs text-muted-foreground">
+            Wird automatisch aus dem Nummernkreis der Kategorie gebildet und
+            ändert sich später nicht mehr.
+          </p>
         </div>
 
         <div className="space-y-2">

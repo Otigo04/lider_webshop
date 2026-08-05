@@ -1,17 +1,58 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useFormStatus } from "react-dom";
+import { Package, Store } from "lucide-react";
 import { createOrder, type CheckoutState } from "@/lib/actions/orders";
 import { useCart } from "@/lib/cart-context";
 import { formatPrice, formatQuantity } from "@/lib/format";
 import { lineTotal, resolveTier } from "@/lib/pricing";
+import { qualifiesForFreeShipping, shippingNote } from "@/lib/shipping";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import type { DeliveryMethod } from "@/lib/types";
+import { cn } from "@/lib/utils";
+
+function DeliveryOption({
+  method,
+  current,
+  onSelect,
+  icon,
+  title,
+  text,
+}: {
+  method: DeliveryMethod;
+  current: DeliveryMethod;
+  onSelect: (method: DeliveryMethod) => void;
+  icon: React.ReactNode;
+  title: string;
+  text: string;
+}) {
+  const active = current === method;
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(method)}
+      aria-pressed={active}
+      className={cn(
+        "flex gap-3 rounded-md border p-4 text-left",
+        active
+          ? "border-foreground bg-secondary"
+          : "border-border hover:border-foreground/30",
+      )}
+    >
+      <span className="mt-0.5 text-muted-foreground">{icon}</span>
+      <span>
+        <span className="block font-medium">{title}</span>
+        <span className="mt-1 block text-sm text-muted-foreground">{text}</span>
+      </span>
+    </button>
+  );
+}
 
 function SubmitButton({ disabled }: { disabled: boolean }) {
   const { pending } = useFormStatus();
@@ -24,6 +65,8 @@ function SubmitButton({ disabled }: { disabled: boolean }) {
 
 export function CheckoutForm({ defaultAddress }: { defaultAddress?: string }) {
   const { items, ready, total, clear } = useCart();
+  const [deliveryMethod, setDeliveryMethod] =
+    useState<DeliveryMethod>("shipping");
   const [state, formAction] = useActionState<CheckoutState, FormData>(
     createOrder,
     {},
@@ -98,19 +141,50 @@ export function CheckoutForm({ defaultAddress }: { defaultAddress?: string }) {
           </p>
         </section>
 
-        <section className="space-y-2">
-          <Label htmlFor="deliveryAddress">Lieferadresse</Label>
-          <Textarea
-            id="deliveryAddress"
-            name="deliveryAddress"
-            rows={4}
-            maxLength={500}
-            defaultValue={defaultAddress}
-            placeholder="Firma, Straße, PLZ Ort"
-          />
-          <p className="text-xs text-muted-foreground">
-            Leer lassen, wenn an die hinterlegte Adresse geliefert werden soll.
-          </p>
+        <section>
+          <h2 className="font-medium">Lieferung</h2>
+          <input type="hidden" name="deliveryMethod" value={deliveryMethod} />
+
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <DeliveryOption
+              method="shipping"
+              current={deliveryMethod}
+              onSelect={setDeliveryMethod}
+              icon={<Package className="size-5" aria-hidden />}
+              title="Versand"
+              text={
+                qualifiesForFreeShipping(total)
+                  ? "Kostenfrei ab 100 € netto – erreicht."
+                  : "Kosten nach Gewicht und Ziel, Mitteilung mit der Auftragsbestätigung."
+              }
+            />
+            <DeliveryOption
+              method="pickup"
+              current={deliveryMethod}
+              onSelect={setDeliveryMethod}
+              icon={<Store className="size-5" aria-hidden />}
+              title="Selbstabholung"
+              text="Abholung nach Bereitstellung, wir melden uns mit einem Termin."
+            />
+          </div>
+
+          {deliveryMethod === "shipping" ? (
+            <div className="mt-5 space-y-2">
+              <Label htmlFor="deliveryAddress">Lieferadresse</Label>
+              <Textarea
+                id="deliveryAddress"
+                name="deliveryAddress"
+                rows={4}
+                maxLength={500}
+                defaultValue={defaultAddress}
+                placeholder="Firma, Straße, PLZ Ort"
+              />
+              <p className="text-xs text-muted-foreground">
+                Leer lassen, wenn an die hinterlegte Adresse geliefert werden
+                soll.
+              </p>
+            </div>
+          ) : null}
         </section>
 
         <section className="space-y-2">
@@ -134,9 +208,23 @@ export function CheckoutForm({ defaultAddress }: { defaultAddress?: string }) {
             {formatPrice(total)}
           </span>
         </div>
-        <p className="mt-1 text-xs text-muted-foreground">
-          zzgl. USt. und Versand
-        </p>
+        <p className="mt-1 text-xs text-muted-foreground">zzgl. USt.</p>
+        {deliveryMethod === "shipping" ? (
+          <p
+            className={cn(
+              "mt-3 rounded-md border px-3 py-2 text-xs",
+              qualifiesForFreeShipping(total)
+                ? "border-success/30 bg-success/10 text-success"
+                : "border-border bg-muted text-muted-foreground",
+            )}
+          >
+            {shippingNote(total)}
+          </p>
+        ) : (
+          <p className="mt-3 rounded-md border border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
+            Selbstabholung – es fallen keine Versandkosten an.
+          </p>
+        )}
 
         {state.error ? (
           <p

@@ -21,7 +21,6 @@ const imageSchema = z.object({
 const productSchema = z.object({
   id: z.string().uuid(),
   category_id: z.string().uuid("Kategorie fehlt"),
-  sku: z.string().trim().min(1, "Artikelnummer fehlt").max(60),
   name: z.string().trim().min(1, "Name fehlt").max(200),
   description: z.string().trim().max(5000).optional(),
   is_active: z.boolean(),
@@ -71,10 +70,36 @@ export async function saveProduct(
 
   const supabase = await createClient();
 
+  // Artikelnummern werden nicht eingetippt, sondern aus dem Nummernkreis der
+  // Kategorie gezogen (12-0001). Bestehende Artikel behalten ihre Nummer,
+  // auch wenn die Kategorie später wechselt – sonst wären Lieferscheine und
+  // Bestellhistorie nicht mehr nachvollziehbar.
+  const { data: existing } = await supabase
+    .from("products")
+    .select("sku")
+    .eq("id", data.id)
+    .maybeSingle();
+
+  let sku = existing?.sku as string | undefined;
+
+  if (!sku) {
+    const { data: generated, error: skuError } = await supabase.rpc("next_sku", {
+      p_category_id: data.category_id,
+    });
+    if (skuError || !generated) {
+      console.error("[admin] Artikelnummer:", skuError?.message);
+      return {
+        error:
+          skuError?.message ?? "Es konnte keine Artikelnummer vergeben werden.",
+      };
+    }
+    sku = generated as string;
+  }
+
   const { error: upsertError } = await supabase.from("products").upsert({
     id: data.id,
     category_id: data.category_id,
-    sku: data.sku,
+    sku,
     name: data.name,
     description: data.description || null,
     is_active: data.is_active,
@@ -87,7 +112,7 @@ export async function saveProduct(
     return {
       error:
         upsertError.code === "23505"
-          ? `Die Artikelnummer „${data.sku}“ ist bereits vergeben.`
+          ? `Die Artikelnummer „${sku}“ ist bereits vergeben. Bitte erneut speichern.`
           : "Der Artikel konnte nicht gespeichert werden.",
     };
   }
