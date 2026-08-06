@@ -11,10 +11,12 @@ export async function Header() {
   const isAdmin = user?.role === "admin";
   const logoPath = getLogoPath();
 
-  // /shop ist auch ohne Login sichtbar (Schaufenster ohne Preise), deshalb
-  // steht "Sortiment" hier unabhängig vom Login-Status.
+  // /shop und die Flag-Filter sind auch ohne Login sichtbar (Schaufenster
+  // ohne Preise), deshalb unabhängig vom Login-Status.
   const links: NavLink[] = [
     { href: "/shop", label: "Sortiment" },
+    { href: "/shop/neuheiten", label: "Neuheiten" },
+    { href: "/shop/topseller", label: "Topseller" },
     ...(user ? [{ href: "/orders", label: "Bestellungen" }] : []),
     ...(isAdmin ? [{ href: "/admin", label: "Verwaltung" }] : []),
   ];

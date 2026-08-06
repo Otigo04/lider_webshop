@@ -13,6 +13,7 @@
 --   9. supabase/migrations/008_vorname_nachname.sql
 --  10. supabase/migrations/009_produkt_flags.sql
 --  11. supabase/migrations/010_topseller_flag.sql
+--  12. supabase/migrations/011_bildzugriff_oeffentlich_fix.sql
 --
 -- Alle Skripte sind idempotent und können gefahrlos erneut laufen.
 -- =============================================================================

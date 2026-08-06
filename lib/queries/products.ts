@@ -1,4 +1,5 @@
 import "server-only";
+import type { ProductFlag } from "@/lib/actions/admin-products";
 import { createClient } from "@/lib/supabase/server";
 import { getImageUrls } from "@/lib/storage";
 import type { Category, Product, ProductImage, ProductVariant } from "@/lib/types";
@@ -82,6 +83,7 @@ export async function getCategoryBySlug(slug: string): Promise<Category | null> 
 export async function getProducts(options?: {
   categoryId?: string;
   search?: string;
+  flag?: ProductFlag;
 }): Promise<ProductListItem[]> {
   const supabase = await createClient();
 
@@ -93,6 +95,10 @@ export async function getProducts(options?: {
 
   if (options?.categoryId) {
     query = query.eq("category_id", options.categoryId);
+  }
+
+  if (options?.flag) {
+    query = query.eq(options.flag, true);
   }
 
   const term = options?.search ? sanitizeSearch(options.search) : "";
@@ -168,6 +174,7 @@ export interface PublicProductDetail extends PublicProductListItem {
 export async function getPublicProducts(options?: {
   categoryId?: string;
   search?: string;
+  flag?: ProductFlag;
 }): Promise<PublicProductListItem[]> {
   const supabase = await createClient();
 
@@ -178,6 +185,10 @@ export async function getPublicProducts(options?: {
 
   if (options?.categoryId) {
     query = query.eq("category_id", options.categoryId);
+  }
+
+  if (options?.flag) {
+    query = query.eq(options.flag, true);
   }
 
   const term = options?.search ? sanitizeSearch(options.search) : "";
