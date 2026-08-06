@@ -5,17 +5,11 @@ Datum: 2026-08-06
 ## Kontext
 
 Admin lädt beim Anlegen eines neuen Artikels ein Foto hoch. Statt Name,
-Beschreibung, Kategorie und Preis von Hand einzutragen, schlägt Claude
-Haiku (Vision) das automatisch vor – Admin muss nur noch prüfen und auf
-„Artikel speichern" klicken. Preisstaffeln/Bestand bleiben sonst wie
-gehabt editierbar, die KI liefert nur einen Startwert für die erste
-Preisstaffel.
-
-**Nutzer-Entscheidung (bewusst mit Risiko):** Die KI schätzt auch einen
-Preis. Sie kennt Einkaufspreis und Marge nicht – die Schätzung ist ein
-grober Anhaltspunkt, kein verlässlicher Wert. Deshalb bleibt sie immer
-nur ein editierbares Startfeld, nie automatisch übernommen ohne Sicht des
-Admins, und wird im UI als Schätzung markiert.
+Beschreibung und Kategorie von Hand einzutragen, schlägt Claude Haiku
+(Vision) das automatisch vor – Admin muss nur noch prüfen und auf
+„Artikel speichern" klicken. Preisstaffeln und Bestand bleiben komplett
+Handarbeit (Nutzer-Entscheidung: Preise kennt nur der Admin, dafür macht
+eine KI-Schätzung keinen Sinn).
 
 ## 1. Technik: Vercel AI Gateway
 
@@ -50,8 +44,8 @@ string)`:
 - Zod-Schema: `name` (string), `description` (string), `category_id`
   (string – wird **serverseitig gegen die echte Kategorieliste geprüft**;
   passt die von der KI gelieferte ID zu keiner echten Kategorie, wird sie
-  auf `null` gesetzt statt eine falsche Kategorie zu übernehmen),
-  `estimated_unit_price` (number).
+  auf `null` gesetzt statt eine falsche Kategorie zu übernehmen). Kein
+  Preisfeld – Preise bleiben vollständig Handarbeit.
 - Bei jedem Fehler (Netzwerk, Rate-Limit, fehlender API-Key) wird kein
   Fehler geworfen, der das Formular blockiert – die Funktion gibt
   `{ error: "..." }` zurück, das Formular bleibt vollständig manuell
@@ -73,8 +67,6 @@ string)`:
   - Beschreibung
   - Kategorie (nur wenn die zurückgegebene ID zu einer echten Kategorie
     passt)
-  - Preis der ersten Preisstaffel, mit Hinweistext „Von KI geschätzt –
-    bitte prüfen" direkt darunter
 - Alle Felder bleiben normale, editierbare Inputs – kein Sonderzustand,
   kein Bestätigen/Ablehnen nötig, Admin überschreibt einfach wie jedes
   andere Feld.
@@ -94,5 +86,4 @@ um sie programmatisch vorzubefüllen.
   Button – Admin editiert einfach die normalen Felder.
 - Keine Analyse beim Bearbeiten bestehender Artikel oder bei weiteren
   Fotos nach dem ersten.
-- Kein Preisstaffel-Vorschlag (mehrere Mengenstufen) – nur ein
-  Startpreis für die erste, ohnehin schon vorhandene Staffel.
+- Keine Preis- oder Bestandsschätzung durch die KI – bleibt Handarbeit.

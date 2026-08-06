@@ -5,9 +5,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useFormStatus } from "react-dom";
-import { Plus, Trash2, Upload, X } from "lucide-react";
+import { Plus, Sparkles, Trash2, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import { saveProduct } from "@/lib/actions/admin-products";
+import { analyzeProductPhoto } from "@/lib/actions/product-ai";
 import type { AdminFormState } from "@/lib/actions/admin-categories";
 import {
   ALLOWED_IMAGE_TYPES,
@@ -74,6 +75,13 @@ export function ProductForm({
   // Ordner des Artikels landen und nichts nachträglich umgehängt werden muss.
   const [productId] = useState(() => product?.id ?? crypto.randomUUID());
 
+  // Kontrolliert statt defaultValue, damit die KI-Fotoanalyse leere Felder
+  // nach dem ersten Upload befüllen kann (siehe handleUpload).
+  const [name, setName] = useState(product?.name ?? "");
+  const [description, setDescription] = useState(product?.description ?? "");
+  const [categoryId, setCategoryId] = useState(product?.category_id ?? "");
+  const [analyzing, setAnalyzing] = useState(false);
+
   const [tiers, setTiers] = useState<TierRow[]>(() =>
     product && product.variants.length > 0
       ? [...product.variants]
@@ -113,6 +121,7 @@ export function ProductForm({
     setUploading(true);
     const supabase = createClient();
     const added: ImageRow[] = [];
+    const isFirstUpload = isNew && images.length === 0;
 
     for (const file of Array.from(files)) {
       if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
@@ -146,6 +155,32 @@ export function ProductForm({
     setImages((current) => [...current, ...added]);
     setUploading(false);
     if (fileInput.current) fileInput.current.value = "";
+
+    // Nur beim allerersten Foto eines neuen Artikels: KI schlägt Name,
+    // Beschreibung und Kategorie vor. Nie beim Bearbeiten (Daten existieren
+    // schon) und nie ohne erfolgreichen Upload.
+    if (isFirstUpload && added[0]?.url) {
+      void runAnalysis(added[0].url);
+    }
+  }
+
+  async function runAnalysis(imageUrl: string) {
+    setAnalyzing(true);
+    const result = await analyzeProductPhoto(imageUrl);
+    setAnalyzing(false);
+
+    if (result.error || !result.data) {
+      toast.info("KI-Vorschlag nicht verfügbar – bitte manuell ausfüllen.");
+      return;
+    }
+
+    // Nur leere Felder befüllen, falls der Admin während des Uploads schon
+    // selbst zu tippen angefangen hat.
+    setName((current) => current || result.data!.name);
+    setDescription((current) => current || result.data!.description);
+    if (result.data.category_id) {
+      setCategoryId((current) => current || result.data!.category_id!);
+    }
   }
 
   async function handleRemoveImage(path: string) {
@@ -156,9 +191,9 @@ export function ProductForm({
 
   const payload = {
     id: productId,
-    category_id: "",
-    name: "",
-    description: "",
+    category_id: categoryId,
+    name,
+    description,
     is_active: true,
     stock_available: 0,
     tiers: tiers.map((tier) => ({
@@ -175,13 +210,11 @@ export function ProductForm({
   return (
     <form
       action={(formData) => {
-        // Die einfachen Felder liest der Browser selbst aus, Staffeln und
-        // Bilder kommen als JSON dazu.
+        // Bestand und Sichtbarkeit liest der Browser selbst aus, Name/
+        // Beschreibung/Kategorie kommen aus State (KI kann sie vorbefüllen),
+        // Staffeln und Bilder als JSON dazu.
         const merged = {
           ...payload,
-          category_id: String(formData.get("category_id") ?? ""),
-          name: String(formData.get("name") ?? ""),
-          description: String(formData.get("description") ?? ""),
           is_active: formData.get("is_active") === "on",
           stock_available: String(formData.get("stock_available") ?? "0"),
         };
@@ -210,8 +243,8 @@ export function ProductForm({
           <Label htmlFor="category_id">Kategorie</Label>
           <select
             id="category_id"
-            name="category_id"
-            defaultValue={product?.category_id ?? ""}
+            value={categoryId}
+            onChange={(event) => setCategoryId(event.target.value)}
             required
             className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
           >
@@ -230,8 +263,8 @@ export function ProductForm({
           <Label htmlFor="name">Bezeichnung</Label>
           <Input
             id="name"
-            name="name"
-            defaultValue={product?.name}
+            value={name}
+            onChange={(event) => setName(event.target.value)}
             required
             maxLength={200}
           />
@@ -241,10 +274,10 @@ export function ProductForm({
           <Label htmlFor="description">Beschreibung</Label>
           <Textarea
             id="description"
-            name="description"
+            value={description}
+            onChange={(event) => setDescription(event.target.value)}
             rows={5}
             maxLength={5000}
-            defaultValue={product?.description ?? ""}
           />
         </div>
 
@@ -392,6 +425,18 @@ export function ProductForm({
           JPEG, PNG, WebP oder AVIF, maximal 5 MB. Das erste Foto ist das
           Titelbild.
         </p>
+        {isNew ? (
+          <p className="mt-1 text-sm text-muted-foreground">
+            Das erste Foto schlägt automatisch Bezeichnung, Beschreibung und
+            Kategorie vor – Felder oben bleiben trotzdem editierbar.
+          </p>
+        ) : null}
+        {analyzing ? (
+          <p className="mt-2 flex items-center gap-1.5 text-sm text-muted-foreground">
+            <Sparkles className="size-4 animate-pulse" aria-hidden />
+            KI analysiert Foto …
+          </p>
+        ) : null}
 
         <div className="mt-4 flex flex-wrap gap-3">
           {images.map((image) => (
