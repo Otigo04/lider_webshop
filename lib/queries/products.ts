@@ -25,6 +25,8 @@ export interface PublicProductListItem {
   sku: string;
   name: string;
   description: string | null;
+  is_new: boolean;
+  is_topseller: boolean;
   imageUrl: string | null;
 }
 
@@ -171,7 +173,7 @@ export async function getPublicProducts(options?: {
 
   let query = supabase
     .from("products_public")
-    .select("id, category_id, sku, name, description")
+    .select("id, category_id, sku, name, description, is_new, is_topseller")
     .order("name");
 
   if (options?.categoryId) {
@@ -199,6 +201,8 @@ export async function getPublicProducts(options?: {
     sku: row.sku as string,
     name: row.name as string,
     description: row.description as string | null,
+    is_new: row.is_new as boolean,
+    is_topseller: row.is_topseller as boolean,
     imageUrl: urls[index],
   }));
 }
@@ -213,7 +217,7 @@ export async function getFeaturedProducts(limit = 6): Promise<PublicProductListI
 
   const { data: products, error } = await supabase
     .from("products_public")
-    .select("id, category_id, sku, name, description")
+    .select("id, category_id, sku, name, description, is_new, is_topseller")
     .eq("is_new", true)
     .order("name")
     .limit(limit);
@@ -233,6 +237,8 @@ export async function getFeaturedProducts(limit = 6): Promise<PublicProductListI
     sku: row.sku as string,
     name: row.name as string,
     description: row.description as string | null,
+    is_new: row.is_new as boolean,
+    is_topseller: row.is_topseller as boolean,
     imageUrl: urls[index],
   }));
 }
@@ -241,7 +247,9 @@ export async function getPublicProduct(id: string): Promise<PublicProductDetail 
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("products_public")
-    .select("id, category_id, sku, name, description, category:categories (*)")
+    .select(
+      "id, category_id, sku, name, description, is_new, is_topseller, category:categories (*)",
+    )
     .eq("id", id)
     .maybeSingle();
 
@@ -265,6 +273,8 @@ export async function getPublicProduct(id: string): Promise<PublicProductDetail 
     sku: string;
     name: string;
     description: string | null;
+    is_new: boolean;
+    is_topseller: boolean;
     category: Category | null;
   };
 
@@ -274,6 +284,8 @@ export async function getPublicProduct(id: string): Promise<PublicProductDetail 
     sku: row.sku,
     name: row.name,
     description: row.description,
+    is_new: row.is_new,
+    is_topseller: row.is_topseller,
     category: row.category ?? null,
     imageUrl: imageUrls[0] ?? null,
     imageUrls,

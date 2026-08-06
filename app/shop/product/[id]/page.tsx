@@ -54,9 +54,21 @@ export default async function ProductPage({
           <ProductGallery urls={product.imageUrls} alt={product.name} />
 
           <div>
-            <p className="code rounded-md border border-border bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-              {product.sku}
-            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="code rounded-md border border-border bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                {product.sku}
+              </p>
+              {product.is_new ? (
+                <span className="rounded-md bg-brand px-2 py-0.5 text-xs font-medium text-brand-foreground">
+                  Neu
+                </span>
+              ) : null}
+              {product.is_topseller ? (
+                <span className="rounded-md bg-foreground px-2 py-0.5 text-xs font-medium text-background">
+                  Topseller
+                </span>
+              ) : null}
+            </div>
 
             <h1 className="headline mt-4 text-3xl font-bold sm:text-4xl">
               {product.name}
@@ -113,6 +125,16 @@ export default async function ProductPage({
               {product.sku}
             </p>
             <StockBadge free={free} />
+            {product.is_new ? (
+              <span className="rounded-md bg-brand px-2 py-0.5 text-xs font-medium text-brand-foreground">
+                Neu
+              </span>
+            ) : null}
+            {product.is_topseller ? (
+              <span className="rounded-md bg-foreground px-2 py-0.5 text-xs font-medium text-background">
+                Topseller
+              </span>
+            ) : null}
           </div>
 
           <h1 className="headline mt-4 text-3xl font-bold sm:text-4xl">

@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ImageOff } from "lucide-react";
+import { ProductFlagBadges } from "@/components/product-flag-badges";
 import type { PublicProductListItem } from "@/lib/queries/products";
 
 /**
@@ -14,6 +15,7 @@ export function PublicProductCard({ product }: { product: PublicProductListItem 
       className="group flex flex-col overflow-hidden rounded-md border border-border bg-card hover:border-foreground/25"
     >
       <div className="relative aspect-4/3 border-b border-border bg-muted">
+        <ProductFlagBadges isNew={product.is_new} isTopseller={product.is_topseller} />
         {product.imageUrl ? (
           <Image
             src={product.imageUrl}
