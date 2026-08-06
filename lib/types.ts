@@ -88,6 +88,8 @@ export interface AppUser {
   role: UserRole;
   is_active: boolean;
   created_at: string;
+  billing_address: string | null;
+  shipping_address: string | null;
 }
 
 export interface OrderItem {
@@ -138,4 +140,25 @@ export interface CartItem {
   tiers: PriceTier[];
   /** Frei verfügbarer Bestand zum Zeitpunkt des Hinzufügens */
   maxStock: number;
+}
+
+export type AccessRequestStatus = "new" | "contacted" | "done";
+
+export const ACCESS_REQUEST_STATUS_LABELS: Record<AccessRequestStatus, string> = {
+  new: "Neu",
+  contacted: "Kontaktiert",
+  done: "Erledigt",
+};
+
+export interface AccessRequest {
+  id: string;
+  company_name: string;
+  contact_name: string;
+  email: string;
+  phone: string | null;
+  billing_address: string;
+  shipping_address: string;
+  message: string | null;
+  status: AccessRequestStatus;
+  created_at: string;
 }
