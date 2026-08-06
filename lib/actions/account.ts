@@ -52,6 +52,44 @@ export async function updateProfile(
   return { success: "Stammdaten gespeichert." };
 }
 
+const addressSchema = z.object({
+  billing_address: z.string().trim().max(500).optional(),
+  shipping_address: z.string().trim().max(500).optional(),
+});
+
+export async function updateAddresses(
+  _prevState: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const user = await requireUser("/account");
+
+  const parsed = addressSchema.safeParse({
+    billing_address: formData.get("billing_address") ?? undefined,
+    shipping_address: formData.get("shipping_address") ?? undefined,
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0].message };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("users")
+    .update({
+      billing_address: parsed.data.billing_address || null,
+      shipping_address: parsed.data.shipping_address || null,
+    })
+    .eq("id", user.id);
+
+  if (error) {
+    console.error("[konto] Adressen:", error.message);
+    return { error: "Die Adressen konnten nicht gespeichert werden." };
+  }
+
+  revalidatePath("/account");
+  return { success: "Adressen gespeichert." };
+}
+
 const passwordSchema = z
   .object({
     password: z

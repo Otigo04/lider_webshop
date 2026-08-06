@@ -4,12 +4,14 @@ import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import {
   changePassword,
+  updateAddresses,
   updateProfile,
   type FormState,
 } from "@/lib/actions/account";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import type { AppUser } from "@/lib/types";
 
 function SaveButton({ label }: { label: string }) {
@@ -76,6 +78,48 @@ export function ProfileForm({ user }: { user: AppUser }) {
 
       <Feedback state={state} />
       <SaveButton label="Stammdaten speichern" />
+    </form>
+  );
+}
+
+export function AddressForm({ user }: { user: AppUser }) {
+  const [state, formAction] = useActionState<FormState, FormData>(
+    updateAddresses,
+    {},
+  );
+
+  return (
+    <form action={formAction} className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="billing_address">Rechnungsadresse</Label>
+        <Textarea
+          id="billing_address"
+          name="billing_address"
+          rows={4}
+          maxLength={500}
+          defaultValue={user.billing_address ?? ""}
+          placeholder="Firma, Straße, PLZ Ort"
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="shipping_address">Versandadresse</Label>
+        <Textarea
+          id="shipping_address"
+          name="shipping_address"
+          rows={4}
+          maxLength={500}
+          defaultValue={user.shipping_address ?? ""}
+          placeholder="Firma, Straße, PLZ Ort"
+        />
+        <p className="text-xs text-muted-foreground">
+          Wird im Bestellprozess als Vorschlag für die Lieferadresse
+          verwendet.
+        </p>
+      </div>
+
+      <Feedback state={state} />
+      <SaveButton label="Adressen speichern" />
     </form>
   );
 }

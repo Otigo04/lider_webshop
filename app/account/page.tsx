@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
-import { PasswordForm, ProfileForm } from "@/components/forms/account-forms";
+import {
+  AddressForm,
+  PasswordForm,
+  ProfileForm,
+} from "@/components/forms/account-forms";
 import { Button } from "@/components/ui/button";
 import { signOut } from "@/lib/actions/auth";
 import { requireUser } from "@/lib/auth";
@@ -35,6 +39,13 @@ export default async function AccountPage() {
         <h2 className="font-medium">Stammdaten</h2>
         <div className="mt-4">
           <ProfileForm user={user} />
+        </div>
+      </section>
+
+      <section className="mt-6 rounded-md border border-border p-6">
+        <h2 className="font-medium">Adressen</h2>
+        <div className="mt-4">
+          <AddressForm user={user} />
         </div>
       </section>
 

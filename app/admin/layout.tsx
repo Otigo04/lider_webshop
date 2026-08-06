@@ -14,6 +14,7 @@ const ADMIN_LINKS = [
   { href: "/admin/categories", label: "Kategorien" },
   { href: "/admin/customers", label: "Kunden" },
   { href: "/admin/orders", label: "Bestellungen" },
+  { href: "/admin/zugangsanfragen", label: "Zugangsanfragen" },
 ];
 
 export default async function AdminLayout({ children }: LayoutProps<"/admin">) {

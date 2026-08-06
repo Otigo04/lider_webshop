@@ -15,7 +15,7 @@ export default async function CheckoutPage() {
       </p>
 
       <div className="mt-8">
-        <CheckoutForm />
+        <CheckoutForm defaultAddress={user.shipping_address ?? undefined} />
       </div>
     </div>
   );

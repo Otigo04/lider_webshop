@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AccessRequestForm } from "@/components/forms/access-request-form";
 import { Button } from "@/components/ui/button";
 
 /**
@@ -128,7 +129,7 @@ export default function HomePage() {
           <div>
             <p className="eyebrow text-muted-foreground">Über uns</p>
             <h2 className="headline mt-3 text-3xl font-bold">
-              Achtzehn Jahre am selben Ort
+              Seit 2007 am selben Ort
             </h2>
             <p className="mt-4 text-muted-foreground">
               LIDER Berlin ist ein Groß- und Einzelhandel und besteht seit 2007.
@@ -165,12 +166,16 @@ export default function HomePage() {
         <p className="eyebrow text-muted-foreground">Kontakt</p>
         <h2 className="headline mt-3 text-3xl font-bold">Zugang anfragen</h2>
         <p className="mt-4 max-w-xl text-muted-foreground">
-          Das Portal steht ausschließlich Gewerbekunden offen. Nennen Sie uns
-          Firma, Ansprechpartner und Gewerbenachweis – wir richten den Zugang ein
-          und schicken die Zugangsdaten per E-Mail.
+          Das Portal steht ausschließlich Gewerbekunden offen. Füllen Sie das
+          Formular aus – wir richten den Zugang ein und schicken die
+          Zugangsdaten per E-Mail.
         </p>
 
-        <dl className="mt-8 grid gap-6 text-sm sm:grid-cols-3">
+        <div className="mt-8 max-w-2xl">
+          <AccessRequestForm />
+        </div>
+
+        <dl className="mt-12 grid gap-6 border-t border-border pt-8 text-sm sm:grid-cols-3">
           <div>
             <dt className="text-muted-foreground">Telefon</dt>
             <dd className="mt-1 font-medium">[TELEFON]</dd>

@@ -2,6 +2,7 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { toNumber } from "@/lib/format";
 import type {
+  AccessRequest,
   AppUser,
   Order,
   OrderItem,
@@ -217,4 +218,37 @@ export async function getAdminOrder(id: string): Promise<AdminOrderRow | null> {
     return null;
   }
   return (data as unknown as AdminOrderRow) ?? null;
+}
+
+export async function getAccessRequests(status?: string): Promise<AccessRequest[]> {
+  const supabase = await createClient();
+
+  let query = supabase
+    .from("access_requests")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (status) query = query.eq("status", status);
+
+  const { data, error } = await query;
+  if (error) {
+    console.error("[admin] Zugangsanfragen:", error.message);
+    return [];
+  }
+  return (data ?? []) as AccessRequest[];
+}
+
+export async function getAccessRequest(id: string): Promise<AccessRequest | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("access_requests")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[admin] Zugangsanfrage-Detail:", error.message);
+    return null;
+  }
+  return (data as AccessRequest) ?? null;
 }
