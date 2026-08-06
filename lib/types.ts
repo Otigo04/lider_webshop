@@ -69,6 +69,7 @@ export interface Product {
   name: string;
   description: string | null;
   is_active: boolean;
+  is_new: boolean;
   stock_available: number;
   stock_reserved: number;
   created_by: string | null;

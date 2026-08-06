@@ -152,6 +152,42 @@ export async function saveProduct(
   return { success: "Artikel gespeichert." };
 }
 
+const flagSchema = z.object({
+  id: z.string().uuid(),
+  is_new: z.boolean(),
+});
+
+/** Instant-Toggle in der Artikelliste – kein Bestätigungsdialog, nicht destruktiv. */
+export async function toggleProductFlag(
+  _prevState: AdminFormState,
+  formData: FormData,
+): Promise<AdminFormState> {
+  await requireAdmin();
+
+  const parsed = flagSchema.safeParse({
+    id: formData.get("id"),
+    is_new: formData.get("is_new") === "true",
+  });
+  if (!parsed.success) {
+    return { error: "Ungültiger Wert." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("products")
+    .update({ is_new: parsed.data.is_new })
+    .eq("id", parsed.data.id);
+
+  if (error) {
+    console.error("[admin] Neuheit-Flag:", error.message);
+    return { error: "Konnte nicht gespeichert werden." };
+  }
+
+  revalidatePath("/admin/products");
+  revalidatePath("/");
+  return { success: "Gespeichert." };
+}
+
 export async function deleteProduct(
   _prevState: AdminFormState,
   formData: FormData,

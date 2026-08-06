@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { AccessRequestForm } from "@/components/forms/access-request-form";
+import { FeaturedProductCard } from "@/components/featured-product-card";
 import { Button } from "@/components/ui/button";
+import { getFeaturedProducts } from "@/lib/queries/products";
 
 /**
  * Landingpage für nicht angemeldete Besucher.
@@ -46,7 +48,9 @@ const LEISTUNGEN = [
   },
 ];
 
-export default function HomePage() {
+export default async function HomePage() {
+  const featured = await getFeaturedProducts();
+
   return (
     <>
       {/* Hero */}
@@ -65,7 +69,7 @@ export default function HomePage() {
             bestellen direkt.
           </p>
 
-          <div className="mt-9 flex flex-wrap gap-3">
+          <div className="mt-9 flex flex-wrap items-center gap-x-6 gap-y-3">
             {/* Auf der dunklen Fläche wäre die Primärfarbe (Charcoal) unsichtbar. */}
             <Button
               asChild
@@ -74,14 +78,13 @@ export default function HomePage() {
             >
               <Link href="/login">Zum Kundenportal</Link>
             </Button>
-            <Button
-              asChild
-              size="lg"
-              variant="outline"
-              className="border-surface-dark-border bg-transparent text-surface-dark-foreground hover:bg-white/10 hover:text-surface-dark-foreground"
+            {/* Bewusst als Link statt zweitem Button: eine klare Primärhandlung. */}
+            <Link
+              href="#kontakt"
+              className="text-sm font-medium text-surface-dark-foreground underline decoration-surface-dark-muted underline-offset-4 hover:decoration-surface-dark-foreground"
             >
-              <Link href="#kontakt">Zugang anfragen</Link>
-            </Button>
+              Noch kein Zugang? Anfragen
+            </Link>
           </div>
 
           {/*
@@ -91,11 +94,14 @@ export default function HomePage() {
            */}
           <ul className="mt-16 grid gap-px overflow-hidden rounded-md border border-surface-dark-border bg-surface-dark-border sm:grid-cols-3">
             {WARENGRUPPEN.map((gruppe) => (
-              <li key={gruppe.name} className="bg-surface-dark p-5">
-                <p className="code text-xs text-surface-dark-muted">
+              <li
+                key={gruppe.name}
+                className="group bg-surface-dark p-5 transition-colors hover:bg-white/[0.03]"
+              >
+                <p className="code text-2xl font-semibold text-surface-dark-muted transition-colors group-hover:text-brand">
                   {gruppe.kreis}
                 </p>
-                <p className="mt-2 font-medium">{gruppe.name}</p>
+                <p className="mt-3 font-medium">{gruppe.name}</p>
                 <p className="mt-1 text-sm text-surface-dark-muted">
                   {gruppe.text}
                 </p>
@@ -105,8 +111,26 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Neuheiten */}
+      {featured.length > 0 ? (
+        <section className="mx-auto max-w-6xl px-4 py-20">
+          <p className="eyebrow text-muted-foreground">Sortiment</p>
+          <h2 className="headline mt-3 text-3xl font-bold">Neuheiten</h2>
+          <p className="mt-4 max-w-xl text-muted-foreground">
+            Zuletzt ins Sortiment aufgenommen. Preise und Bestände sehen Sie
+            im Kundenportal.
+          </p>
+
+          <div className="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+            {featured.map((product) => (
+              <FeaturedProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       {/* Leistungen */}
-      <section className="mx-auto max-w-6xl px-4 py-20">
+      <section className="mx-auto max-w-6xl border-t border-border px-4 py-20">
         <p className="eyebrow text-muted-foreground">Kundenportal</p>
         <h2 className="headline mt-3 text-3xl font-bold">
           Was Sie im Portal erwartet

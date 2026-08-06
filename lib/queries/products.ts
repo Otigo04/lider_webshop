@@ -37,7 +37,7 @@ export interface ProductDetail extends Omit<Product, "category"> {
 }
 
 const LIST_COLUMNS = `
-  id, category_id, sku, name, description, is_active,
+  id, category_id, sku, name, description, is_active, is_new,
   stock_available, stock_reserved, created_by, created_at, updated_at,
   variants:product_variants (id, product_id, min_quantity, max_quantity, unit_price, created_at),
   images:product_images (id, product_id, file_path, display_order, created_at)
@@ -186,6 +186,40 @@ export async function getPublicProducts(options?: {
   const { data: products, error } = await query;
   if (error) {
     console.error("[katalog] Öffentliche Artikel:", error.message);
+    return [];
+  }
+
+  const ids = (products ?? []).map((p) => p.id as string);
+  const coverPaths = await firstImagePathsFor(supabase, ids);
+  const urls = await getImageUrls(ids.map((id) => coverPaths.get(id) ?? null));
+
+  return (products ?? []).map((row, index) => ({
+    id: row.id as string,
+    category_id: row.category_id as string,
+    sku: row.sku as string,
+    name: row.name as string,
+    description: row.description as string | null,
+    imageUrl: urls[index],
+  }));
+}
+
+/**
+ * Als "Neuheit" markierte Artikel für die Landingpage-Sektion. Öffentlich
+ * (keine Preise/Bestände), deshalb dieselbe products_public-View wie
+ * getPublicProducts – nur zusätzlich nach is_new gefiltert.
+ */
+export async function getFeaturedProducts(limit = 6): Promise<PublicProductListItem[]> {
+  const supabase = await createClient();
+
+  const { data: products, error } = await supabase
+    .from("products_public")
+    .select("id, category_id, sku, name, description")
+    .eq("is_new", true)
+    .order("name")
+    .limit(limit);
+
+  if (error) {
+    console.error("[katalog] Neuheiten:", error.message);
     return [];
   }
 
