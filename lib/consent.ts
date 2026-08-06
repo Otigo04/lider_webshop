@@ -13,13 +13,24 @@ const STORAGE_KEY = "lider.consent.v1";
  * Skripte, die Marketing-Cookies setzen (sobald ein Anbieter feststeht),
  * dürfen erst nach `getConsent().marketing === true` geladen werden.
  */
-export interface Consent {
+interface ConsentState {
   marketing: boolean | null;
+  /** false bis der localStorage gelesen ist – verhindert Hydration-Mismatch */
+  ready: boolean;
 }
 
-const EMPTY: Consent = { marketing: null };
+/*
+ * Wie lib/cart-context.tsx: ein externer Store außerhalb von React, per
+ * useSyncExternalStore angebunden. Wichtig für React: getSnapshot() muss bei
+ * jeder inhaltlichen Änderung eine NEUE Objektreferenz liefern – sonst hält
+ * React ein `emit()` für ein No-Op und rendert nie neu. Ein früherer Fehler
+ * hier gab bei leerem localStorage dieselbe EMPTY-Konstante zurück, wodurch
+ * das Banner nach der Hydration nie erschien.
+ */
 
-let state: Consent = EMPTY;
+const EMPTY: ConsentState = { marketing: null, ready: false };
+
+let state: ConsentState = EMPTY;
 let hydrated = false;
 const listeners = new Set<() => void>();
 
@@ -27,10 +38,10 @@ function emit() {
   for (const listener of listeners) listener();
 }
 
-function persist(next: Consent) {
-  state = next;
+function persist(marketing: boolean | null) {
+  state = { marketing, ready: true };
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ marketing }));
   } catch {
     // Privater Modus oder voller Speicher: Entscheidung gilt nur für diese Sitzung.
   }
@@ -42,10 +53,11 @@ function hydrate() {
   hydrated = true;
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    state = raw ? (JSON.parse(raw) as Consent) : EMPTY;
+    const parsed = raw ? (JSON.parse(raw) as { marketing: boolean | null }) : null;
+    state = { marketing: parsed?.marketing ?? null, ready: true };
   } catch {
     window.localStorage.removeItem(STORAGE_KEY);
-    state = EMPTY;
+    state = { marketing: null, ready: true };
   }
   emit();
 }
@@ -58,33 +70,27 @@ function subscribe(listener: () => void) {
   };
 }
 
-function getSnapshot(): Consent {
+function getSnapshot(): ConsentState {
   return state;
 }
 
-function getServerSnapshot(): Consent {
+function getServerSnapshot(): ConsentState {
   return EMPTY;
 }
 
 export function acceptAllConsent() {
-  persist({ marketing: true });
+  persist(true);
 }
 
 export function rejectMarketingConsent() {
-  persist({ marketing: false });
+  persist(false);
 }
 
 /** Setzt die Entscheidung zurück – Banner erscheint wieder. */
 export function resetConsent() {
-  persist(EMPTY);
+  persist(null);
 }
 
-/**
- * `ready` ist erst nach dem ersten Client-Render true (localStorage ist
- * serverseitig nicht lesbar) – so lässt sich ein Hydration-Mismatch beim
- * Banner vermeiden, genau wie beim Warenkorb in lib/cart-context.tsx.
- */
-export function useConsent(): Consent & { ready: boolean } {
-  const snapshot = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
-  return { ...snapshot, ready: hydrated };
+export function useConsent(): ConsentState {
+  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }

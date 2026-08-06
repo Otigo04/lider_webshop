@@ -8,6 +8,10 @@ import { Button } from "@/components/ui/button";
  * Erscheint nur, solange marketing noch nicht entschieden ist (null).
  * Notwendige Cookies (Login) laufen immer und brauchen keine Einwilligung –
  * die Wahl hier betrifft ausschließlich künftige Marketing-Cookies.
+ *
+ * Dunkler Hintergrund und Schatten bewusst kräftiger als der Rest der
+ * Oberfläche: ein Banner, das man beim ersten Besuch übersieht, verfehlt
+ * seinen Zweck.
  */
 export function CookieBanner() {
   const { marketing, ready } = useConsent();
@@ -18,23 +22,32 @@ export function CookieBanner() {
     <div
       role="dialog"
       aria-label="Cookie-Einstellungen"
-      className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background px-4 py-4 shadow-[0_-1px_12px_rgba(0,0,0,0.08)]"
+      className="fixed inset-x-0 bottom-0 z-50 border-t-2 border-brand bg-surface-dark px-4 py-5 text-surface-dark-foreground shadow-[0_-4px_24px_rgba(0,0,0,0.35)]"
     >
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4">
-        <p className="max-w-2xl text-sm text-muted-foreground">
+        <p className="max-w-2xl text-sm text-surface-dark-muted">
           Wir setzen technisch notwendige Cookies für die Anmeldung immer.
           Mit Ihrer Einwilligung setzen wir zusätzlich Marketing-Cookies.
           Details in der{" "}
-          <Link href="/datenschutz" className="underline">
+          <Link href="/datenschutz" className="text-surface-dark-foreground underline">
             Datenschutzerklärung
           </Link>
           .
         </p>
         <div className="flex shrink-0 gap-3">
-          <Button variant="outline" onClick={() => rejectMarketingConsent()}>
+          <Button
+            variant="outline"
+            className="border-surface-dark-border bg-transparent text-surface-dark-foreground hover:bg-white/10 hover:text-surface-dark-foreground"
+            onClick={() => rejectMarketingConsent()}
+          >
             Nur notwendige
           </Button>
-          <Button onClick={() => acceptAllConsent()}>Alle akzeptieren</Button>
+          <Button
+            className="bg-brand text-brand-foreground hover:bg-brand-hover"
+            onClick={() => acceptAllConsent()}
+          >
+            Alle akzeptieren
+          </Button>
         </div>
       </div>
     </div>
