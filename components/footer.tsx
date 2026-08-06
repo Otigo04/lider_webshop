@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CookieSettingsLink } from "@/components/cookie-settings-link";
 
 export function Footer() {
   return (
@@ -41,6 +42,7 @@ export function Footer() {
             >
               Datenschutz
             </Link>
+            <CookieSettingsLink />
           </nav>
         </div>
       </div>

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Toaster } from "@/components/ui/sonner";
+import { CookieBanner } from "@/components/cookie-banner";
 import { Footer } from "@/components/footer";
 import { Header } from "@/components/header";
 import { CartProvider } from "@/lib/cart-context";
@@ -23,6 +24,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <main className="flex-1">{children}</main>
           <Footer />
           <Toaster position="top-right" />
+          <CookieBanner />
         </CartProvider>
       </body>
     </html>

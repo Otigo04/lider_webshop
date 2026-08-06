@@ -35,8 +35,17 @@ export default function DatenschutzPage() {
         <section>
           <h2 className="font-medium">Cookies</h2>
           <p className="mt-2 text-muted-foreground">
-            Wir setzen ausschließlich technisch notwendige Cookies für die
-            Anmeldung. Kein Tracking, keine Analyse-Dienste, keine Werbe-Cookies.
+            Technisch notwendige Cookies (Anmeldung) setzen wir immer –
+            dafür ist nach Art. 6 Abs. 1 lit. f DSGVO und § 25 Abs. 2 TTDSG
+            keine Einwilligung erforderlich.
+          </p>
+          <p className="mt-2 text-muted-foreground">
+            Marketing-Cookies setzen wir ausschließlich mit Ihrer
+            Einwilligung, die Sie beim ersten Besuch im Cookie-Banner geben
+            oder ablehnen können. Welcher Anbieter dafür konkret zum Einsatz
+            kommt, ergänzen wir hier, sobald er aktiv ist. Ihre Entscheidung
+            lässt sich jederzeit über „Cookie-Einstellungen“ im Footer
+            ändern.
           </p>
         </section>
 
