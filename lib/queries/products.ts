@@ -37,7 +37,7 @@ export interface ProductDetail extends Omit<Product, "category"> {
 }
 
 const LIST_COLUMNS = `
-  id, category_id, sku, name, description, is_active, is_new,
+  id, category_id, sku, name, description, is_active, is_new, is_topseller,
   stock_available, stock_reserved, created_by, created_at, updated_at,
   variants:product_variants (id, product_id, min_quantity, max_quantity, unit_price, created_at),
   images:product_images (id, product_id, file_path, display_order, created_at)

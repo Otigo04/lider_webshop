@@ -152,12 +152,16 @@ export async function saveProduct(
   return { success: "Artikel gespeichert." };
 }
 
+const PRODUCT_FLAGS = ["is_new", "is_topseller"] as const;
+export type ProductFlag = (typeof PRODUCT_FLAGS)[number];
+
 const flagSchema = z.object({
   id: z.string().uuid(),
-  is_new: z.boolean(),
+  flag: z.enum(PRODUCT_FLAGS),
+  value: z.boolean(),
 });
 
-/** Instant-Toggle in der Artikelliste – kein Bestätigungsdialog, nicht destruktiv. */
+/** Instant-Toggle im Flags-Menü der Artikelliste – kein Bestätigungsdialog, nicht destruktiv. */
 export async function toggleProductFlag(
   _prevState: AdminFormState,
   formData: FormData,
@@ -166,7 +170,8 @@ export async function toggleProductFlag(
 
   const parsed = flagSchema.safeParse({
     id: formData.get("id"),
-    is_new: formData.get("is_new") === "true",
+    flag: formData.get("flag"),
+    value: formData.get("value") === "true",
   });
   if (!parsed.success) {
     return { error: "Ungültiger Wert." };
@@ -175,11 +180,11 @@ export async function toggleProductFlag(
   const supabase = await createClient();
   const { error } = await supabase
     .from("products")
-    .update({ is_new: parsed.data.is_new })
+    .update({ [parsed.data.flag]: parsed.data.value })
     .eq("id", parsed.data.id);
 
   if (error) {
-    console.error("[admin] Neuheit-Flag:", error.message);
+    console.error("[admin] Flag ändern:", error.message);
     return { error: "Konnte nicht gespeichert werden." };
   }
 

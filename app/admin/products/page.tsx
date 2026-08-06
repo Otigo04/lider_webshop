@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Plus, Search } from "lucide-react";
 import { ConfirmAction } from "@/components/admin/confirm-action";
-import { ProductFlagToggle } from "@/components/admin/product-flag-toggle";
+import { ProductFlagsMenu } from "@/components/admin/product-flag-toggle";
 import { StockBadge } from "@/components/stock-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -76,7 +76,7 @@ export default async function AdminProductsPage({
                 <th className="py-2 pr-4 font-medium">Staffeln</th>
                 <th className="py-2 pr-4 text-right font-medium">ab</th>
                 <th className="py-2 pr-4 font-medium">Bestand</th>
-                <th className="py-2 pr-4 font-medium">Neuheit</th>
+                <th className="py-2 pr-4 font-medium">Flags</th>
                 <th className="py-2 text-right font-medium">Aktionen</th>
               </tr>
             </thead>
@@ -115,10 +115,12 @@ export default async function AdminProductsPage({
                       <StockBadge free={freeStock(product)} />
                     </td>
                     <td className="py-3 pr-4">
-                      <ProductFlagToggle
+                      <ProductFlagsMenu
                         productId={product.id}
-                        checked={product.is_new}
-                        label="Neuheit"
+                        flags={{
+                          is_new: product.is_new,
+                          is_topseller: product.is_topseller,
+                        }}
                       />
                     </td>
                     <td className="py-3 text-right">
