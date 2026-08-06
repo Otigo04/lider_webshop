@@ -47,7 +47,9 @@ export default async function AdminAccessRequestDetailPage({
         </div>
         <div>
           <dt className="text-muted-foreground">Ansprechpartner</dt>
-          <dd className="mt-1">{request.contact_name}</dd>
+          <dd className="mt-1">
+            {request.first_name} {request.last_name}
+          </dd>
         </div>
         <div>
           <dt className="text-muted-foreground">E-Mail</dt>

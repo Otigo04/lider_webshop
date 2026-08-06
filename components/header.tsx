@@ -24,28 +24,22 @@ export async function Header() {
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4">
         <Link
           href="/"
-          className="shrink-0 leading-none focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand"
+          className="flex shrink-0 items-center gap-3 leading-none focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand"
         >
           {logoPath ? (
-            <span className="relative block h-8 w-36">
+            <span className="relative block h-8 w-8 shrink-0">
               <Image
                 src={logoPath}
                 alt="LIDER Großhandel"
                 fill
-                sizes="144px"
-                className="object-contain object-left"
+                sizes="32px"
+                className="object-contain"
               />
             </span>
-          ) : (
-            <>
-              <span className="block text-base font-semibold tracking-[0.14em]">
-                LIDER
-              </span>
-              <span className="eyebrow block text-surface-dark-muted">
-                Berlin · Großhandel
-              </span>
-            </>
-          )}
+          ) : null}
+          <span className="block text-base font-semibold tracking-[0.14em]">
+            LIDER BERLIN
+          </span>
         </Link>
 
         <nav className="hidden items-center gap-6 text-sm md:flex">

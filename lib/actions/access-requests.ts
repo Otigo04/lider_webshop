@@ -10,7 +10,8 @@ export interface AccessRequestFormState {
 
 const requestSchema = z.object({
   company_name: z.string().trim().min(1, "Firma fehlt").max(120),
-  contact_name: z.string().trim().min(1, "Ansprechpartner fehlt").max(120),
+  first_name: z.string().trim().min(1, "Vorname fehlt").max(120),
+  last_name: z.string().trim().min(1, "Nachname fehlt").max(120),
   email: z.string().trim().toLowerCase().email("Keine gültige E-Mail-Adresse"),
   phone: z.string().trim().max(50).optional(),
   billing_street: z.string().trim().min(1, "Straße fehlt").max(200),
@@ -37,7 +38,8 @@ export async function submitAccessRequest(
 ): Promise<AccessRequestFormState> {
   const parsed = requestSchema.safeParse({
     company_name: formData.get("company_name"),
-    contact_name: formData.get("contact_name"),
+    first_name: formData.get("first_name"),
+    last_name: formData.get("last_name"),
     email: formData.get("email"),
     phone: formData.get("phone") || undefined,
     billing_street: formData.get("billing_street"),
@@ -69,7 +71,8 @@ export async function submitAccessRequest(
   const supabase = await createClient();
   const { error } = await supabase.from("access_requests").insert({
     company_name: data.company_name,
-    contact_name: data.contact_name,
+    first_name: data.first_name,
+    last_name: data.last_name,
     email: data.email,
     phone: data.phone || null,
     billing_street: data.billing_street,

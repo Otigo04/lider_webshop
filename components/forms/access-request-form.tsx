@@ -24,7 +24,7 @@ function SubmitButton() {
 function AddressFieldGroup({ prefix }: { prefix: "billing" | "shipping" }) {
   const required = prefix === "billing";
   return (
-    <div className="grid gap-3 sm:grid-cols-[1fr_8rem] sm:col-span-2">
+    <div className="grid gap-3 sm:grid-cols-[1fr_8rem]">
       <div className="space-y-2 sm:col-span-2">
         <Label htmlFor={`${prefix}_street`}>Straße und Hausnummer</Label>
         <Input
@@ -85,35 +85,41 @@ export function AccessRequestForm() {
   }
 
   return (
-    <form action={formAction} className="grid gap-6 sm:grid-cols-2">
-      <div className="space-y-2">
-        <Label htmlFor="company_name">Firma</Label>
-        <Input id="company_name" name="company_name" required maxLength={120} />
+    <form action={formAction} className="space-y-8">
+      <div>
+        <p className="text-sm font-medium">Kontakt</p>
+        <div className="mt-3 grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="first_name">Vorname</Label>
+            <Input id="first_name" name="first_name" required maxLength={120} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="last_name">Nachname</Label>
+            <Input id="last_name" name="last_name" required maxLength={120} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="company_name">Firma</Label>
+            <Input id="company_name" name="company_name" required maxLength={120} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="phone">Telefon</Label>
+            <Input id="phone" name="phone" type="tel" maxLength={50} />
+          </div>
+          <div className="space-y-2 sm:col-span-2">
+            <Label htmlFor="email">E-Mail</Label>
+            <Input id="email" name="email" type="email" required />
+          </div>
+        </div>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="contact_name">Ansprechpartner</Label>
-        <Input id="contact_name" name="contact_name" required maxLength={120} />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="email">E-Mail</Label>
-        <Input id="email" name="email" type="email" required />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="phone">Telefon</Label>
-        <Input id="phone" name="phone" type="tel" maxLength={50} />
-      </div>
-
-      <div className="sm:col-span-2">
+      <div className="border-t border-border pt-6">
         <p className="text-sm font-medium">Rechnungsadresse</p>
         <div className="mt-3">
           <AddressFieldGroup prefix="billing" />
         </div>
       </div>
 
-      <div className="flex items-center gap-2 sm:col-span-2">
+      <div className="flex items-center gap-2">
         <Checkbox
           id="different_shipping"
           name="different_shipping"
@@ -126,7 +132,7 @@ export function AccessRequestForm() {
       </div>
 
       {differentShipping ? (
-        <div className="sm:col-span-2">
+        <div className="border-t border-border pt-6">
           <p className="text-sm font-medium">Versandadresse</p>
           <div className="mt-3">
             <AddressFieldGroup prefix="shipping" />
@@ -134,23 +140,23 @@ export function AccessRequestForm() {
         </div>
       ) : null}
 
-      <div className="space-y-2 sm:col-span-2">
-        <Label htmlFor="message">Nachricht</Label>
-        <Textarea id="message" name="message" rows={3} maxLength={2000} />
+      <div className="border-t border-border pt-6">
+        <div className="space-y-2">
+          <Label htmlFor="message">Nachricht (optional)</Label>
+          <Textarea id="message" name="message" rows={3} maxLength={2000} />
+        </div>
       </div>
 
       {state.error ? (
         <p
           role="alert"
-          className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive sm:col-span-2"
+          className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
         >
           {state.error}
         </p>
       ) : null}
 
-      <div className="sm:col-span-2">
-        <SubmitButton />
-      </div>
+      <SubmitButton />
     </form>
   );
 }

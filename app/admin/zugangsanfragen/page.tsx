@@ -82,7 +82,9 @@ export default async function AdminAccessRequestsPage({
               {requests.map((request) => (
                 <tr key={request.id} className="border-b border-border last:border-0">
                   <td className="py-3 pr-4 font-medium">{request.company_name}</td>
-                  <td className="py-3 pr-4">{request.contact_name}</td>
+                  <td className="py-3 pr-4">
+                    {request.first_name} {request.last_name}
+                  </td>
                   <td className="py-3 pr-4 text-muted-foreground">{request.email}</td>
                   <td className="py-3 pr-4 tabular text-muted-foreground">
                     {formatDate(request.created_at)}

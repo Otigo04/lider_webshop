@@ -10,6 +10,7 @@
 --   6. supabase/migrations/005_zugangsanfragen_und_adressen.sql
 --   7. supabase/migrations/006_oeffentlicher_katalog.sql
 --   8. supabase/migrations/007_strukturierte_adressen.sql
+--   9. supabase/migrations/008_vorname_nachname.sql
 --
 -- Alle Skripte sind idempotent und können gefahrlos erneut laufen.
 -- =============================================================================

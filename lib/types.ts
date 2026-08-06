@@ -159,7 +159,8 @@ export const ACCESS_REQUEST_STATUS_LABELS: Record<AccessRequestStatus, string> =
 export interface AccessRequest {
   id: string;
   company_name: string;
-  contact_name: string;
+  first_name: string;
+  last_name: string;
   email: string;
   phone: string | null;
   billing_street: string;
