@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
+import { getLogoPath } from "@/lib/logo";
 import { CartLink } from "@/components/cart-link";
 import { MobileNav, type NavLink } from "@/components/mobile-nav";
 import { UserMenu } from "@/components/user-menu";
@@ -8,6 +9,7 @@ import { UserMenu } from "@/components/user-menu";
 export async function Header() {
   const user = await getCurrentUser();
   const isAdmin = user?.role === "admin";
+  const logoPath = getLogoPath();
 
   const links: NavLink[] = user
     ? [
@@ -22,15 +24,28 @@ export async function Header() {
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4">
         <Link
           href="/"
-          className="relative block h-8 w-36 shrink-0 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand"
+          className="shrink-0 leading-none focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand"
         >
-          <Image
-            src="/logo/logo.svg"
-            alt="LIDER Großhandel"
-            fill
-            sizes="144px"
-            className="object-contain object-left"
-          />
+          {logoPath ? (
+            <span className="relative block h-8 w-36">
+              <Image
+                src={logoPath}
+                alt="LIDER Großhandel"
+                fill
+                sizes="144px"
+                className="object-contain object-left"
+              />
+            </span>
+          ) : (
+            <>
+              <span className="block text-base font-semibold tracking-[0.14em]">
+                LIDER
+              </span>
+              <span className="eyebrow block text-surface-dark-muted">
+                Berlin · Großhandel
+              </span>
+            </>
+          )}
         </Link>
 
         <nav className="hidden items-center gap-6 text-sm md:flex">
