@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { PublicShopView } from "@/components/public-shop-view";
 import { ShopView } from "@/components/shop-view";
-import { requireUser } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import {
   getCategories,
   getCategoryBySlug,
   getProducts,
+  getPublicProducts,
 } from "@/lib/queries/products";
 
 export async function generateMetadata({
@@ -21,13 +23,32 @@ export default async function CategoryPage({
   searchParams,
 }: PageProps<"/shop/[category]">) {
   const { category: slug } = await params;
-  await requireUser(`/shop/${slug}`);
+  const user = await getCurrentUser();
 
   const category = await getCategoryBySlug(slug);
   if (!category) notFound();
 
   const query = await searchParams;
   const search = typeof query.q === "string" ? query.q : "";
+
+  if (!user || !user.is_active) {
+    const [categories, products] = await Promise.all([
+      getCategories(),
+      getPublicProducts({ categoryId: category.id, search }),
+    ]);
+
+    return (
+      <PublicShopView
+        categories={categories}
+        products={products}
+        activeSlug={category.slug}
+        search={search}
+        action={`/shop/${category.slug}`}
+        heading={category.name}
+        description={category.description}
+      />
+    );
+  }
 
   const [categories, products] = await Promise.all([
     getCategories(),

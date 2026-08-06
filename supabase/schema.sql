@@ -7,6 +7,8 @@
 --   3. supabase/migrations/002_bestellung_anlegen.sql
 --   4. supabase/migrations/003_erstadmin_ermoeglichen.sql
 --   5. supabase/migrations/004_artikelnummern_und_versand.sql
+--   6. supabase/migrations/005_zugangsanfragen_und_adressen.sql
+--   7. supabase/migrations/006_oeffentlicher_katalog.sql
 --
 -- Alle Skripte sind idempotent und können gefahrlos erneut laufen.
 -- =============================================================================

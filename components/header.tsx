@@ -11,13 +11,13 @@ export async function Header() {
   const isAdmin = user?.role === "admin";
   const logoPath = getLogoPath();
 
-  const links: NavLink[] = user
-    ? [
-        { href: "/shop", label: "Sortiment" },
-        { href: "/orders", label: "Bestellungen" },
-        ...(isAdmin ? [{ href: "/admin", label: "Verwaltung" }] : []),
-      ]
-    : [];
+  // /shop ist auch ohne Login sichtbar (Schaufenster ohne Preise), deshalb
+  // steht "Sortiment" hier unabhängig vom Login-Status.
+  const links: NavLink[] = [
+    { href: "/shop", label: "Sortiment" },
+    ...(user ? [{ href: "/orders", label: "Bestellungen" }] : []),
+    ...(isAdmin ? [{ href: "/admin", label: "Verwaltung" }] : []),
+  ];
 
   return (
     <header className="sticky top-0 z-40 border-b border-surface-dark-border bg-surface-dark text-surface-dark-foreground">

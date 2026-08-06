@@ -14,6 +14,20 @@ export interface ProductListItem extends Product {
   imageUrl: string | null;
 }
 
+/**
+ * Schaufenster-Ansicht für nicht angemeldete Besucher: kommt aus der View
+ * `products_public` (siehe migrations/006), die bewusst weder Bestand noch
+ * Preise enthält.
+ */
+export interface PublicProductListItem {
+  id: string;
+  category_id: string;
+  sku: string;
+  name: string;
+  description: string | null;
+  imageUrl: string | null;
+}
+
 /** `category` ist hier immer geladen – deshalb null statt undefined. */
 export interface ProductDetail extends Omit<Product, "category"> {
   variants: ProductVariant[];
@@ -136,6 +150,141 @@ export async function getProduct(id: string): Promise<ProductDetail | null> {
     category: row.category ?? null,
     imageUrls,
   };
+}
+
+/** Schaufenster-Detail: dieselben Felder wie die Liste, plus alle Fotos. */
+export interface PublicProductDetail extends PublicProductListItem {
+  category: Category | null;
+  imageUrls: (string | null)[];
+}
+
+/**
+ * Katalog für nicht angemeldete Besucher. Liest aus `products_public`
+ * (keine Bestandsspalten) statt aus `products` – Preise werden gar nicht
+ * erst abgefragt, RLS würde sie ohnehin nicht herausgeben.
+ */
+export async function getPublicProducts(options?: {
+  categoryId?: string;
+  search?: string;
+}): Promise<PublicProductListItem[]> {
+  const supabase = await createClient();
+
+  let query = supabase
+    .from("products_public")
+    .select("id, category_id, sku, name, description")
+    .order("name");
+
+  if (options?.categoryId) {
+    query = query.eq("category_id", options.categoryId);
+  }
+
+  const term = options?.search ? sanitizeSearch(options.search) : "";
+  if (term) {
+    query = query.or(`name.ilike.%${term}%,sku.ilike.%${term}%`);
+  }
+
+  const { data: products, error } = await query;
+  if (error) {
+    console.error("[katalog] Öffentliche Artikel:", error.message);
+    return [];
+  }
+
+  const ids = (products ?? []).map((p) => p.id as string);
+  const coverPaths = await firstImagePathsFor(supabase, ids);
+  const urls = await getImageUrls(ids.map((id) => coverPaths.get(id) ?? null));
+
+  return (products ?? []).map((row, index) => ({
+    id: row.id as string,
+    category_id: row.category_id as string,
+    sku: row.sku as string,
+    name: row.name as string,
+    description: row.description as string | null,
+    imageUrl: urls[index],
+  }));
+}
+
+export async function getPublicProduct(id: string): Promise<PublicProductDetail | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("products_public")
+    .select("id, category_id, sku, name, description, category:categories (*)")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[katalog] Öffentliches Artikeldetail:", error.message);
+    return null;
+  }
+  if (!data) return null;
+
+  const { data: imageRows } = await supabase
+    .from("product_images")
+    .select("id, product_id, file_path, display_order, created_at")
+    .eq("product_id", id);
+
+  const images = sortImages((imageRows ?? []) as ProductImage[]);
+  const imageUrls = await getImageUrls(images.map((image) => image.file_path));
+
+  const row = data as unknown as {
+    id: string;
+    category_id: string;
+    sku: string;
+    name: string;
+    description: string | null;
+    category: Category | null;
+  };
+
+  return {
+    id: row.id,
+    category_id: row.category_id,
+    sku: row.sku,
+    name: row.name,
+    description: row.description,
+    category: row.category ?? null,
+    imageUrl: imageUrls[0] ?? null,
+    imageUrls,
+  };
+}
+
+/** Erstes Foto je Artikel-ID, für die Titelbilder im öffentlichen Grid. */
+async function firstImagePathsFor(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  productIds: string[],
+): Promise<Map<string, string | null>> {
+  const result = new Map<string, string | null>();
+  if (productIds.length === 0) return result;
+
+  const { data, error } = await supabase
+    .from("product_images")
+    .select("product_id, file_path, display_order")
+    .in("product_id", productIds);
+
+  if (error) {
+    console.error("[katalog] Öffentliche Titelbilder:", error.message);
+    return result;
+  }
+
+  const byProduct = new Map<string, { file_path: string; display_order: number }[]>();
+  for (const row of data ?? []) {
+    const list = byProduct.get(row.product_id as string) ?? [];
+    list.push({
+      file_path: row.file_path as string,
+      display_order: row.display_order as number,
+    });
+    byProduct.set(row.product_id as string, list);
+  }
+
+  for (const id of productIds) {
+    const images = byProduct.get(id);
+    if (!images || images.length === 0) {
+      result.set(id, null);
+      continue;
+    }
+    images.sort((a, b) => a.display_order - b.display_order);
+    result.set(id, images[0].file_path);
+  }
+
+  return result;
 }
 
 function sortImages(images: ProductImage[]): ProductImage[] {

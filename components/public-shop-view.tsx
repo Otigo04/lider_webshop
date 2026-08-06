@@ -1,15 +1,15 @@
 import Link from "next/link";
 import { Search } from "lucide-react";
-import { ProductGrid } from "@/components/product-grid";
+import { CategoryPill } from "@/components/shop-view";
+import { PublicProductGrid } from "@/components/public-product-grid";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
-import type { ProductListItem } from "@/lib/queries/products";
+import type { PublicProductListItem } from "@/lib/queries/products";
 import type { Category } from "@/lib/types";
 
-interface ShopViewProps {
+interface PublicShopViewProps {
   categories: Category[];
-  products: ProductListItem[];
+  products: PublicProductListItem[];
   /** Slug der aktiven Kategorie, null auf der Gesamtübersicht */
   activeSlug: string | null;
   search: string;
@@ -19,7 +19,12 @@ interface ShopViewProps {
   description?: string | null;
 }
 
-export function ShopView({
+/**
+ * Schaufenster-Variante von ShopView für nicht angemeldete Besucher: gleiches
+ * Layout (Suche, Kategorie-Filter, Grid), aber ohne Preise/Bestand und mit
+ * einem Hinweis, dass Bestellen ein Konto braucht.
+ */
+export function PublicShopView({
   categories,
   products,
   activeSlug,
@@ -27,10 +32,23 @@ export function ShopView({
   action,
   heading,
   description,
-}: ShopViewProps) {
+}: PublicShopViewProps) {
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
-      <div className="flex flex-wrap items-end justify-between gap-4">
+      <div className="rounded-md border border-border bg-muted px-4 py-3 text-sm text-muted-foreground">
+        Sie sehen das Sortiment ohne Preise. Für Staffelpreise, Bestände und
+        Bestellungen brauchen Sie ein Kundenkonto.{" "}
+        <Link href="/login" className="font-medium text-foreground underline">
+          Anmelden
+        </Link>{" "}
+        oder{" "}
+        <Link href="/#kontakt" className="font-medium text-foreground underline">
+          Zugang anfragen
+        </Link>
+        .
+      </div>
+
+      <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="eyebrow text-muted-foreground">Sortiment</p>
           <h1 className="headline mt-2 text-3xl font-bold">{heading}</h1>
@@ -41,7 +59,6 @@ export function ShopView({
           ) : null}
         </div>
 
-        {/* Ohne JavaScript nutzbar: normales GET-Formular */}
         <form action={action} className="flex w-full max-w-sm gap-2">
           <div className="relative flex-1">
             <Search
@@ -63,10 +80,6 @@ export function ShopView({
         </form>
       </div>
 
-      {/*
-       * Der Nummernkreis steht mit an der Kategorie: Artikel tragen ihn in
-       * ihrer Artikelnummer, Kunden bestellen und reklamieren darüber.
-       */}
       <nav className="mt-8 flex flex-wrap gap-2 border-b border-border pb-4">
         <CategoryPill href="/shop" active={activeSlug === null}>
           Alle Artikel
@@ -84,14 +97,12 @@ export function ShopView({
       </nav>
 
       <p className="mt-6 text-sm text-muted-foreground tabular">
-        {products.length === 1
-          ? "1 Artikel"
-          : `${products.length} Artikel`}
+        {products.length === 1 ? "1 Artikel" : `${products.length} Artikel`}
         {search ? ` für „${search}“` : ""}
       </p>
 
       <div className="mt-4">
-        <ProductGrid
+        <PublicProductGrid
           products={products}
           emptyMessage={
             search
@@ -101,42 +112,5 @@ export function ShopView({
         />
       </div>
     </div>
-  );
-}
-
-export function CategoryPill({
-  href,
-  active,
-  code,
-  children,
-}: {
-  href: string;
-  active: boolean;
-  code?: string | null;
-  children: React.ReactNode;
-}) {
-  return (
-    <Link
-      href={href}
-      aria-current={active ? "page" : undefined}
-      className={cn(
-        "inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm transition-colors",
-        active
-          ? "border-foreground bg-foreground text-background"
-          : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground",
-      )}
-    >
-      {code ? (
-        <span
-          className={cn(
-            "code text-xs",
-            active ? "text-background/60" : "text-muted-foreground/70",
-          )}
-        >
-          {code}
-        </span>
-      ) : null}
-      {children}
-    </Link>
   );
 }

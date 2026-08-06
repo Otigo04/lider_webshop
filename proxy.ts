@@ -14,8 +14,13 @@ import { createServerClient } from "@supabase/ssr";
  * DB-Query pro Request wäre im Proxy zu teuer.
  */
 
+/**
+ * /shop ist bewusst NICHT geschützt: das Sortiment ist auch ohne Login als
+ * Schaufenster sichtbar (Name, Foto, Beschreibung – ohne Preise und Bestand,
+ * siehe supabase/migrations/006_oeffentlicher_katalog.sql). Bestellen bleibt
+ * über /cart und /checkout an ein Konto gebunden.
+ */
 const PROTECTED_PREFIXES = [
-  "/shop",
   "/cart",
   "/checkout",
   "/orders",
