@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import {
   changePassword,
@@ -9,9 +9,9 @@ import {
   type FormState,
 } from "@/lib/actions/account";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import type { AppUser } from "@/lib/types";
 
 function SaveButton({ label }: { label: string }) {
@@ -82,41 +82,129 @@ export function ProfileForm({ user }: { user: AppUser }) {
   );
 }
 
+function AddressFieldGroup({
+  prefix,
+  defaults,
+}: {
+  prefix: "billing" | "shipping";
+  defaults: {
+    street: string | null;
+    zip: string | null;
+    city: string | null;
+    country: string | null;
+  };
+}) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-[1fr_8rem]">
+      <div className="space-y-2 sm:col-span-2">
+        <Label htmlFor={`${prefix}_street`}>Straße und Hausnummer</Label>
+        <Input
+          id={`${prefix}_street`}
+          name={`${prefix}_street`}
+          defaultValue={defaults.street ?? ""}
+          maxLength={200}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor={`${prefix}_zip`}>PLZ</Label>
+        <Input
+          id={`${prefix}_zip`}
+          name={`${prefix}_zip`}
+          defaultValue={defaults.zip ?? ""}
+          maxLength={20}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor={`${prefix}_city`}>Ort</Label>
+        <Input
+          id={`${prefix}_city`}
+          name={`${prefix}_city`}
+          defaultValue={defaults.city ?? ""}
+          maxLength={120}
+        />
+      </div>
+      <div className="space-y-2 sm:col-span-2">
+        <Label htmlFor={`${prefix}_country`}>Land</Label>
+        <Input
+          id={`${prefix}_country`}
+          name={`${prefix}_country`}
+          defaultValue={defaults.country ?? "Deutschland"}
+          maxLength={80}
+        />
+      </div>
+    </div>
+  );
+}
+
+function hasShippingAddress(user: AppUser): boolean {
+  return Boolean(
+    user.shipping_street || user.shipping_zip || user.shipping_city,
+  );
+}
+
+function shippingDiffersFromBilling(user: AppUser): boolean {
+  return (
+    (user.shipping_street ?? "") !== (user.billing_street ?? "") ||
+    (user.shipping_zip ?? "") !== (user.billing_zip ?? "") ||
+    (user.shipping_city ?? "") !== (user.billing_city ?? "")
+  );
+}
+
 export function AddressForm({ user }: { user: AppUser }) {
   const [state, formAction] = useActionState<FormState, FormData>(
     updateAddresses,
     {},
   );
+  const [differentShipping, setDifferentShipping] = useState(
+    () => hasShippingAddress(user) && shippingDiffersFromBilling(user),
+  );
 
   return (
-    <form action={formAction} className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="billing_address">Rechnungsadresse</Label>
-        <Textarea
-          id="billing_address"
-          name="billing_address"
-          rows={4}
-          maxLength={500}
-          defaultValue={user.billing_address ?? ""}
-          placeholder="Firma, Straße, PLZ Ort"
+    <form action={formAction} className="space-y-6">
+      <div className="space-y-3">
+        <p className="text-sm font-medium">Rechnungsadresse</p>
+        <AddressFieldGroup
+          prefix="billing"
+          defaults={{
+            street: user.billing_street,
+            zip: user.billing_zip,
+            city: user.billing_city,
+            country: user.billing_country,
+          }}
         />
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="shipping_address">Versandadresse</Label>
-        <Textarea
-          id="shipping_address"
-          name="shipping_address"
-          rows={4}
-          maxLength={500}
-          defaultValue={user.shipping_address ?? ""}
-          placeholder="Firma, Straße, PLZ Ort"
+      <div className="flex items-center gap-2">
+        <Checkbox
+          id="different_shipping"
+          name="different_shipping"
+          checked={differentShipping}
+          onCheckedChange={(checked) => setDifferentShipping(checked === true)}
         />
-        <p className="text-xs text-muted-foreground">
-          Wird im Bestellprozess als Vorschlag für die Lieferadresse
-          verwendet.
-        </p>
+        <Label htmlFor="different_shipping" className="font-normal">
+          Abweichende Lieferadresse
+        </Label>
       </div>
+
+      {differentShipping ? (
+        <div className="space-y-3">
+          <p className="text-sm font-medium">Versandadresse</p>
+          <AddressFieldGroup
+            prefix="shipping"
+            defaults={{
+              street: user.shipping_street,
+              zip: user.shipping_zip,
+              city: user.shipping_city,
+              country: user.shipping_country,
+            }}
+          />
+        </div>
+      ) : null}
+
+      <p className="text-xs text-muted-foreground">
+        Die Versandadresse wird im Bestellprozess als Vorschlag für die
+        Lieferadresse verwendet – ohne Häkchen gilt die Rechnungsadresse.
+      </p>
 
       <Feedback state={state} />
       <SaveButton label="Adressen speichern" />

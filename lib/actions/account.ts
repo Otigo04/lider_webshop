@@ -53,10 +53,23 @@ export async function updateProfile(
 }
 
 const addressSchema = z.object({
-  billing_address: z.string().trim().max(500).optional(),
-  shipping_address: z.string().trim().max(500).optional(),
+  billing_street: z.string().trim().max(200).optional(),
+  billing_zip: z.string().trim().max(20).optional(),
+  billing_city: z.string().trim().max(120).optional(),
+  billing_country: z.string().trim().max(80).optional(),
+  different_shipping: z.boolean(),
+  shipping_street: z.string().trim().max(200).optional(),
+  shipping_zip: z.string().trim().max(20).optional(),
+  shipping_city: z.string().trim().max(120).optional(),
+  shipping_country: z.string().trim().max(80).optional(),
 });
 
+/**
+ * Ohne Häkchen bei "Abweichende Lieferadresse" wird die Versandadresse
+ * beim Speichern auf die Rechnungsadresse gespiegelt – so bleibt der
+ * Checkout-Vorschlag (lib/queries/products.ts nutzt ihn nicht, aber
+ * app/checkout/page.tsx) auch ohne separate Eingabe korrekt befüllt.
+ */
 export async function updateAddresses(
   _prevState: FormState,
   formData: FormData,
@@ -64,20 +77,36 @@ export async function updateAddresses(
   const user = await requireUser("/account");
 
   const parsed = addressSchema.safeParse({
-    billing_address: formData.get("billing_address") ?? undefined,
-    shipping_address: formData.get("shipping_address") ?? undefined,
+    billing_street: formData.get("billing_street") ?? undefined,
+    billing_zip: formData.get("billing_zip") ?? undefined,
+    billing_city: formData.get("billing_city") ?? undefined,
+    billing_country: formData.get("billing_country") ?? undefined,
+    different_shipping: formData.get("different_shipping") === "on",
+    shipping_street: formData.get("shipping_street") ?? undefined,
+    shipping_zip: formData.get("shipping_zip") ?? undefined,
+    shipping_city: formData.get("shipping_city") ?? undefined,
+    shipping_country: formData.get("shipping_country") ?? undefined,
   });
 
   if (!parsed.success) {
     return { error: parsed.error.issues[0].message };
   }
 
+  const data = parsed.data;
+  const useShipping = data.different_shipping;
+
   const supabase = await createClient();
   const { error } = await supabase
     .from("users")
     .update({
-      billing_address: parsed.data.billing_address || null,
-      shipping_address: parsed.data.shipping_address || null,
+      billing_street: data.billing_street || null,
+      billing_zip: data.billing_zip || null,
+      billing_city: data.billing_city || null,
+      billing_country: data.billing_country || null,
+      shipping_street: (useShipping ? data.shipping_street : data.billing_street) || null,
+      shipping_zip: (useShipping ? data.shipping_zip : data.billing_zip) || null,
+      shipping_city: (useShipping ? data.shipping_city : data.billing_city) || null,
+      shipping_country: (useShipping ? data.shipping_country : data.billing_country) || null,
     })
     .eq("id", user.id);
 

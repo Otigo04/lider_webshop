@@ -31,7 +31,9 @@ export async function getCurrentUser(): Promise<AppUser | null> {
   const { data, error } = await supabase
     .from("users")
     .select(
-      "id, email, full_name, company_name, role, is_active, created_at, billing_address, shipping_address",
+      `id, email, full_name, company_name, role, is_active, created_at,
+       billing_street, billing_zip, billing_city, billing_country,
+       shipping_street, shipping_zip, shipping_city, shipping_country`,
     )
     .eq("id", user.id)
     .single();

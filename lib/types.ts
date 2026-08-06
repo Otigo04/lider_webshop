@@ -88,8 +88,14 @@ export interface AppUser {
   role: UserRole;
   is_active: boolean;
   created_at: string;
-  billing_address: string | null;
-  shipping_address: string | null;
+  billing_street: string | null;
+  billing_zip: string | null;
+  billing_city: string | null;
+  billing_country: string | null;
+  shipping_street: string | null;
+  shipping_zip: string | null;
+  shipping_city: string | null;
+  shipping_country: string | null;
 }
 
 export interface OrderItem {
@@ -156,8 +162,14 @@ export interface AccessRequest {
   contact_name: string;
   email: string;
   phone: string | null;
-  billing_address: string;
-  shipping_address: string;
+  billing_street: string;
+  billing_zip: string;
+  billing_city: string;
+  billing_country: string;
+  shipping_street: string;
+  shipping_zip: string;
+  shipping_city: string;
+  shipping_country: string;
   message: string | null;
   status: AccessRequestStatus;
   created_at: string;

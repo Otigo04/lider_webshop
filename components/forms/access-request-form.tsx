@@ -21,12 +21,57 @@ function SubmitButton() {
   );
 }
 
+function AddressFieldGroup({ prefix }: { prefix: "billing" | "shipping" }) {
+  const required = prefix === "billing";
+  return (
+    <div className="grid gap-3 sm:grid-cols-[1fr_8rem] sm:col-span-2">
+      <div className="space-y-2 sm:col-span-2">
+        <Label htmlFor={`${prefix}_street`}>Straße und Hausnummer</Label>
+        <Input
+          id={`${prefix}_street`}
+          name={`${prefix}_street`}
+          required={required}
+          maxLength={200}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor={`${prefix}_zip`}>PLZ</Label>
+        <Input
+          id={`${prefix}_zip`}
+          name={`${prefix}_zip`}
+          required={required}
+          maxLength={20}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor={`${prefix}_city`}>Ort</Label>
+        <Input
+          id={`${prefix}_city`}
+          name={`${prefix}_city`}
+          required={required}
+          maxLength={120}
+        />
+      </div>
+      <div className="space-y-2 sm:col-span-2">
+        <Label htmlFor={`${prefix}_country`}>Land</Label>
+        <Input
+          id={`${prefix}_country`}
+          name={`${prefix}_country`}
+          defaultValue="Deutschland"
+          required={required}
+          maxLength={80}
+        />
+      </div>
+    </div>
+  );
+}
+
 export function AccessRequestForm() {
   const [state, formAction] = useActionState<
     AccessRequestFormState,
     FormData
   >(submitAccessRequest, {});
-  const [sameAddress, setSameAddress] = useState(true);
+  const [differentShipping, setDifferentShipping] = useState(false);
 
   if (state.success) {
     return (
@@ -61,43 +106,33 @@ export function AccessRequestForm() {
         <Input id="phone" name="phone" type="tel" maxLength={50} />
       </div>
 
-      <div className="space-y-2 sm:col-span-2">
-        <Label htmlFor="billing_address">Rechnungsadresse</Label>
-        <Textarea
-          id="billing_address"
-          name="billing_address"
-          rows={3}
-          maxLength={500}
-          required
-          placeholder="Firma, Straße, PLZ Ort"
-        />
+      <div className="sm:col-span-2">
+        <p className="text-sm font-medium">Rechnungsadresse</p>
+        <div className="mt-3">
+          <AddressFieldGroup prefix="billing" />
+        </div>
       </div>
 
       <div className="flex items-center gap-2 sm:col-span-2">
         <Checkbox
-          id="same_address"
-          name="same_address"
-          checked={sameAddress}
-          onCheckedChange={(checked) => setSameAddress(checked === true)}
+          id="different_shipping"
+          name="different_shipping"
+          checked={differentShipping}
+          onCheckedChange={(checked) => setDifferentShipping(checked === true)}
         />
-        <Label htmlFor="same_address" className="font-normal">
-          Versandadresse identisch mit Rechnungsadresse
+        <Label htmlFor="different_shipping" className="font-normal">
+          Abweichende Lieferadresse
         </Label>
       </div>
 
-      {sameAddress ? null : (
-        <div className="space-y-2 sm:col-span-2">
-          <Label htmlFor="shipping_address">Versandadresse</Label>
-          <Textarea
-            id="shipping_address"
-            name="shipping_address"
-            rows={3}
-            maxLength={500}
-            required
-            placeholder="Firma, Straße, PLZ Ort"
-          />
+      {differentShipping ? (
+        <div className="sm:col-span-2">
+          <p className="text-sm font-medium">Versandadresse</p>
+          <div className="mt-3">
+            <AddressFieldGroup prefix="shipping" />
+          </div>
         </div>
-      )}
+      ) : null}
 
       <div className="space-y-2 sm:col-span-2">
         <Label htmlFor="message">Nachricht</Label>

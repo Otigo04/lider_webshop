@@ -9,6 +9,7 @@
 --   5. supabase/migrations/004_artikelnummern_und_versand.sql
 --   6. supabase/migrations/005_zugangsanfragen_und_adressen.sql
 --   7. supabase/migrations/006_oeffentlicher_katalog.sql
+--   8. supabase/migrations/007_strukturierte_adressen.sql
 --
 -- Alle Skripte sind idempotent und können gefahrlos erneut laufen.
 -- =============================================================================

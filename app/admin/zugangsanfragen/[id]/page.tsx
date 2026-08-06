@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { AccessRequestStatusSelect } from "@/components/admin/access-request-status-select";
 import { Button } from "@/components/ui/button";
+import { composeAddress } from "@/lib/address";
 import { formatDate } from "@/lib/format";
 import { getAccessRequest } from "@/lib/queries/admin";
 
@@ -62,13 +63,23 @@ export default async function AdminAccessRequestDetailPage({
         <section>
           <h2 className="font-medium">Rechnungsadresse</h2>
           <p className="mt-2 whitespace-pre-line text-sm text-muted-foreground">
-            {request.billing_address}
+            {composeAddress({
+              street: request.billing_street,
+              zip: request.billing_zip,
+              city: request.billing_city,
+              country: request.billing_country,
+            })}
           </p>
         </section>
         <section>
           <h2 className="font-medium">Versandadresse</h2>
           <p className="mt-2 whitespace-pre-line text-sm text-muted-foreground">
-            {request.shipping_address}
+            {composeAddress({
+              street: request.shipping_street,
+              zip: request.shipping_zip,
+              city: request.shipping_city,
+              country: request.shipping_country,
+            })}
           </p>
         </section>
       </div>

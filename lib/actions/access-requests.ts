@@ -8,21 +8,22 @@ export interface AccessRequestFormState {
   success?: string;
 }
 
-const requestSchema = z
-  .object({
-    company_name: z.string().trim().min(1, "Firma fehlt").max(120),
-    contact_name: z.string().trim().min(1, "Ansprechpartner fehlt").max(120),
-    email: z.string().trim().toLowerCase().email("Keine gültige E-Mail-Adresse"),
-    phone: z.string().trim().max(50).optional(),
-    billing_address: z.string().trim().min(1, "Rechnungsadresse fehlt").max(500),
-    same_address: z.boolean(),
-    shipping_address: z.string().trim().max(500).optional(),
-    message: z.string().trim().max(2000).optional(),
-  })
-  .refine(
-    (data) => data.same_address || (data.shipping_address ?? "").length > 0,
-    { message: "Versandadresse fehlt", path: ["shipping_address"] },
-  );
+const requestSchema = z.object({
+  company_name: z.string().trim().min(1, "Firma fehlt").max(120),
+  contact_name: z.string().trim().min(1, "Ansprechpartner fehlt").max(120),
+  email: z.string().trim().toLowerCase().email("Keine gültige E-Mail-Adresse"),
+  phone: z.string().trim().max(50).optional(),
+  billing_street: z.string().trim().min(1, "Straße fehlt").max(200),
+  billing_zip: z.string().trim().min(1, "PLZ fehlt").max(20),
+  billing_city: z.string().trim().min(1, "Ort fehlt").max(120),
+  billing_country: z.string().trim().min(1, "Land fehlt").max(80),
+  different_shipping: z.boolean(),
+  shipping_street: z.string().trim().max(200).optional(),
+  shipping_zip: z.string().trim().max(20).optional(),
+  shipping_city: z.string().trim().max(120).optional(),
+  shipping_country: z.string().trim().max(80).optional(),
+  message: z.string().trim().max(2000).optional(),
+});
 
 /**
  * Speichert die Anfrage nur – kein E-Mail-Versand (kein SMTP-Anbieter im
@@ -39,9 +40,15 @@ export async function submitAccessRequest(
     contact_name: formData.get("contact_name"),
     email: formData.get("email"),
     phone: formData.get("phone") || undefined,
-    billing_address: formData.get("billing_address"),
-    same_address: formData.get("same_address") === "on",
-    shipping_address: formData.get("shipping_address") || undefined,
+    billing_street: formData.get("billing_street"),
+    billing_zip: formData.get("billing_zip"),
+    billing_city: formData.get("billing_city"),
+    billing_country: formData.get("billing_country"),
+    different_shipping: formData.get("different_shipping") === "on",
+    shipping_street: formData.get("shipping_street") || undefined,
+    shipping_zip: formData.get("shipping_zip") || undefined,
+    shipping_city: formData.get("shipping_city") || undefined,
+    shipping_country: formData.get("shipping_country") || undefined,
     message: formData.get("message") || undefined,
   });
 
@@ -50,16 +57,29 @@ export async function submitAccessRequest(
   }
 
   const data = parsed.data;
+
+  if (
+    data.different_shipping &&
+    (!data.shipping_street || !data.shipping_zip || !data.shipping_city)
+  ) {
+    return { error: "Versandadresse ist unvollständig." };
+  }
+
+  const useShipping = data.different_shipping;
   const supabase = await createClient();
   const { error } = await supabase.from("access_requests").insert({
     company_name: data.company_name,
     contact_name: data.contact_name,
     email: data.email,
     phone: data.phone || null,
-    billing_address: data.billing_address,
-    shipping_address: data.same_address
-      ? data.billing_address
-      : (data.shipping_address as string),
+    billing_street: data.billing_street,
+    billing_zip: data.billing_zip,
+    billing_city: data.billing_city,
+    billing_country: data.billing_country,
+    shipping_street: useShipping ? data.shipping_street : data.billing_street,
+    shipping_zip: useShipping ? data.shipping_zip : data.billing_zip,
+    shipping_city: useShipping ? data.shipping_city : data.billing_city,
+    shipping_country: useShipping ? data.shipping_country : data.billing_country,
     message: data.message || null,
   });
 
