@@ -15,8 +15,12 @@ CREATE INDEX IF NOT EXISTS idx_products_is_new ON public.products(is_new) WHERE 
 
 -- products_public (Migration 006) muss is_new mitliefern, sonst kann die
 -- Landingpage für anonyme Besucher keine Neuheiten filtern.
+--
+-- CREATE OR REPLACE VIEW darf bestehende Spalten nicht umbenennen oder
+-- umsortieren (Postgres-Fehler 42P16) - neue Spalten müssen ans Ende. Erster
+-- Versuch hatte is_new vor created_at/updated_at eingefügt, das schlug fehl.
 CREATE OR REPLACE VIEW public.products_public AS
-SELECT id, category_id, sku, name, description, is_active, is_new, created_at, updated_at
+SELECT id, category_id, sku, name, description, is_active, created_at, updated_at, is_new
 FROM public.products
 WHERE is_active = true;
 
