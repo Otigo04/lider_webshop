@@ -36,6 +36,13 @@ export async function submitAccessRequest(
   _prevState: AccessRequestFormState,
   formData: FormData,
 ): Promise<AccessRequestFormState> {
+  // Lockvogelfeld: für Menschen unsichtbar, Formularroboter füllen es aus.
+  // Kommentarlos als Erfolg quittieren – wer automatisiert sendet, soll nicht
+  // erfahren, woran es gescheitert ist.
+  if (formData.get("website")) {
+    return { success: "Anfrage eingegangen. Wir melden uns bei Ihnen." };
+  }
+
   const parsed = requestSchema.safeParse({
     company_name: formData.get("company_name"),
     first_name: formData.get("first_name"),
@@ -87,6 +94,11 @@ export async function submitAccessRequest(
   });
 
   if (error) {
+    // Die Bremse aus Migration 014 meldet sich als check_violation und trägt
+    // einen Text, den der Besucher lesen darf.
+    if (error.code === "23514" || error.message.includes("Anfrage")) {
+      return { error: error.message.replace(/^.*?:\s*/, "") };
+    }
     console.error("[zugang] Anfrage speichern:", error.message);
     return { error: "Die Anfrage konnte nicht gesendet werden." };
   }

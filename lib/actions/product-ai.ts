@@ -36,10 +36,38 @@ const analysisSchema = z.object({
  * Wirft nie, damit ein Fehler (fehlender API-Key, Rate-Limit, Netzwerk) das
  * Formular nie blockiert – der Admin füllt in dem Fall einfach manuell aus.
  */
+/**
+ * Die URL kommt aus dem Browser und wird serverseitig abgerufen. Ohne Prüfung
+ * ließe sich damit jede Adresse ansteuern, die dieser Server erreicht – auch
+ * interne. Erlaubt ist deshalb ausschließlich der Storage des eigenen
+ * Supabase-Projekts, aus dem das Formular ohnehin gerade hochgeladen hat.
+ */
+function istEigenesStorageBild(url: string): boolean {
+  const basis = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!basis) return false;
+
+  try {
+    const ziel = new URL(url);
+    const erlaubt = new URL(basis);
+    return (
+      ziel.protocol === "https:" &&
+      ziel.hostname === erlaubt.hostname &&
+      ziel.pathname.startsWith("/storage/v1/object/")
+    );
+  } catch {
+    return false;
+  }
+}
+
 export async function analyzeProductPhoto(
   imageUrl: string,
 ): Promise<AnalyzeState> {
   await requireAdmin();
+
+  if (!istEigenesStorageBild(imageUrl)) {
+    console.error("[admin] KI-Fotoanalyse: URL außerhalb des eigenen Storage");
+    return { error: "Dieses Bild lässt sich nicht analysieren." };
+  }
 
   const categories = await getCategories();
   if (categories.length === 0) {

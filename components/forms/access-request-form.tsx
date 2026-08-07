@@ -86,6 +86,22 @@ export function AccessRequestForm() {
 
   return (
     <form action={formAction} className="space-y-8">
+      {/*
+        Lockvogelfeld gegen Formularroboter: für Menschen unsichtbar und aus
+        der Tab-Reihenfolge und der Vorlesereihenfolge genommen. Ist es
+        ausgefüllt, verwirft lib/actions/access-requests.ts die Anfrage.
+      */}
+      <div className="absolute left-[-9999px] h-0 w-0 overflow-hidden" aria-hidden>
+        <label htmlFor="website">Website (bitte frei lassen)</label>
+        <input
+          id="website"
+          name="website"
+          type="text"
+          tabIndex={-1}
+          autoComplete="off"
+        />
+      </div>
+
       <div>
         <p className="text-sm font-medium">Kontakt</p>
         <div className="mt-3 grid gap-4 sm:grid-cols-2">
