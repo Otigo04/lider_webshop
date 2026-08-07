@@ -29,7 +29,8 @@ CREATE POLICY categories_read ON public.categories
 -- 2. Artikel: öffentliche View ohne Bestandsspalten
 -- -----------------------------------------------------------------------------
 
-CREATE OR REPLACE VIEW public.products_public AS
+DROP VIEW IF EXISTS public.products_public;
+CREATE VIEW public.products_public AS
 SELECT id, category_id, sku, name, description, is_active, created_at, updated_at
 FROM public.products
 WHERE is_active = true;

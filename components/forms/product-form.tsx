@@ -5,10 +5,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useFormStatus } from "react-dom";
-import { Plus, Sparkles, Trash2, Upload, X } from "lucide-react";
+import { Plus, Trash2, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import { saveProduct } from "@/lib/actions/admin-products";
-import { analyzeProductPhoto } from "@/lib/actions/product-ai";
 import type { AdminFormState } from "@/lib/actions/admin-categories";
 import {
   ALLOWED_IMAGE_TYPES,
@@ -80,7 +79,6 @@ export function ProductForm({
   const [name, setName] = useState(product?.name ?? "");
   const [description, setDescription] = useState(product?.description ?? "");
   const [categoryId, setCategoryId] = useState(product?.category_id ?? "");
-  const [analyzing, setAnalyzing] = useState(false);
 
   const [tiers, setTiers] = useState<TierRow[]>(() =>
     product && product.variants.length > 0
@@ -121,7 +119,6 @@ export function ProductForm({
     setUploading(true);
     const supabase = createClient();
     const added: ImageRow[] = [];
-    const isFirstUpload = isNew && images.length === 0;
 
     for (const file of Array.from(files)) {
       if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
@@ -155,32 +152,6 @@ export function ProductForm({
     setImages((current) => [...current, ...added]);
     setUploading(false);
     if (fileInput.current) fileInput.current.value = "";
-
-    // Nur beim allerersten Foto eines neuen Artikels: KI schlägt Name,
-    // Beschreibung und Kategorie vor. Nie beim Bearbeiten (Daten existieren
-    // schon) und nie ohne erfolgreichen Upload.
-    if (isFirstUpload && added[0]?.url) {
-      void runAnalysis(added[0].url);
-    }
-  }
-
-  async function runAnalysis(imageUrl: string) {
-    setAnalyzing(true);
-    const result = await analyzeProductPhoto(imageUrl);
-    setAnalyzing(false);
-
-    if (result.error || !result.data) {
-      toast.info("KI-Vorschlag nicht verfügbar – bitte manuell ausfüllen.");
-      return;
-    }
-
-    // Nur leere Felder befüllen, falls der Admin während des Uploads schon
-    // selbst zu tippen angefangen hat.
-    setName((current) => current || result.data!.name);
-    setDescription((current) => current || result.data!.description);
-    if (result.data.category_id) {
-      setCategoryId((current) => current || result.data!.category_id!);
-    }
   }
 
   async function handleRemoveImage(path: string) {
@@ -425,18 +396,6 @@ export function ProductForm({
           JPEG, PNG, WebP oder AVIF, maximal 5 MB. Das erste Foto ist das
           Titelbild.
         </p>
-        {isNew ? (
-          <p className="mt-1 text-sm text-muted-foreground">
-            Das erste Foto schlägt automatisch Bezeichnung, Beschreibung und
-            Kategorie vor – Felder oben bleiben trotzdem editierbar.
-          </p>
-        ) : null}
-        {analyzing ? (
-          <p className="mt-2 flex items-center gap-1.5 text-sm text-muted-foreground">
-            <Sparkles className="size-4 animate-pulse" aria-hidden />
-            KI analysiert Foto …
-          </p>
-        ) : null}
 
         <div className="mt-4 flex flex-wrap gap-3">
           {images.map((image) => (
