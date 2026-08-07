@@ -1,14 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { PublicShopView } from "@/components/public-shop-view";
 import { ShopView } from "@/components/shop-view";
-import { getCurrentUser } from "@/lib/auth";
-import {
-  getCategories,
-  getCategoryBySlug,
-  getProducts,
-  getPublicProducts,
-} from "@/lib/queries/products";
+import { getCategoryBySlug } from "@/lib/queries/products";
+import { loadShopPage } from "@/lib/queries/shop-page";
 
 export async function generateMetadata({
   params,
@@ -23,44 +17,26 @@ export default async function CategoryPage({
   searchParams,
 }: PageProps<"/shop/[category]">) {
   const { category: slug } = await params;
-  const user = await getCurrentUser();
-
   const category = await getCategoryBySlug(slug);
   if (!category) notFound();
 
-  const query = await searchParams;
-  const search = typeof query.q === "string" ? query.q : "";
+  const daten = await loadShopPage({
+    searchParams: await searchParams,
+    categoryId: category.id,
+  });
 
-  if (!user || !user.is_active) {
-    const [categories, products] = await Promise.all([
-      getCategories(),
-      getPublicProducts({ categoryId: category.id, search }),
-    ]);
-
-    return (
-      <PublicShopView
-        categories={categories}
-        products={products}
-        activeSlug={category.slug}
-        search={search}
-        action={`/shop/${category.slug}`}
-        heading={category.name}
-        description={category.description}
-      />
-    );
-  }
-
-  const [categories, products] = await Promise.all([
-    getCategories(),
-    getProducts({ categoryId: category.id, search }),
-  ]);
+  // In der Kategorie zählt die Kategorie, nicht der Gesamtkatalog.
+  const gesamt =
+    daten.categories.find((eintrag) => eintrag.id === category.id)?.productCount ??
+    0;
 
   return (
     <ShopView
-      categories={categories}
-      products={products}
+      {...daten}
+      totalCount={gesamt}
+      products={daten.kundenArtikel}
+      publicProducts={daten.besucherArtikel}
       activeSlug={category.slug}
-      search={search}
       action={`/shop/${category.slug}`}
       heading={category.name}
       description={category.description}

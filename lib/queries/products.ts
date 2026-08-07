@@ -127,6 +127,33 @@ export async function getCategories(): Promise<Category[]> {
   return data as Category[];
 }
 
+/**
+ * Artikel je Kategorie, für die Zahlen in der Filterspalte. Liest aus der
+ * öffentlichen View: die Zählung soll auch ohne Login stimmen, und Preise
+ * oder Bestände braucht sie nicht.
+ */
+export async function getCategoryCounts(options?: {
+  flag?: ProductFlag;
+}): Promise<Map<string, number>> {
+  const supabase = await createClient();
+
+  let query = supabase.from("products_public").select("category_id");
+  if (options?.flag) query = query.eq(options.flag, true);
+
+  const { data, error } = await query;
+  if (error) {
+    console.error("[katalog] Kategoriezählung:", error.message);
+    return new Map();
+  }
+
+  const zaehler = new Map<string, number>();
+  for (const row of data ?? []) {
+    const id = row.category_id as string;
+    zaehler.set(id, (zaehler.get(id) ?? 0) + 1);
+  }
+  return zaehler;
+}
+
 export async function getCategoryBySlug(slug: string): Promise<Category | null> {
   const supabase = await createClient();
   const { data } = await supabase
@@ -141,14 +168,20 @@ export async function getProducts(options?: {
   categoryId?: string;
   search?: string;
   flag?: ProductFlag;
+  /** "created_at" liefert die zuletzt aufgenommenen zuerst; sonst nach Name */
+  orderBy?: "created_at";
 }): Promise<ProductListItem[]> {
   const supabase = await createClient();
 
   let query = supabase
     .from("products")
     .select(LIST_COLUMNS)
-    .eq("is_active", true)
-    .order("name");
+    .eq("is_active", true);
+
+  query =
+    options?.orderBy === "created_at"
+      ? query.order("created_at", { ascending: false })
+      : query.order("name");
 
   if (options?.categoryId) {
     query = query.eq("category_id", options.categoryId);
@@ -232,13 +265,19 @@ export async function getPublicProducts(options?: {
   categoryId?: string;
   search?: string;
   flag?: ProductFlag;
+  /** "created_at" liefert die zuletzt aufgenommenen zuerst; sonst nach Name */
+  orderBy?: "created_at";
 }): Promise<PublicProductListItem[]> {
   const supabase = await createClient();
 
   let query = supabase
     .from("products_public")
-    .select("id, category_id, sku, name, description, is_new, is_topseller")
-    .order("name");
+    .select("id, category_id, sku, name, description, is_new, is_topseller");
+
+  query =
+    options?.orderBy === "created_at"
+      ? query.order("created_at", { ascending: false })
+      : query.order("name");
 
   if (options?.categoryId) {
     query = query.eq("category_id", options.categoryId);
