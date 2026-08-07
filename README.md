@@ -32,11 +32,22 @@ Supabase Dashboard → Project Settings → API.
 
 Im Supabase SQL Editor, in dieser Reihenfolge. Alle Skripte sind idempotent.
 
-1. `supabase/schema.sql`
-2. `supabase/migrations/001_bestand_auf_produkt.sql`
-3. `supabase/migrations/002_bestellung_anlegen.sql`
-4. `supabase/migrations/003_erstadmin_ermoeglichen.sql`
-5. `supabase/migrations/004_artikelnummern_und_versand.sql`
+`supabase/schema.sql` zuerst, danach die Dateien in `supabase/migrations/`
+aufsteigend nach Nummer – von `001_bestand_auf_produkt.sql` bis
+`012_bildzugriff_ohne_produkt_rls.sql`.
+
+### Testdaten
+
+Für Entwicklung und Demo legt
+
+```bash
+node --env-file=.env.local scripts/seed-testartikel.mjs
+```
+
+20 Artikel mit Preisstaffeln, Beständen und Platzhalterbildern an, dazu die
+drei Warengruppen. Das Skript läuft mit dem Service-Key, umgeht also RLS, und
+gehört nie gegen die Produktivdatenbank. Bereits vorhandene Artikel überspringt
+es, ein abgebrochener Bild-Upload wird beim nächsten Lauf nachgeholt.
 
 ### Erstes Adminkonto
 
