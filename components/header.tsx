@@ -45,13 +45,19 @@ export async function Header() {
         </Link>
 
         <nav className="hidden items-center gap-6 text-sm md:flex">
+          {/* Unterstrich läuft beim Überfahren von links ein – zeigt das Ziel
+              an, ohne die Zeile beim Umschalten springen zu lassen. */}
           {links.map((link) => (
             <Link
               key={link.href}
               href={link.href}
-              className="text-surface-dark-muted transition-colors hover:text-surface-dark-foreground"
+              className="group relative py-1 text-surface-dark-muted transition-colors hover:text-surface-dark-foreground"
             >
               {link.label}
+              <span
+                aria-hidden
+                className="absolute inset-x-0 -bottom-0.5 h-px origin-left scale-x-0 bg-brand transition-transform duration-300 group-hover:scale-x-100"
+              />
             </Link>
           ))}
         </nav>
@@ -73,7 +79,7 @@ export async function Header() {
             </Link>
           )}
           <div className="md:hidden">
-            <MobileNav links={links} />
+            <MobileNav links={links} angemeldet={Boolean(user)} />
           </div>
         </div>
       </div>

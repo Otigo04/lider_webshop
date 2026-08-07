@@ -209,6 +209,140 @@
   .headline {
     letter-spacing: -0.022em;
   }
+
+  /* Waagerechte Artikelreihen: Balken weg, gescrollt wird per Wischen. */
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/*
+ * Bewegung. Absichtlich sparsam: Einblenden beim Scrollen, ein gestaffelter
+ * Auftritt im Kopfbereich und das Katalogband. Nichts davon ist Selbstzweck –
+ * das Band zeigt echte Artikelnummern, das Einblenden führt den Blick von
+ * oben nach unten.
+ */
+@layer components {
+  /* Beim Scrollen einblenden; die Klasse setzt components/reveal.tsx. */
+  .reveal {
+    opacity: 0;
+    transform: translateY(14px);
+    transition:
+      opacity 620ms cubic-bezier(0.16, 1, 0.3, 1),
+      transform 620ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .reveal.is-visible {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* Auftritt im Kopfbereich – läuft beim Laden, ohne JavaScript. */
+  .enter {
+    animation: enter 700ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .enter-1 {
+    animation-delay: 90ms;
+  }
+  .enter-2 {
+    animation-delay: 180ms;
+  }
+  .enter-3 {
+    animation-delay: 270ms;
+  }
+
+  .ticker {
+    overflow: hidden;
+    /* Ränder weich auslaufen lassen, damit Text nicht hart abgeschnitten wirkt. */
+    -webkit-mask-image: linear-gradient(
+      to right,
+      transparent,
+      black 6rem,
+      black calc(100% - 6rem),
+      transparent
+    );
+    mask-image: linear-gradient(
+      to right,
+      transparent,
+      black 6rem,
+      black calc(100% - 6rem),
+      transparent
+    );
+  }
+  .ticker-track {
+    display: flex;
+    width: max-content;
+    animation: ticker 70s linear infinite;
+  }
+  .ticker:hover .ticker-track {
+    animation-play-state: paused;
+  }
+
+  /* Menü auf schmalen Bildschirmen: Panel fährt von oben ein, Einträge
+     folgen versetzt. Die Verzögerung setzt components/mobile-nav.tsx. */
+  .menu-backdrop {
+    animation: fade-in 180ms ease-out both;
+  }
+  .menu-panel {
+    animation: panel-in 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .menu-item {
+    animation: menu-item-in 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+}
+
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(-14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes menu-item-in {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes ticker {
+  from {
+    transform: translateX(0);
+  }
+  /* -50 %, weil die Liste zweimal im Track steht (nahtloser Umlauf). */
+  to {
+    transform: translateX(-50%);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -217,5 +351,27 @@
   *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
+  }
+
+  /*
+   * Endlosanimationen brauchen eine eigene Regel: mit 0.01ms Dauer würde das
+   * Katalogband nicht stehen bleiben, sondern flimmern. Inhalte, die sonst
+   * eingeblendet werden, sind hier von Anfang an sichtbar.
+   */
+  .ticker-track {
+    animation: none !important;
+    transform: none !important;
+  }
+  .reveal {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .enter,
+  .menu-panel,
+  .menu-item,
+  .menu-backdrop {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
   }
 }

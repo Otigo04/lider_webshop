@@ -13,7 +13,13 @@ export function ProductFlagBadges({
   if (!isNew && !isTopseller) return null;
 
   return (
-    <div className={cn("absolute left-2 top-2 z-10 flex flex-col gap-1", className)}>
+    // items-start, sonst zieht das breitere Chip das schmalere auf seine Breite.
+    <div
+      className={cn(
+        "absolute left-2 top-2 z-10 flex flex-col items-start gap-1",
+        className,
+      )}
+    >
       {isNew ? (
         <span className="rounded-md bg-brand px-2 py-0.5 text-xs font-medium text-brand-foreground">
           Neu

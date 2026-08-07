@@ -1,4 +1,5 @@
 import { PublicProductCard } from "@/components/public-product-card";
+import { Reveal } from "@/components/reveal";
 import type { PublicProductListItem } from "@/lib/queries/products";
 
 export function PublicProductGrid({
@@ -18,8 +19,14 @@ export function PublicProductGrid({
 
   return (
     <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-      {products.map((product) => (
-        <PublicProductCard key={product.id} product={product} />
+      {/*
+       * Versatz nur innerhalb der ersten Reihen: bei 200 Artikeln würde eine
+       * fortlaufende Staffelung die letzten Karten sekundenlang zurückhalten.
+       */}
+      {products.map((product, index) => (
+        <Reveal key={product.id} delay={(index % 6) * 55} className="flex">
+          <PublicProductCard product={product} className="w-full" />
+        </Reveal>
       ))}
     </div>
   );

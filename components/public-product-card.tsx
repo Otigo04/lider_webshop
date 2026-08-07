@@ -2,17 +2,28 @@ import Image from "next/image";
 import Link from "next/link";
 import { ImageOff } from "lucide-react";
 import { ProductFlagBadges } from "@/components/product-flag-badges";
+import { formatPrice } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import type { PublicProductListItem } from "@/lib/queries/products";
 
 /**
  * Karte für nicht angemeldete Besucher: kein Preis, kein Bestand – die Daten
  * liegen im PublicProductListItem gar nicht vor (siehe products_public View).
  */
-export function PublicProductCard({ product }: { product: PublicProductListItem }) {
+export function PublicProductCard({
+  product,
+  className,
+}: {
+  product: PublicProductListItem;
+  className?: string;
+}) {
   return (
     <Link
       href={`/shop/product/${product.id}`}
-      className="group flex flex-col overflow-hidden rounded-md border border-border bg-card hover:border-foreground/25"
+      className={cn(
+        "group flex flex-col overflow-hidden rounded-md border border-border bg-card transition-colors hover:border-foreground/25",
+        className,
+      )}
     >
       <div className="relative aspect-4/3 border-b border-border bg-muted">
         <ProductFlagBadges isNew={product.is_new} isTopseller={product.is_topseller} />
@@ -45,9 +56,28 @@ export function PublicProductCard({ product }: { product: PublicProductListItem 
           </p>
         ) : null}
 
-        <p className="mt-auto border-t border-border pt-3 text-sm text-muted-foreground">
-          Preis nach Anmeldung
-        </p>
+        {/*
+          Öffentlich sichtbar ist nur der günstigste Stückpreis. Welche Menge
+          zu welchem Preis führt, steht erst nach der Anmeldung.
+        */}
+        <div className="mt-auto border-t border-border pt-3">
+          {product.priceFrom !== null ? (
+            <>
+              <p className="flex items-baseline gap-1">
+                <span className="text-xs text-muted-foreground">ab</span>
+                <span className="text-xl font-bold tabular">
+                  {formatPrice(product.priceFrom)}
+                </span>
+                <span className="text-xs text-muted-foreground">/ Stück</span>
+              </p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Staffelpreise nach Anmeldung
+              </p>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">Preis nach Anmeldung</p>
+          )}
+        </div>
       </div>
     </Link>
   );

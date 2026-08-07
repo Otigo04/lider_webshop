@@ -2,12 +2,19 @@ import Image from "next/image";
 import Link from "next/link";
 import { ImageOff } from "lucide-react";
 import { formatPrice } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { freeStock, minOrderQuantity, priceRange } from "@/lib/pricing";
 import { ProductFlagBadges } from "@/components/product-flag-badges";
 import { StockBadge } from "@/components/stock-badge";
 import type { ProductListItem } from "@/lib/queries/products";
 
-export function ProductCard({ product }: { product: ProductListItem }) {
+export function ProductCard({
+  product,
+  className,
+}: {
+  product: ProductListItem;
+  className?: string;
+}) {
   const range = priceRange(product.variants);
   const minQty = minOrderQuantity(product.variants);
   const free = freeStock(product);
@@ -15,9 +22,12 @@ export function ProductCard({ product }: { product: ProductListItem }) {
   return (
     <Link
       href={`/shop/product/${product.id}`}
-      className="group flex flex-col overflow-hidden rounded-md border border-border bg-card hover:border-foreground/25"
+      className={cn(
+        "group flex flex-col overflow-hidden rounded-md border border-border bg-card transition-colors hover:border-foreground/25",
+        className,
+      )}
     >
-      <div className="relative aspect-4/3 border-b border-border bg-muted">
+      <div className="relative aspect-4/3 overflow-hidden border-b border-border bg-muted">
         <ProductFlagBadges isNew={product.is_new} isTopseller={product.is_topseller} />
         {product.imageUrl ? (
           <Image
@@ -25,7 +35,7 @@ export function ProductCard({ product }: { product: ProductListItem }) {
             alt={product.name}
             fill
             sizes="(min-width: 1024px) 320px, (min-width: 768px) 45vw, 90vw"
-            className="object-contain p-4"
+            className="object-contain p-4 transition-transform duration-500 group-hover:scale-[1.04]"
           />
         ) : (
           <div className="flex h-full items-center justify-center text-muted-foreground">

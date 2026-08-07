@@ -17,8 +17,23 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="de" className="h-full antialiased">
-      <body className="min-h-full flex flex-col bg-background text-foreground">
+    // Kein h-full auf html: mit height:100% wächst die Seite auf iOS beim
+    // Ein- und Ausblenden der Adressleiste mit und lässt sich weit über den
+    // Inhalt hinaus scrollen. min-h-dvh am body rechnet mit der tatsächlich
+    // sichtbaren Höhe und hat das Problem nicht.
+    <html lang="de" className="antialiased">
+      <head>
+        {/*
+         * Beim Scrollen eingeblendete Abschnitte starten unsichtbar und werden
+         * per JavaScript sichtbar geschaltet (components/reveal.tsx). Ohne
+         * JavaScript bliebe der halbe Seiteninhalt verborgen – deshalb hier
+         * zurück auf sichtbar.
+         */}
+        <noscript>
+          <style>{`.reveal { opacity: 1 !important; transform: none !important; }`}</style>
+        </noscript>
+      </head>
+      <body className="min-h-dvh flex flex-col bg-background text-foreground">
         <CartProvider>
           <Header />
           <main className="flex-1">{children}</main>

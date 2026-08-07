@@ -81,7 +81,10 @@ export default async function ProductPage({
             ) : null}
 
             <div className="mt-8">
-              <PublicPurchaseCta />
+              <PublicPurchaseCta
+                priceFrom={product.priceFrom}
+                minOrderQuantity={product.minOrderQuantity}
+              />
             </div>
           </div>
         </div>
