@@ -5,7 +5,9 @@ import { ChevronLeft } from "lucide-react";
 import { OrderStatusBadge } from "@/components/order-status-badge";
 import { requireUser } from "@/lib/auth";
 import { formatDate, formatPrice, formatQuantity } from "@/lib/format";
-import { getOrder } from "@/lib/queries/orders";
+import { getInvoiceForOrder, getOrder } from "@/lib/queries/orders";
+import { getInvoiceUrl } from "@/lib/storage";
+import { INVOICE_STATUS_LABELS } from "@/lib/types";
 import { DELIVERY_METHOD_LABELS } from "@/lib/shipping";
 
 export async function generateMetadata({
@@ -27,6 +29,8 @@ export default async function OrderDetailPage({
   if (!order) notFound();
 
   const items = order.items ?? [];
+  const invoice = await getInvoiceForOrder(id);
+  const invoiceUrl = await getInvoiceUrl(invoice?.file_path);
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
@@ -111,6 +115,32 @@ export default async function OrderDetailPage({
           </tfoot>
         </table>
       </div>
+
+      {invoice ? (
+        <section className="mt-8 rounded-md border border-border p-4">
+          <h2 className="font-medium">Rechnung</h2>
+          <div className="mt-3 flex flex-wrap items-center gap-4 text-sm">
+            <span className="tabular">{invoice.invoice_number}</span>
+            <span className="text-muted-foreground">
+              {INVOICE_STATUS_LABELS[invoice.status]}
+            </span>
+            {invoiceUrl ? (
+              <a
+                href={invoiceUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="text-foreground underline underline-offset-2 hover:no-underline"
+              >
+                Rechnung herunterladen (PDF)
+              </a>
+            ) : (
+              <span className="text-muted-foreground">
+                PDF wird noch erzeugt …
+              </span>
+            )}
+          </div>
+        </section>
+      ) : null}
 
       {order.delivery_address ? (
         <section className="mt-8">

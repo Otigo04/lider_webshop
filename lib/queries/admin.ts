@@ -179,7 +179,10 @@ export async function getCustomers(): Promise<AppUser[]> {
   return (data ?? []) as AppUser[];
 }
 
-export async function getAdminOrders(status?: string): Promise<AdminOrderRow[]> {
+export async function getAdminOrders(
+  status?: string,
+  sort?: "date" | "customer",
+): Promise<AdminOrderRow[]> {
   const supabase = await createClient();
 
   let query = supabase
@@ -198,7 +201,20 @@ export async function getAdminOrders(status?: string): Promise<AdminOrderRow[]> 
     console.error("[admin] Bestellliste:", error.message);
     return [];
   }
-  return (data ?? []) as unknown as AdminOrderRow[];
+  const orders = (data ?? []) as unknown as AdminOrderRow[];
+
+  // Supabase kann nicht sauber nach Spalten der gejointen Tabelle sortieren –
+  // bei "customer" wird deshalb nach dem Laden in JS sortiert.
+  if (sort === "customer") {
+    return [...orders].sort((a, b) =>
+      (a.customer?.company_name || a.customer?.full_name || "").localeCompare(
+        b.customer?.company_name || b.customer?.full_name || "",
+        "de",
+      ),
+    );
+  }
+
+  return orders;
 }
 
 export async function getAdminOrder(id: string): Promise<AdminOrderRow | null> {

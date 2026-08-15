@@ -86,3 +86,102 @@ export async function signOut() {
   revalidatePath("/", "layout");
   redirect("/login");
 }
+
+export interface PasswordResetRequestState {
+  success?: string;
+  error?: string;
+}
+
+const resetRequestSchema = z.object({
+  email: z.string().trim().min(1, "E-Mail fehlt").email("Keine gültige E-Mail-Adresse"),
+});
+
+/**
+ * Meldet immer denselben Erfolg zurück, unabhängig davon, ob die E-Mail zu
+ * einem Konto gehört – dasselbe "unspezifisch bei Fehlern"-Prinzip wie bei
+ * signIn(). Sonst ließe sich über diesen Endpunkt erraten, welche
+ * Kunden-Mails im System existieren.
+ */
+export async function requestPasswordReset(
+  _prevState: PasswordResetRequestState,
+  formData: FormData,
+): Promise<PasswordResetRequestState> {
+  const parsed = resetRequestSchema.safeParse({
+    email: formData.get("email"),
+  });
+
+  const success =
+    "Falls zu dieser E-Mail-Adresse ein Konto existiert, wurde ein Link zum Zurücksetzen des Passworts verschickt.";
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0].message };
+  }
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
+    redirectTo: `${siteUrl}/auth/confirm?type=recovery`,
+  });
+
+  if (error) {
+    console.error("[auth] Passwort-Reset-Anfrage:", error.message);
+  }
+
+  return { success };
+}
+
+export interface PasswordResetConfirmState {
+  error?: string;
+}
+
+const resetConfirmSchema = z
+  .object({
+    password: z
+      .string()
+      .min(10, "Das Passwort braucht mindestens 10 Zeichen")
+      .max(200),
+    confirm: z.string(),
+  })
+  .refine((data) => data.password === data.confirm, {
+    message: "Die Passwörter stimmen nicht überein",
+    path: ["confirm"],
+  });
+
+/**
+ * Setzt das neue Passwort über die Recovery-Session, die
+ * app/auth/confirm/route.ts per verifyOtp() etabliert hat – kein
+ * requireUser(), da der Nutzer hier nicht über den normalen Login kommt.
+ */
+export async function confirmPasswordReset(
+  _prevState: PasswordResetConfirmState,
+  formData: FormData,
+): Promise<PasswordResetConfirmState> {
+  const parsed = resetConfirmSchema.safeParse({
+    password: formData.get("password"),
+    confirm: formData.get("confirm"),
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0].message };
+  }
+
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    redirect("/forgot-password?error=ungueltig");
+  }
+
+  const { error } = await supabase.auth.updateUser({
+    password: parsed.data.password,
+  });
+
+  if (error) {
+    console.error("[auth] Passwort-Reset-Bestätigung:", error.message);
+    return { error: "Das Passwort konnte nicht gesetzt werden." };
+  }
+
+  redirect("/login?notice=passwort_gesetzt");
+}

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { LoginForm } from "@/components/forms/login-form";
 import { getCurrentUser } from "@/lib/auth";
@@ -10,6 +11,10 @@ export const metadata: Metadata = {
 
 const ERROR_MESSAGES: Record<string, string> = {
   deaktiviert: "Dieses Konto ist deaktiviert. Bitte wenden Sie sich an uns.",
+};
+
+const NOTICE_MESSAGES: Record<string, string> = {
+  passwort_gesetzt: "Passwort geändert. Sie können sich jetzt anmelden.",
 };
 
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
@@ -25,6 +30,8 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
     typeof params.redirect === "string" ? params.redirect : undefined;
   const notice =
     typeof params.error === "string" ? ERROR_MESSAGES[params.error] : undefined;
+  const success =
+    typeof params.notice === "string" ? NOTICE_MESSAGES[params.notice] : undefined;
 
   return (
     <div className="mx-auto flex max-w-md flex-col justify-center px-4 py-16">
@@ -43,8 +50,23 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
         </p>
       ) : null}
 
+      {success ? (
+        <p
+          role="status"
+          className="mt-6 rounded-md border border-success/30 bg-success/10 px-3 py-2 text-sm text-success"
+        >
+          {success}
+        </p>
+      ) : null}
+
       <div className="mt-8 rounded-md border border-border bg-card p-6">
         <LoginForm redirectTo={redirectTo} />
+        <Link
+          href="/forgot-password"
+          className="mt-4 inline-block text-sm text-muted-foreground hover:text-foreground hover:underline"
+        >
+          Passwort vergessen?
+        </Link>
       </div>
 
       <p className="mt-6 text-sm text-muted-foreground">

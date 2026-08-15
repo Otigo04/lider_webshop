@@ -12,14 +12,30 @@ function isStatus(value: string): value is OrderStatus {
   return value in ORDER_STATUS_LABELS;
 }
 
+const SORT_LABELS = { date: "Datum", customer: "Kunde" } as const;
+type SortKey = keyof typeof SORT_LABELS;
+
+function isSort(value: string): value is SortKey {
+  return value === "date" || value === "customer";
+}
+
 export default async function AdminOrdersPage({
   searchParams,
 }: PageProps<"/admin/orders">) {
   const params = await searchParams;
   const raw = typeof params.status === "string" ? params.status : "";
   const status = isStatus(raw) ? raw : undefined;
+  const rawSort = typeof params.sort === "string" ? params.sort : "";
+  const sort = isSort(rawSort) ? rawSort : "date";
 
-  const orders = await getAdminOrders(status);
+  const orders = await getAdminOrders(status, sort);
+
+  function sortHref(key: SortKey) {
+    const query = new URLSearchParams();
+    if (status) query.set("status", status);
+    query.set("sort", key);
+    return `/admin/orders?${query.toString()}`;
+  }
 
   return (
     <div>
@@ -29,12 +45,16 @@ export default async function AdminOrdersPage({
         {(["alle", ...Object.keys(ORDER_STATUS_LABELS)] as const).map((value) => {
           const active =
             value === "alle" ? status === undefined : status === value;
+          const query = new URLSearchParams();
+          if (value !== "alle") query.set("status", value);
+          if (sort !== "date") query.set("sort", sort);
+          const href = query.toString()
+            ? `/admin/orders?${query.toString()}`
+            : "/admin/orders";
           return (
             <Link
               key={value}
-              href={
-                value === "alle" ? "/admin/orders" : `/admin/orders?status=${value}`
-              }
+              href={href}
               aria-current={active ? "page" : undefined}
               className={cn(
                 "rounded-md border px-3 py-1.5 text-sm",
@@ -61,8 +81,29 @@ export default async function AdminOrdersPage({
             <thead>
               <tr className="border-b border-border text-left text-muted-foreground">
                 <th className="py-2 pr-4 font-medium">Nummer</th>
-                <th className="py-2 pr-4 font-medium">Datum</th>
-                <th className="py-2 pr-4 font-medium">Kunde</th>
+                <th className="py-2 pr-4 font-medium">
+                  <Link
+                    href={sortHref("date")}
+                    className={cn(
+                      "hover:text-foreground",
+                      sort === "date" && "text-foreground underline underline-offset-2",
+                    )}
+                  >
+                    {SORT_LABELS.date}
+                  </Link>
+                </th>
+                <th className="py-2 pr-4 font-medium">
+                  <Link
+                    href={sortHref("customer")}
+                    className={cn(
+                      "hover:text-foreground",
+                      sort === "customer" &&
+                        "text-foreground underline underline-offset-2",
+                    )}
+                  >
+                    {SORT_LABELS.customer}
+                  </Link>
+                </th>
                 <th className="py-2 pr-4 font-medium">Positionen</th>
                 <th className="py-2 pr-4 font-medium">Status</th>
                 <th className="py-2 text-right font-medium">Summe netto</th>

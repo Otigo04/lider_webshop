@@ -1,5 +1,5 @@
 import "server-only";
-import { PRODUCT_BUCKET } from "@/lib/constants";
+import { INVOICE_BUCKET, PRODUCT_BUCKET } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -47,4 +47,27 @@ export async function getImageUrls(
     data.map((entry) => [entry.path, entry.signedUrl ?? null]),
   );
   return filePaths.map((p) => (p ? (byPath.get(p) ?? null) : null));
+}
+
+/**
+ * Signed URL fürs Rechnungs-PDF. Gleiches Prinzip wie getImageUrl: der
+ * Bucket `invoices` ist privat, die RLS-Policy `invoices read own` regelt,
+ * wer welchen Pfad sehen darf (eigene Bestellung oder Admin).
+ */
+export async function getInvoiceUrl(
+  filePath: string | null | undefined,
+): Promise<string | null> {
+  if (!filePath) return null;
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.storage
+    .from(INVOICE_BUCKET)
+    .createSignedUrl(filePath, SIGNED_URL_TTL);
+
+  if (error) {
+    console.error("[storage] Rechnungs-URL fehlgeschlagen:", error.message);
+    return null;
+  }
+
+  return data.signedUrl;
 }

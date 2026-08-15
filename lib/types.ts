@@ -158,6 +158,26 @@ export const ACCESS_REQUEST_STATUS_LABELS: Record<AccessRequestStatus, string> =
   done: "Erledigt",
 };
 
+export type InvoiceStatus = "open" | "paid" | "overdue";
+
+export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
+  open: "Offen",
+  paid: "Bezahlt",
+  overdue: "Überfällig",
+};
+
+export interface Invoice {
+  id: string;
+  order_id: string;
+  invoice_number: string;
+  /** Pfad im Supabase-Storage-Bucket `invoices`, null bis PDF hochgeladen ist */
+  file_path: string | null;
+  status: InvoiceStatus;
+  issued_at: string;
+  paid_at: string | null;
+  created_at: string;
+}
+
 export interface AccessRequest {
   id: string;
   company_name: string;

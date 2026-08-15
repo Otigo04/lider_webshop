@@ -1,6 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
-import type { Order, OrderItem, OrderStatus } from "@/lib/types";
+import type { Invoice, Order, OrderItem, OrderStatus } from "@/lib/types";
 
 /**
  * Bestellungen des angemeldeten Kunden. Die Eingrenzung macht RLS
@@ -56,4 +56,23 @@ export async function getOrder(id: string): Promise<OrderWithItems | null> {
     return null;
   }
   return (data as unknown as OrderWithItems) ?? null;
+}
+
+/**
+ * Rechnung zu einer Bestellung. RLS (invoices_select_own / invoices_admin_all)
+ * regelt Kunden- und Admin-Zugriff über dieselbe Abfrage.
+ */
+export async function getInvoiceForOrder(orderId: string): Promise<Invoice | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("invoices")
+    .select("*")
+    .eq("order_id", orderId)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[rechnung] Detail:", error.message);
+    return null;
+  }
+  return (data as Invoice) ?? null;
 }
