@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { AuthShell } from "@/components/auth-shell";
 import { LoginForm } from "@/components/forms/login-form";
 import { getCurrentUser } from "@/lib/auth";
 
@@ -34,7 +35,16 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
     typeof params.notice === "string" ? NOTICE_MESSAGES[params.notice] : undefined;
 
   return (
-    <div className="mx-auto flex max-w-md flex-col justify-center px-4 py-16">
+    <AuthShell
+      eyebrow="Kundenportal"
+      title="Willkommen zurück"
+      subtitle="Melden Sie sich an, um Staffelpreise, Bestände und Ihre Bestellhistorie zu sehen."
+      points={[
+        "Aktuelle Bestände in Echtzeit",
+        "Staffelpreise je Artikel",
+        "Bestellhistorie jederzeit einsehbar",
+      ]}
+    >
       <h1 className="text-2xl font-semibold tracking-tight">Anmelden</h1>
       <p className="mt-2 text-sm text-muted-foreground">
         Der Zugang ist Gewerbekunden vorbehalten. Zugangsdaten erhalten Sie von
@@ -59,7 +69,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
         </p>
       ) : null}
 
-      <div className="mt-8 rounded-md border border-border bg-card p-6">
+      <div className="mt-6">
         <LoginForm redirectTo={redirectTo} />
         <Link
           href="/forgot-password"
@@ -70,10 +80,11 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
       </div>
 
       <p className="mt-6 text-sm text-muted-foreground">
-        Noch kein Zugang? Schreiben Sie uns an{" "}
-        <span className="font-medium text-foreground">[E-MAIL EINTRAGEN]</span>{" "}
-        oder rufen Sie an: <span className="font-medium text-foreground">[TELEFON EINTRAGEN]</span>.
+        Noch kein Zugang?{" "}
+        <Link href="/register" className="font-medium text-foreground hover:underline">
+          Jetzt registrieren
+        </Link>
       </p>
-    </div>
+    </AuthShell>
   );
 }

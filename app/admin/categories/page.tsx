@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ConfirmAction } from "@/components/admin/confirm-action";
+import { InlineEdit } from "@/components/admin/inline-edit";
 import { CategoryForm } from "@/components/forms/category-form";
 import { Button } from "@/components/ui/button";
-import { deleteCategory } from "@/lib/actions/admin-categories";
+import {
+  deleteCategory,
+  updateCategoryField,
+} from "@/lib/actions/admin-categories";
 import { getCategories } from "@/lib/queries/products";
 
 export const metadata: Metadata = { title: "Kategorien" };
@@ -24,6 +28,12 @@ export default async function AdminCategoriesPage({
         Die Reihenfolge bestimmt, wie die Warengruppen im Shop erscheinen.
       </p>
 
+      <p className="mt-4 rounded-md border border-brand/25 bg-brand-soft px-3 py-2 text-sm text-brand">
+        Reihenfolge, Name und Nummernkreis lassen sich direkt in der Tabelle
+        ändern. Das Kürzel steht in jeder Shop-Adresse und wird deshalb nur im
+        Formular geändert.
+      </p>
+
       <div className="mt-8 grid gap-10 lg:grid-cols-[1fr_22rem]">
         <div className="overflow-x-auto">
           {categories.length === 0 ? (
@@ -33,7 +43,7 @@ export default async function AdminCategoriesPage({
           ) : (
             <table className="w-full min-w-2xl border-collapse text-sm">
               <thead>
-                <tr className="border-b border-border text-left text-muted-foreground">
+                <tr className="border-b-2 border-border text-left text-muted-foreground">
                   <th className="py-2 pr-4 font-medium">Reihenfolge</th>
                   <th className="py-2 pr-4 font-medium">Name</th>
                   <th className="py-2 pr-4 font-medium">Nummernkreis</th>
@@ -47,23 +57,45 @@ export default async function AdminCategoriesPage({
                     key={category.id}
                     className="border-b border-border last:border-0"
                   >
-                    <td className="py-3 pr-4 tabular text-muted-foreground">
-                      {category.order_index}
+                    <td className="py-2 pr-4">
+                      <InlineEdit
+                        id={category.id}
+                        field="order_index"
+                        typ="number"
+                        speichernMit={updateCategoryField}
+                        value={String(category.order_index)}
+                        anzeige={String(category.order_index)}
+                        className="text-muted-foreground"
+                      />
                     </td>
-                    <td className="py-3 pr-4 font-medium">{category.name}</td>
-                    <td className="py-3 pr-4 tabular">
-                      {category.sku_prefix ? (
-                        <span className="text-muted-foreground">
-                          {category.sku_prefix}-0001 …
-                        </span>
-                      ) : (
-                        "–"
-                      )}
+                    <td className="py-2 pr-4">
+                      <InlineEdit
+                        id={category.id}
+                        field="name"
+                        speichernMit={updateCategoryField}
+                        value={category.name}
+                        anzeige={category.name}
+                        className="font-medium"
+                      />
                     </td>
-                    <td className="py-3 pr-4 tabular text-muted-foreground">
+                    <td className="py-2 pr-4">
+                      <InlineEdit
+                        id={category.id}
+                        field="sku_prefix"
+                        speichernMit={updateCategoryField}
+                        value={category.sku_prefix ?? ""}
+                        anzeige={
+                          category.sku_prefix
+                            ? `${category.sku_prefix}-0001 …`
+                            : "–"
+                        }
+                        className="code text-muted-foreground"
+                      />
+                    </td>
+                    <td className="py-2 pr-4 tabular text-muted-foreground">
                       {category.slug}
                     </td>
-                    <td className="py-3 text-right">
+                    <td className="py-2 text-right">
                       <div className="flex justify-end gap-1">
                         <Button asChild variant="ghost" size="sm">
                           <Link href={`/admin/categories?edit=${category.id}`}>

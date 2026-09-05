@@ -23,7 +23,8 @@ export async function GET(request: Request) {
     });
 
     if (!error) {
-      const next = type === "recovery" ? "/reset-password" : "/";
+      const next =
+        type === "recovery" ? "/reset-password" : type === "signup" ? "/shop" : "/";
       redirect(`${origin}${next}`);
     }
   }

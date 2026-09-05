@@ -42,6 +42,7 @@ interface ProductFormProps {
     id: string;
     category_id: string;
     sku: string;
+    barcode: string | null;
     name: string;
     description: string | null;
     is_active: boolean;
@@ -79,6 +80,7 @@ export function ProductForm({
   const [name, setName] = useState(product?.name ?? "");
   const [description, setDescription] = useState(product?.description ?? "");
   const [categoryId, setCategoryId] = useState(product?.category_id ?? "");
+  const [barcode, setBarcode] = useState(product?.barcode ?? "");
 
   const [tiers, setTiers] = useState<TierRow[]>(() =>
     product && product.variants.length > 0
@@ -163,6 +165,7 @@ export function ProductForm({
   const payload = {
     id: productId,
     category_id: categoryId,
+    barcode,
     name,
     description,
     is_active: true,
@@ -228,6 +231,23 @@ export function ProductForm({
               </option>
             ))}
           </select>
+        </div>
+
+        <div className="space-y-2 sm:col-span-2">
+          <Label htmlFor="barcode">Barcode (EAN/UPC)</Label>
+          <Input
+            id="barcode"
+            value={barcode}
+            onChange={(event) => setBarcode(event.target.value)}
+            maxLength={64}
+            inputMode="numeric"
+            className="tabular"
+            placeholder="Etikett scannen oder eintippen"
+          />
+          <p className="text-xs text-muted-foreground">
+            Darüber findet die Ladenkasse den Artikel. Leer lassen, wenn der
+            Artikel kein Etikett hat.
+          </p>
         </div>
 
         <div className="space-y-2 sm:col-span-2">

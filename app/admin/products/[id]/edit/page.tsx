@@ -46,6 +46,7 @@ export default async function EditProductPage({
             id: product.id,
             category_id: product.category_id,
             sku: product.sku,
+            barcode: product.barcode,
             name: product.name,
             description: product.description,
             is_active: product.is_active,

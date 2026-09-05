@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { AuthShell } from "@/components/auth-shell";
 import { ResetPasswordForm } from "@/components/forms/reset-password-form";
 import { createClient } from "@/lib/supabase/server";
 
@@ -23,15 +24,23 @@ export default async function ResetPasswordPage() {
   }
 
   return (
-    <div className="mx-auto flex max-w-md flex-col justify-center px-4 py-16">
+    <AuthShell
+      eyebrow="Kundenportal"
+      title="Fast geschafft"
+      subtitle="Vergeben Sie ein neues Passwort und melden Sie sich direkt wieder an."
+      points={[
+        "Sofort einsatzbereit nach dem Speichern",
+        "Alte Sitzungen werden beendet",
+      ]}
+    >
       <h1 className="text-2xl font-semibold tracking-tight">Neues Passwort</h1>
       <p className="mt-2 text-sm text-muted-foreground">
         Vergeben Sie ein neues Passwort für Ihr Konto.
       </p>
 
-      <div className="mt-8 rounded-md border border-border bg-card p-6">
+      <div className="mt-6">
         <ResetPasswordForm />
       </div>
-    </div>
+    </AuthShell>
   );
 }

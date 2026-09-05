@@ -21,6 +21,8 @@ const imageSchema = z.object({
 const productSchema = z.object({
   id: z.string().uuid(),
   category_id: z.string().uuid("Kategorie fehlt"),
+  /** EAN/UPC vom Etikett – Grundlage für den Scanner an der Ladenkasse */
+  barcode: z.string().trim().max(64).optional(),
   name: z.string().trim().min(1, "Name fehlt").max(200),
   description: z.string().trim().max(5000).optional(),
   is_active: z.boolean(),
@@ -100,6 +102,7 @@ export async function saveProduct(
     id: data.id,
     category_id: data.category_id,
     sku,
+    barcode: data.barcode || null,
     name: data.name,
     description: data.description || null,
     is_active: data.is_active,
@@ -112,7 +115,9 @@ export async function saveProduct(
     return {
       error:
         upsertError.code === "23505"
-          ? `Die Artikelnummer „${sku}“ ist bereits vergeben. Bitte erneut speichern.`
+          ? upsertError.message.includes("barcode")
+            ? `Der Barcode „${data.barcode}“ ist bereits einem anderen Artikel zugeordnet.`
+            : `Die Artikelnummer „${sku}“ ist bereits vergeben. Bitte erneut speichern.`
           : "Der Artikel konnte nicht gespeichert werden.",
     };
   }
@@ -229,4 +234,130 @@ export async function deleteProduct(
   revalidatePath("/admin/products");
   revalidatePath("/shop");
   return { success: "Artikel gelöscht." };
+}
+
+// --- Inline-Bearbeitung in der Artikelliste ---------------------------------
+
+/**
+ * Einzelnes Feld direkt in der Tabelle ändern.
+ *
+ * Bewusst feldweise statt als Teilformular: in der Liste wird typischerweise
+ * genau eine Zahl korrigiert (Bestand nach der Inventur, Preis nach der
+ * Lieferantenmeldung). Ein ganzes Formular dafür zu öffnen kostet mehr Zeit
+ * als die Korrektur selbst.
+ *
+ * Jedes Feld hat sein eigenes Schema – ein generisches "value: any" wäre die
+ * offene Tür, über die sich später auch is_admin setzen ließe.
+ */
+const inlineFieldSchemas = {
+  name: z.string().trim().min(1, "Bezeichnung darf nicht leer sein").max(200),
+  barcode: z.string().trim().max(64),
+  category_id: z.string().uuid("Warengruppe fehlt"),
+  stock_available: z.coerce
+    .number({ message: "Bestand muss eine Zahl sein" })
+    .int("Bestand muss eine ganze Zahl sein")
+    .min(0, "Bestand darf nicht negativ sein")
+    .max(10_000_000),
+  unit_price: z.coerce
+    .number({ message: "Preis muss eine Zahl sein" })
+    .min(0, "Preis darf nicht negativ sein")
+    .max(1_000_000),
+} as const;
+
+export type InlineField = keyof typeof inlineFieldSchemas;
+
+export interface InlineUpdateState {
+  error?: string;
+  success?: string;
+}
+
+/**
+ * `field` kommt als string herein, nicht als Union: die aufrufende
+ * Inline-Zelle wird auch für Kategorien verwendet und kann keine
+ * artikelspezifische Typunion kennen. Geprüft wird hier – ein unbekannter
+ * Feldname fällt durch, bevor irgendetwas geschrieben wird.
+ */
+export async function updateProductField(input: {
+  id: string;
+  field: string;
+  value: string;
+}): Promise<InlineUpdateState> {
+  await requireAdmin();
+
+  if (!z.string().uuid().safeParse(input.id).success) {
+    return { error: "Kein Artikel ausgewählt." };
+  }
+
+  if (!Object.hasOwn(inlineFieldSchemas, input.field)) {
+    return { error: "Unbekanntes Feld." };
+  }
+  const feld = input.field as InlineField;
+  const schema = inlineFieldSchemas[feld];
+
+  const parsed = schema.safeParse(input.value);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0].message };
+  }
+
+  const supabase = await createClient();
+
+  // Der Preis hängt nicht am Artikel, sondern an der kleinsten Preisstaffel.
+  if (feld === "unit_price") {
+    const preis = parsed.data as number;
+    const { data: staffeln, error: leseFehler } = await supabase
+      .from("product_variants")
+      .select("id, min_quantity")
+      .eq("product_id", input.id)
+      .order("min_quantity")
+      .limit(1);
+
+    if (leseFehler) {
+      console.error("[admin] Staffel lesen:", leseFehler.message);
+      return { error: "Der Preis konnte nicht gespeichert werden." };
+    }
+
+    const fehler = staffeln?.length
+      ? (
+          await supabase
+            .from("product_variants")
+            .update({ unit_price: preis })
+            .eq("id", staffeln[0].id as string)
+        ).error
+      : (
+          await supabase.from("product_variants").insert({
+            product_id: input.id,
+            min_quantity: 1,
+            max_quantity: null,
+            unit_price: preis,
+          })
+        ).error;
+
+    if (fehler) {
+      console.error("[admin] Preis speichern:", fehler.message);
+      return { error: "Der Preis konnte nicht gespeichert werden." };
+    }
+  } else {
+    const wert = feld === "barcode" ? (parsed.data as string) || null : parsed.data;
+
+    const { error } = await supabase
+      .from("products")
+      .update({ [feld]: wert })
+      .eq("id", input.id);
+
+    if (error) {
+      console.error("[admin] Feld speichern:", error.message);
+      return {
+        error:
+          error.code === "23505"
+            ? "Dieser Barcode ist bereits einem anderen Artikel zugeordnet."
+            : "Die Änderung konnte nicht gespeichert werden.",
+      };
+    }
+  }
+
+  revalidatePath("/admin/products");
+  revalidatePath("/admin");
+  revalidatePath("/shop");
+  revalidatePath(`/shop/product/${input.id}`);
+  return { success: "Gespeichert." };
 }

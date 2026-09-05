@@ -1,15 +1,16 @@
 import Image from "next/image";
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
-import { getLogoPath } from "@/lib/logo";
+import { getLogoMarkPath } from "@/lib/logo";
 import { CartLink } from "@/components/cart-link";
+import { MainNav } from "@/components/main-nav";
 import { MobileNav, type NavLink } from "@/components/mobile-nav";
 import { UserMenu } from "@/components/user-menu";
 
 export async function Header() {
   const user = await getCurrentUser();
   const isAdmin = user?.role === "admin";
-  const logoPath = getLogoPath();
+  const logoPath = getLogoMarkPath();
 
   // /shop und die Flag-Filter sind auch ohne Login sichtbar (Schaufenster
   // ohne Preise), deshalb unabhängig vom Login-Status.
@@ -22,45 +23,35 @@ export async function Header() {
   ];
 
   return (
-    <header className="sticky top-0 z-40 border-b border-surface-dark-border bg-surface-dark text-surface-dark-foreground">
-      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4">
+    <header className="sticky top-0 z-40 bg-surface-dark text-surface-dark-foreground">
+      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4">
         <Link
           href="/"
-          className="flex shrink-0 items-center gap-3 leading-none focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand"
+          className="flex shrink-0 items-center gap-2.5 leading-none focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold"
         >
           {logoPath ? (
-            <span className="relative block h-8 w-8 shrink-0">
+            <span className="relative block size-10 shrink-0">
               <Image
                 src={logoPath}
                 alt="LIDER Großhandel"
                 fill
-                sizes="32px"
+                sizes="40px"
+                priority
                 className="object-contain"
               />
             </span>
           ) : null}
-          <span className="block text-base font-semibold tracking-[0.14em]">
-            LIDER BERLIN
+          <span className="flex flex-col">
+            <span className="text-base font-bold leading-tight tracking-[0.16em]">
+              LIDER
+            </span>
+            <span className="text-[0.625rem] font-medium uppercase leading-tight tracking-[0.22em] text-gold">
+              Berlin · seit 2007
+            </span>
           </span>
         </Link>
 
-        <nav className="hidden items-center gap-6 text-sm md:flex">
-          {/* Unterstrich läuft beim Überfahren von links ein – zeigt das Ziel
-              an, ohne die Zeile beim Umschalten springen zu lassen. */}
-          {links.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className="group relative py-1 text-surface-dark-muted transition-colors hover:text-surface-dark-foreground"
-            >
-              {link.label}
-              <span
-                aria-hidden
-                className="absolute inset-x-0 -bottom-0.5 h-px origin-left scale-x-0 bg-brand transition-transform duration-300 group-hover:scale-x-100"
-              />
-            </Link>
-          ))}
-        </nav>
+        <MainNav links={links} />
 
         <div className="flex items-center gap-1">
           {user ? <CartLink /> : null}
@@ -71,18 +62,30 @@ export async function Header() {
               isAdmin={isAdmin}
             />
           ) : (
-            <Link
-              href="/login"
-              className="rounded-md bg-brand px-3 py-1.5 text-sm font-medium text-brand-foreground hover:bg-brand-hover"
-            >
-              Anmelden
-            </Link>
+            <div className="hidden items-center gap-2 md:flex">
+              <Link
+                href="/register"
+                className="rounded-md border border-surface-dark-border px-3 py-1.5 text-sm font-medium text-surface-dark-foreground transition-colors hover:bg-white/10"
+              >
+                Registrieren
+              </Link>
+              <Link
+                href="/login"
+                className="rounded-md bg-gold px-3 py-1.5 text-sm font-semibold text-gold-foreground transition-colors hover:bg-gold/85"
+              >
+                Anmelden
+              </Link>
+            </div>
           )}
           <div className="md:hidden">
-            <MobileNav links={links} angemeldet={Boolean(user)} />
+            <MobileNav links={links} angemeldet={Boolean(user)} logoSrc={logoPath} />
           </div>
         </div>
       </div>
+
+      {/* Goldene Kante statt grauer Trennlinie – greift den Lorbeer des
+          Wappens auf und trennt die Leiste deutlich vom Inhalt. */}
+      <div aria-hidden className="h-0.5 bg-gold" />
     </header>
   );
 }

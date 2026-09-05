@@ -66,6 +66,8 @@ export interface Product {
   id: string;
   category_id: string;
   sku: string;
+  /** EAN/UPC vom Etikett – was der Kassenscanner liest. null, solange keiner erfasst ist */
+  barcode: string | null;
   name: string;
   description: string | null;
   is_active: boolean;
@@ -166,16 +168,123 @@ export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
   overdue: "Überfällig",
 };
 
+export type InvoiceType = "order" | "manual";
+
 export interface Invoice {
   id: string;
-  order_id: string;
+  /** null bei freien Rechnungen ohne Bestellbezug (type "manual") */
+  order_id: string | null;
+  customer_id: string;
+  type: InvoiceType;
   invoice_number: string;
   /** Pfad im Supabase-Storage-Bucket `invoices`, null bis PDF hochgeladen ist */
   file_path: string | null;
   status: InvoiceStatus;
+  /** Nur bei freien Rechnungen gepflegt (z. B. "Beratung März 2026") */
+  notes: string | null;
+  /** Nur bei freien Rechnungen befüllt – Bestellungs-Rechnungen nutzen order.total_amount (netto) */
+  net_amount: number | null;
+  vat_amount: number;
+  total_amount: number | null;
   issued_at: string;
   paid_at: string | null;
   created_at: string;
+  /** Nur befüllt, wenn per Join mitgeladen (freie Rechnungen) */
+  items?: InvoiceItem[];
+  customer?: AppUser;
+}
+
+export interface InvoiceItem {
+  id: string;
+  invoice_id: string;
+  description: string;
+  quantity: number;
+  unit_price: number;
+  /** Prozentsatz: 0, 7 oder 19 */
+  vat_rate: number;
+  subtotal: number;
+  created_at: string;
+}
+
+/** Zahlart an der Ladenkasse. Karte oder bar – mehr gibt der Tresen nicht her. */
+export type PosPaymentMethod = "cash" | "card";
+
+export const POS_PAYMENT_LABELS: Record<PosPaymentMethod, string> = {
+  cash: "Bar",
+  card: "Karte",
+};
+
+/**
+ * Ein abgeschlossener Verkauf über den Tresen. Bewusst getrennt von `orders`:
+ * dort hängen Reservierung, Lieferweg und Kundenkonto dran, an der Kasse gibt
+ * es nichts davon (siehe supabase/migrations/018_kasse_pos.sql).
+ */
+export interface PosSale {
+  id: string;
+  receipt_number: string;
+  /** null bei Laufkundschaft ohne Konto */
+  customer_id: string | null;
+  /** Freitext, wenn ohne Konto verkauft wurde (z. B. "Barverkauf") */
+  customer_label: string | null;
+  cashier_id: string | null;
+  payment_method: PosPaymentMethod;
+  vat_rate: number;
+  net_amount: number;
+  vat_amount: number;
+  total_amount: number;
+  note: string | null;
+  /** Beleg-PDF im Bucket `invoices` unter pos/<id>/<receipt_number>.pdf */
+  file_path: string | null;
+  created_at: string;
+  items?: PosSaleItem[];
+  customer?: AppUser | null;
+}
+
+export interface PosSaleItem {
+  id: string;
+  sale_id: string;
+  /** null, wenn der Artikel später gelöscht wurde – die Schnappschüsse bleiben */
+  product_id: string | null;
+  product_name: string;
+  product_sku: string;
+  barcode: string | null;
+  quantity: number;
+  unit_price: number;
+  subtotal: number;
+  created_at: string;
+}
+
+/** Position im Kassen-Warenkorb. Reiner Client-State, nichts davon in der DB. */
+export interface PosCartItem {
+  /** null bei einer frei eingetragenen Zeile ohne Artikelstamm */
+  productId: string | null;
+  name: string;
+  sku: string;
+  barcode: string | null;
+  quantity: number;
+  unitPrice: number;
+  /** Frei verfügbarer Bestand beim Erfassen; null bei freien Zeilen */
+  maxStock: number | null;
+}
+
+export interface CompanySettings {
+  company_name: string | null;
+  address_street: string | null;
+  address_zip: string | null;
+  address_city: string | null;
+  address_country: string;
+  tax_number: string | null;
+  vat_id: string | null;
+  bank_name: string | null;
+  iban: string | null;
+  bic: string | null;
+  payment_terms_days: number;
+  /** Steuersatz der Ladenkasse – kein fester Wert im Code */
+  pos_vat_rate: number;
+  /** true = Kassenpreise sind Endpreise inkl. USt., false = netto */
+  pos_prices_gross: boolean;
+  /** Zusatzzeile unter dem Kassenbon (Öffnungszeiten, Rückgabehinweis) */
+  pos_receipt_footer: string | null;
 }
 
 export interface AccessRequest {

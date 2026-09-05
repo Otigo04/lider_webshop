@@ -8,6 +8,7 @@ import { PublicPurchaseCta } from "@/components/public-purchase-cta";
 import { StockBadge } from "@/components/stock-badge";
 import { getCurrentUser } from "@/lib/auth";
 import { freeStock } from "@/lib/pricing";
+import { istNeu } from "@/lib/product-flags";
 import { getProduct, getPublicProduct } from "@/lib/queries/products";
 
 export async function generateMetadata({
@@ -58,13 +59,13 @@ export default async function ProductPage({
               <p className="code rounded-md border border-border bg-muted px-2 py-0.5 text-xs text-muted-foreground">
                 {product.sku}
               </p>
-              {product.is_new ? (
-                <span className="rounded-md bg-brand px-2 py-0.5 text-xs font-medium text-brand-foreground">
+              {istNeu(product) ? (
+                <span className="rounded-md bg-signal px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-signal-foreground">
                   Neu
                 </span>
               ) : null}
               {product.is_topseller ? (
-                <span className="rounded-md bg-foreground px-2 py-0.5 text-xs font-medium text-background">
+                <span className="rounded-md bg-gold px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-gold-foreground">
                   Topseller
                 </span>
               ) : null}
@@ -128,13 +129,13 @@ export default async function ProductPage({
               {product.sku}
             </p>
             <StockBadge free={free} />
-            {product.is_new ? (
-              <span className="rounded-md bg-brand px-2 py-0.5 text-xs font-medium text-brand-foreground">
+            {istNeu(product) ? (
+              <span className="rounded-md bg-signal px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-signal-foreground">
                 Neu
               </span>
             ) : null}
             {product.is_topseller ? (
-              <span className="rounded-md bg-foreground px-2 py-0.5 text-xs font-medium text-background">
+              <span className="rounded-md bg-gold px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-gold-foreground">
                 Topseller
               </span>
             ) : null}

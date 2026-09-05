@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { OrderStatusBadge } from "@/components/order-status-badge";
+import { OrderStatusBadge, orderStatusAccent } from "@/components/order-status-badge";
 import { Button } from "@/components/ui/button";
 import { requireUser } from "@/lib/auth";
 import { formatDate, formatPrice, formatQuantity } from "@/lib/format";
@@ -79,48 +79,86 @@ export default async function OrdersPage({
           </Button>
         </div>
       ) : (
-        <div className="mt-6 overflow-x-auto">
-          <table className="w-full min-w-2xl border-collapse text-sm">
-            <thead>
-              <tr className="border-b border-border text-left text-muted-foreground">
-                <th className="py-2 pr-4 font-medium">Nummer</th>
-                <th className="py-2 pr-4 font-medium">Datum</th>
-                <th className="py-2 pr-4 font-medium">Positionen</th>
-                <th className="py-2 pr-4 font-medium">Status</th>
-                <th className="py-2 text-right font-medium">Summe netto</th>
-              </tr>
-            </thead>
-            <tbody>
-              {orders.map((order) => (
-                <tr
-                  key={order.id}
-                  className="border-b border-border last:border-0"
+        <>
+          {/* Schmale Bildschirme: Karten statt Tabelle – nichts zum
+              Seitwärtsscrollen. */}
+          <ul className="mt-6 space-y-3 md:hidden">
+            {orders.map((order) => (
+              <li key={order.id}>
+                <Link
+                  href={`/orders/${order.id}`}
+                  className={cn(
+                    "card-hover flex flex-col gap-2 rounded-md border border-l-4 border-border p-4",
+                    orderStatusAccent(order.status),
+                  )}
                 >
-                  <td className="py-3 pr-4">
-                    <Link
-                      href={`/orders/${order.id}`}
-                      className="font-medium tabular hover:underline"
-                    >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium tabular">
                       {order.order_number}
-                    </Link>
-                  </td>
-                  <td className="py-3 pr-4 tabular text-muted-foreground">
-                    {formatDate(order.created_at)}
-                  </td>
-                  <td className="py-3 pr-4 tabular text-muted-foreground">
-                    {formatQuantity(order.items?.length ?? 0)}
-                  </td>
-                  <td className="py-3 pr-4">
+                    </span>
                     <OrderStatusBadge status={order.status} />
-                  </td>
-                  <td className="py-3 text-right font-medium tabular">
-                    {formatPrice(order.total_amount)}
-                  </td>
+                  </div>
+                  <div className="flex items-center justify-between gap-2 text-sm text-muted-foreground">
+                    <span className="tabular">
+                      {formatDate(order.created_at)} ·{" "}
+                      {formatQuantity(order.items?.length ?? 0)} Positionen
+                    </span>
+                    <span className="font-semibold tabular text-foreground">
+                      {formatPrice(order.total_amount)}
+                    </span>
+                  </div>
+                </Link>
+              </li>
+            ))}
+          </ul>
+
+          {/* Ab md: klassische Tabelle, mehr Spalten passen ohne Scrollen. */}
+          <div className="mt-6 hidden overflow-x-auto md:block">
+            <table className="w-full min-w-2xl border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-border text-left text-muted-foreground">
+                  <th className="py-2 pr-4 font-medium">Nummer</th>
+                  <th className="py-2 pr-4 font-medium">Datum</th>
+                  <th className="py-2 pr-4 font-medium">Positionen</th>
+                  <th className="py-2 pr-4 font-medium">Status</th>
+                  <th className="py-2 text-right font-medium">Summe netto</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {orders.map((order) => (
+                  <tr
+                    key={order.id}
+                    className={cn(
+                      "border-b border-l-4 border-border last:border-b-0",
+                      orderStatusAccent(order.status),
+                    )}
+                  >
+                    <td className="py-3 pr-4 pl-3">
+                      <Link
+                        href={`/orders/${order.id}`}
+                        className="font-medium tabular hover:underline"
+                      >
+                        {order.order_number}
+                      </Link>
+                    </td>
+                    <td className="py-3 pr-4 tabular text-muted-foreground">
+                      {formatDate(order.created_at)}
+                    </td>
+                    <td className="py-3 pr-4 tabular text-muted-foreground">
+                      {formatQuantity(order.items?.length ?? 0)}
+                    </td>
+                    <td className="py-3 pr-4">
+                      <OrderStatusBadge status={order.status} />
+                    </td>
+                    <td className="py-3 text-right font-medium tabular">
+                      {formatPrice(order.total_amount)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </div>
   );

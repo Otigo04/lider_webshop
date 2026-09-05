@@ -21,19 +21,19 @@ export function PublicProductCard({
     <Link
       href={`/shop/product/${product.id}`}
       className={cn(
-        "group flex flex-col overflow-hidden rounded-md border border-border bg-card transition-colors hover:border-foreground/25",
+        "card-hover group flex flex-col overflow-hidden rounded-md border border-border bg-card hover:border-foreground/25",
         className,
       )}
     >
-      <div className="relative aspect-4/3 border-b border-border bg-muted">
-        <ProductFlagBadges isNew={product.is_new} isTopseller={product.is_topseller} />
+      <div className="relative aspect-4/3 overflow-hidden border-b border-border bg-muted">
+        <ProductFlagBadges product={product} />
         {product.imageUrl ? (
           <Image
             src={product.imageUrl}
             alt={product.name}
             fill
             sizes="(min-width: 1024px) 320px, (min-width: 768px) 45vw, 90vw"
-            className="object-contain p-4"
+            className="object-contain p-4 transition-transform duration-500 group-hover:scale-[1.04]"
           />
         ) : (
           <div className="flex h-full items-center justify-center text-muted-foreground">

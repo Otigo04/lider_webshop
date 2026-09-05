@@ -1,16 +1,22 @@
+import { istNeu } from "@/lib/product-flags";
 import { cn } from "@/lib/utils";
 
-/** Kleine Badge-Chips für Neuheit/Topseller, als Overlay auf dem Artikelfoto. */
+/**
+ * Kleine Badge-Chips für Neuheit/Topseller, als Overlay auf dem Artikelfoto.
+ *
+ * „Neu" wird nicht übergeben, sondern aus Flag und Aufnahmedatum abgeleitet
+ * (lib/product-flags.ts) – so tragen frisch aufgenommene Artikel das Label
+ * drei Tage lang von selbst.
+ */
 export function ProductFlagBadges({
-  isNew,
-  isTopseller,
+  product,
   className,
 }: {
-  isNew: boolean;
-  isTopseller: boolean;
+  product: { is_new: boolean; is_topseller: boolean; created_at: string };
   className?: string;
 }) {
-  if (!isNew && !isTopseller) return null;
+  const neu = istNeu(product);
+  if (!neu && !product.is_topseller) return null;
 
   return (
     // items-start, sonst zieht das breitere Chip das schmalere auf seine Breite.
@@ -20,13 +26,13 @@ export function ProductFlagBadges({
         className,
       )}
     >
-      {isNew ? (
-        <span className="rounded-md bg-brand px-2 py-0.5 text-xs font-medium text-brand-foreground">
+      {neu ? (
+        <span className="rounded-md bg-signal px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-signal-foreground shadow-sm">
           Neu
         </span>
       ) : null}
-      {isTopseller ? (
-        <span className="rounded-md bg-foreground px-2 py-0.5 text-xs font-medium text-background">
+      {product.is_topseller ? (
+        <span className="rounded-md bg-gold px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-gold-foreground shadow-sm">
           Topseller
         </span>
       ) : null}

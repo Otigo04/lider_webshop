@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Plus, Search } from "lucide-react";
 import { ConfirmAction } from "@/components/admin/confirm-action";
+import { InlineEdit } from "@/components/admin/inline-edit";
 import { ProductFlagsMenu } from "@/components/admin/product-flag-toggle";
 import { StockBadge } from "@/components/stock-badge";
 import { Button } from "@/components/ui/button";
@@ -10,15 +11,34 @@ import { deleteProduct } from "@/lib/actions/admin-products";
 import { formatPrice, formatQuantity } from "@/lib/format";
 import { freeStock, lowestUnitPrice } from "@/lib/pricing";
 import { getAdminProducts } from "@/lib/queries/admin";
+import { getCategories } from "@/lib/queries/products";
 
 export const metadata: Metadata = { title: "Artikel" };
 
+/**
+ * Artikelverwaltung.
+ *
+ * Die Tabelle ist gleichzeitig das Bearbeitungsformular: Bezeichnung, Barcode,
+ * Warengruppe, Preis und Bestand lassen sich direkt in der Zelle ändern und
+ * gehen sofort in die Datenbank (components/admin/inline-edit.tsx). Für alles
+ * Weitere – Staffeln, Fotos, Beschreibung – führt der Name in die Detailseite.
+ */
 export default async function AdminProductsPage({
   searchParams,
 }: PageProps<"/admin/products">) {
   const params = await searchParams;
   const search = typeof params.q === "string" ? params.q : "";
-  const products = await getAdminProducts(search);
+  const [products, categories] = await Promise.all([
+    getAdminProducts(search),
+    getCategories(),
+  ]);
+
+  const kategorieOptionen = categories.map((category) => ({
+    value: category.id,
+    label: category.name,
+  }));
+
+  const ohneBarcode = products.filter((product) => !product.barcode).length;
 
   return (
     <div>
@@ -27,6 +47,9 @@ export default async function AdminProductsPage({
           <h1 className="text-2xl font-semibold tracking-tight">Artikel</h1>
           <p className="mt-1 text-sm text-muted-foreground tabular">
             {products.length === 1 ? "1 Artikel" : `${products.length} Artikel`}
+            {ohneBarcode > 0
+              ? ` · ${formatQuantity(ohneBarcode)} ohne Barcode`
+              : ""}
           </p>
         </div>
 
@@ -59,6 +82,11 @@ export default async function AdminProductsPage({
         </div>
       </div>
 
+      <p className="mt-4 rounded-md border border-brand/25 bg-brand-soft px-3 py-2 text-sm text-brand">
+        Bezeichnung, Barcode, Warengruppe, Preis und Bestand lassen sich direkt
+        in der Tabelle ändern – anklicken, tippen, Enter.
+      </p>
+
       {products.length === 0 ? (
         <p className="mt-8 rounded-md border border-dashed border-border px-4 py-12 text-center text-sm text-muted-foreground">
           {search
@@ -67,34 +95,45 @@ export default async function AdminProductsPage({
         </p>
       ) : (
         <div className="mt-6 overflow-x-auto">
-          <table className="w-full min-w-3xl border-collapse text-sm">
+          <table className="w-full min-w-5xl border-collapse text-sm">
             <thead>
-              <tr className="border-b border-border text-left text-muted-foreground">
+              <tr className="border-b-2 border-border text-left text-muted-foreground">
                 <th className="py-2 pr-4 font-medium">Artikelnummer</th>
                 <th className="py-2 pr-4 font-medium">Bezeichnung</th>
-                <th className="py-2 pr-4 font-medium">Kategorie</th>
-                <th className="py-2 pr-4 font-medium">Staffeln</th>
-                <th className="py-2 pr-4 text-right font-medium">ab</th>
-                <th className="py-2 pr-4 font-medium">Bestand</th>
+                <th className="py-2 pr-4 font-medium">Barcode</th>
+                <th className="py-2 pr-4 font-medium">Warengruppe</th>
+                <th className="py-2 pr-4 text-right font-medium">Preis ab</th>
+                <th className="py-2 pr-4 text-right font-medium">Bestand</th>
+                <th className="py-2 pr-4 font-medium">Verfügbar</th>
                 <th className="py-2 pr-4 font-medium">Flags</th>
                 <th className="py-2 text-right font-medium">Aktionen</th>
               </tr>
             </thead>
             <tbody>
               {products.map((product) => {
-                const from = lowestUnitPrice(product.variants ?? []);
+                const ab = lowestUnitPrice(product.variants ?? []);
                 return (
                   <tr
                     key={product.id}
-                    className="border-b border-border last:border-0"
+                    className="border-b border-border last:border-0 hover:bg-muted/50"
                   >
-                    <td className="py-3 pr-4 tabular">{product.sku}</td>
-                    <td className="py-3 pr-4">
+                    <td className="whitespace-nowrap py-2 pr-4 tabular">
+                      {product.sku}
+                    </td>
+
+                    <td className="py-2 pr-4">
+                      <InlineEdit
+                        id={product.id}
+                        field="name"
+                        value={product.name}
+                        anzeige={product.name}
+                        className="font-medium"
+                      />
                       <Link
                         href={`/admin/products/${product.id}/edit`}
-                        className="font-medium hover:underline"
+                        className="ml-2 text-xs text-muted-foreground hover:text-brand hover:underline"
                       >
-                        {product.name}
+                        Details
                       </Link>
                       {!product.is_active ? (
                         <span className="ml-2 rounded-md border border-border bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
@@ -102,19 +141,57 @@ export default async function AdminProductsPage({
                         </span>
                       ) : null}
                     </td>
-                    <td className="py-3 pr-4 text-muted-foreground">
-                      {product.category?.name ?? "–"}
+
+                    <td className="py-2 pr-4">
+                      <InlineEdit
+                        id={product.id}
+                        field="barcode"
+                        value={product.barcode ?? ""}
+                        anzeige={product.barcode ?? "—"}
+                        className={product.barcode ? "code" : "text-muted-foreground"}
+                      />
                     </td>
-                    <td className="py-3 pr-4 tabular text-muted-foreground">
-                      {formatQuantity(product.variants?.length ?? 0)}
+
+                    <td className="py-2 pr-4">
+                      <InlineEdit
+                        id={product.id}
+                        field="category_id"
+                        typ="select"
+                        optionen={kategorieOptionen}
+                        value={product.category_id}
+                        anzeige={product.category?.name ?? "—"}
+                        className="text-muted-foreground"
+                      />
                     </td>
-                    <td className="py-3 pr-4 text-right tabular">
-                      {from !== null ? formatPrice(from) : "–"}
+
+                    <td className="py-2 pr-4">
+                      <InlineEdit
+                        id={product.id}
+                        field="unit_price"
+                        typ="decimal"
+                        ausrichtung="right"
+                        value={ab !== null ? String(ab) : "0"}
+                        anzeige={ab !== null ? formatPrice(ab) : "—"}
+                      />
                     </td>
-                    <td className="py-3 pr-4">
+
+                    <td className="py-2 pr-4">
+                      <InlineEdit
+                        id={product.id}
+                        field="stock_available"
+                        typ="number"
+                        ausrichtung="right"
+                        einheit="Stk."
+                        value={String(product.stock_available)}
+                        anzeige={formatQuantity(product.stock_available)}
+                      />
+                    </td>
+
+                    <td className="py-2 pr-4">
                       <StockBadge free={freeStock(product)} />
                     </td>
-                    <td className="py-3 pr-4">
+
+                    <td className="py-2 pr-4">
                       <ProductFlagsMenu
                         productId={product.id}
                         flags={{
@@ -123,7 +200,8 @@ export default async function AdminProductsPage({
                         }}
                       />
                     </td>
-                    <td className="py-3 text-right">
+
+                    <td className="py-2 text-right">
                       <div className="flex justify-end gap-1">
                         <Button asChild variant="ghost" size="sm">
                           <Link href={`/admin/products/${product.id}/edit`}>

@@ -108,3 +108,68 @@ export async function deleteCategory(
   revalidatePath("/shop");
   return { success: "Kategorie gelöscht." };
 }
+
+// --- Inline-Bearbeitung in der Kategorieliste --------------------------------
+
+/**
+ * Einzelnes Feld einer Warengruppe direkt in der Tabelle ändern – dieselbe
+ * Bedienung wie in der Artikelliste (components/admin/inline-edit.tsx).
+ *
+ * Das Kürzel (slug) fehlt hier bewusst: es steht in jeder Shop-Adresse, eine
+ * Änderung im Vorbeigehen würde bestehende Links ins Leere laufen lassen.
+ * Dafür gibt es weiterhin das Formular daneben.
+ */
+const inlineCategorySchemas = {
+  name: z.string().trim().min(1, "Name darf nicht leer sein").max(80),
+  order_index: z.coerce
+    .number({ message: "Reihenfolge muss eine Zahl sein" })
+    .int()
+    .min(0)
+    .max(9999),
+  sku_prefix: z
+    .string()
+    .trim()
+    .regex(/^[0-9]{2}$/, "Der Nummernkreis besteht aus genau zwei Ziffern"),
+} as const;
+
+export async function updateCategoryField(input: {
+  id: string;
+  field: string;
+  value: string;
+}): Promise<AdminFormState> {
+  await requireAdmin();
+
+  if (!z.string().uuid().safeParse(input.id).success) {
+    return { error: "Keine Warengruppe ausgewählt." };
+  }
+  if (!Object.hasOwn(inlineCategorySchemas, input.field)) {
+    return { error: "Unbekanntes Feld." };
+  }
+
+  const feld = input.field as keyof typeof inlineCategorySchemas;
+  const parsed = inlineCategorySchemas[feld].safeParse(input.value);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0].message };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("categories")
+    .update({ [feld]: parsed.data })
+    .eq("id", input.id);
+
+  if (error) {
+    console.error("[admin] Warengruppe speichern:", error.message);
+    return {
+      error:
+        error.code === "23505"
+          ? "Dieser Nummernkreis ist bereits vergeben."
+          : "Die Änderung konnte nicht gespeichert werden.",
+    };
+  }
+
+  revalidatePath("/admin/categories");
+  revalidatePath("/shop");
+  revalidatePath("/");
+  return { success: "Gespeichert." };
+}
