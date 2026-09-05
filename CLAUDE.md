@@ -188,16 +188,26 @@ CREATE TABLE product_images (
 
 ### **Admin Pages (Protected, nur für Admins):**
 - `/admin` – Admin Dashboard (Stats, Übersicht, Tagesumsatz der Kasse)
-- `/admin/pos` – Ladenkasse (Barcodescanner, Bon, Beleg)
-- `/admin/sales` – Verkaufshistorie der Kasse
 - `/admin/customers` – Kundenverwaltung
 - `/admin/products` – Produktverwaltung
 - `/admin/products/new` – Produkt erstellen
 - `/admin/products/[id]/edit` – Produkt bearbeiten
 - `/admin/orders` – Bestellverwaltung
 - `/admin/categories` – Kategorien verwalten
-- `/admin/invoices` – Rechnungen (auch freie Rechnungen ohne Bestellbezug)
 - `/admin/settings` – Firmendaten und Kassenvorgaben
+
+### **Kassenportal (Protected, nur für Admins):**
+
+Eigener Bereich neben `/admin`, nicht darin – am Tresen wird kassiert und
+abgerechnet, in der Verwaltung werden Stammdaten gepflegt. Eigenes Layout
+(`app/kasse/layout.tsx`) mit dunkler Reiterleiste; in der Kopfleiste der Seite
+steht „Kasse" als goldener Knopf.
+
+- `/kasse` – Buchhaltungsübersicht (Tag, Monat, Zahlarten, offene Forderungen)
+- `/kasse/terminal` – Ladenkasse (Barcodescanner, Bon, Beleg)
+- `/kasse/verkaeufe` – Verkaufshistorie der Kasse
+- `/kasse/tagesabschluss` – Z-Abschlüsse, ein Monat je Seite
+- `/kasse/rechnungen` – Rechnungen (auch freie Rechnungen ohne Bestellbezug)
 
 ### **Shared Components:**
 - `Header` (Navbar mit Logo, Nav-Links, User-Menu)
@@ -368,7 +378,16 @@ die Akzentfarbe auf dunklen Flächen, Rot bleibt Signalfarbe.
 
 ## 🏪 Ladenkasse (POS)
 
-`/admin/pos`, nur für Admins. Grundlage: `supabase/migrations/018_kasse_pos.sql`.
+`/kasse/terminal`, nur für Admins. Grundlage:
+`supabase/migrations/018_kasse_pos.sql`.
+
+- **Zwei Preislisten**: Migration 022 legt `products.retail_price` an – den
+  Ladenpreis für Privatkundschaft. Die Großhandelsstaffeln in
+  `product_variants` bleiben unverändert. Welche Liste gilt, folgt aus dem
+  ersten Schritt an der Kasse: Kundenkonto gewählt → Großhandel,
+  „Privatkunde" → Einzelhandel (`PosPriceMode`, `counterUnitPrice()` in
+  `lib/pricing.ts`). Ohne gepflegten Ladenpreis fällt die Kasse auf die
+  kleinste Staffel zurück.
 
 - **Scanner**: USB-Handscanner melden sich als Tastatur an und schließen jeden
   Code mit Enter ab. `components/pos/pos-terminal.tsx` hält den Fokus im
@@ -384,7 +403,7 @@ die Akzentfarbe auf dunklen Flächen, Rot bleibt Signalfarbe.
   gepflegt – nichts davon ist im Code festverdrahtet.
 - **Belege**: PDF über `lib/invoice.ts` (`buildPosReceiptPdfData`), abgelegt im
   Bucket `invoices` unter `pos/<sale_id>/<Belegnummer>.pdf`, erreichbar über
-  `/admin/sales/[id]/receipt`.
+  `/kasse/verkaeufe/[id]/receipt`.
 - **Nummernkreise**: Bestellungen `LG-JJJJ-00001`, Rechnungen `LIxxxxxxx`
   (Migration 017), Kassenbelege `LBxxxxxxx`.
 
@@ -432,3 +451,100 @@ in ein Eingabefeld; Enter oder Fokusverlust speichert sofort, Escape verwirft.
 Die Zelle kennt ihr Ziel nicht – die Server Action kommt als Prop
 (`updateProductField`, `updateCategoryField`). Jedes Feld hat dort ein eigenes
 Zod-Schema; ein Feldname ohne Schema wird abgewiesen.
+
+---
+
+## 🔻 Reduzierte Artikel
+
+`products.list_price` (Migration 023) ist der **Vorher-Preis**, nichts weiter:
+eine Behauptung über den früheren Preis, deshalb am Artikel und nicht an einer
+Staffel. `reduzierung()` in `lib/pricing.ts` entscheidet, ob daraus eine
+Anzeige wird – nur wenn der Wert über dem aktuellen Preis liegt und gerundet
+mehr als 0 % Ersparnis übrig bleiben. Ein Cent Unterschied ist kein Angebot.
+
+- **Bezugspreis** ist der günstigste erreichbare: in der Karte `range.from`,
+  auf der Artikelseite der Preis der eingestellten Menge – die Ersparnis
+  wandert mit der Staffel mit.
+- **Darstellung** über `components/sale-price.tsx`: neuer Preis in Signalrot,
+  alter durchgestrichen, Prozentbadge. Drei Angaben, nicht nur Farbe – rot
+  allein wäre für Farbfehlsichtige kein Unterschied.
+- Der Streichpreis steht **auch in `products_public`**, anders als der
+  Ladenpreis: eine Reduzierung ist Werbung und gehört ins Schaufenster.
+- Gepflegt wird er im Artikelformular (eigener Block) und inline in der
+  Artikelliste (Spalte „Preise", Zeile „vorher").
+
+---
+
+## 🧻 Kassenbon (Bondrucker)
+
+`/kasse/verkaeufe/[id]/bon` – **Route Handler**, keine Seite: der Bon soll ohne
+Kopfleiste und Reiter im eigenen Fenster stehen; als Seite läge er unter dem
+Kassenlayout und brächte dessen Rahmen aufs Papier. Erzeugt wird er von
+`buildReceiptHtml()` in `lib/pos-receipt.ts`.
+
+- **Kein ESC/POS**, sondern HTML plus `window.print()`. Damit druckt jeder
+  Bondrucker, für den ein Treiber installiert ist – ohne feste IP und ohne
+  Herstellerdialekt.
+- **Schwarzweiß**, Monospace, `@page { size: 80mm auto; margin: 0 }`.
+  `?breite=58` für schmale Rollen, `?druck=0` unterdrückt den Druckdialog.
+- **Logo als Data-URI** eingebettet: eine nachgeladene Datei käme womöglich
+  nach dem Druckdialog, dann fehlt sie auf dem Papier.
+- Inhalt: Logo, Firmendaten samt Steuernummern, Belegnummer, Zeitpunkt,
+  Positionen, Summe, Steuerausweis, Zahlart, `company_settings.pos_receipt_footer`.
+- Erreichbar aus dem Abschlussdialog der Kasse und aus der Verkaufsliste.
+  Das A4-PDF unter `/receipt` bleibt daneben bestehen – zwei Medien, zwei
+  Layouts.
+
+---
+
+## 📦 Bestandsführung
+
+Wer den Bestand anfasst und wie:
+
+| Vorgang | Wirkung |
+|---------|---------|
+| Checkout des Kunden (`create_order`) | `stock_reserved` +Menge – Ware ist noch da, aber vergeben |
+| Admin legt Bestellung an (`create_admin_order`) | `stock_available` −Menge (Migration 023) – die Bestellung ist sofort `confirmed`, die Ware geht raus |
+| Kassenverkauf (`create_pos_sale`) | `stock_available` −Menge |
+
+Freie Rechnungen (`create_manual_invoice`) rühren den Bestand **nicht** an:
+ihre Positionen sind Freitext ohne Artikelbezug. Wer Ware abbuchen will, legt
+die Rechnung über „Aus Katalog" an.
+
+---
+
+## 📅 Tagesabschluss (Z-Kasse)
+
+`/kasse/tagesabschluss`, Grundlage `supabase/migrations/025_tagesabschluss.sql`.
+
+- **`pos_day_closings`** hält je Kassentag eine Zeile mit fortlaufender
+  Z-Nummer (`Z00001`), Belegzahl, Netto/USt./Brutto, Bar/Karte und dem
+  Belegnummernbereich. Die Z-Nummer wird bei einem zweiten Abschluss desselben
+  Tages **nicht** neu vergeben – die Reihe muss lückenlos bleiben.
+- **Zwei Zahlen nebeneinander**: `pos_day_totals()` rechnet live aus den Bons,
+  die Abschlusszeile hält fest, was beim Abschluss galt. Weichen sie ab, wurde
+  danach noch gebucht; die Übersicht zeigt das an und bietet „Neu abschließen"
+  – überschrieben wird nichts von selbst.
+- **Automatik ohne Cron**: `close_open_pos_days()` schließt beim Öffnen von
+  `/kasse` oder `/kasse/tagesabschluss` jeden vergangenen Tag nach, der noch
+  offen ist (`holeAbschluesseNach()` in `lib/queries/kasse.ts`). Wer die Kasse
+  öffnet, holt damit den vergessenen Vorabend nach. pg_cron wäre ein
+  Betriebsteil mehr, der still ausfallen kann.
+- **Ladenzeitzone**: Ein Kassentag endet mit dem Ladenschluss, nicht um
+  Mitternacht UTC. `pos_zeitzone()`/`pos_kassentag()`/`pos_heute()` ziehen die
+  Grenze in `Europe/Berlin`; die Anwendung rechnet keine Tagesgrenzen selbst
+  nach.
+- **Z-Bon**: `/kasse/tagesabschluss/[datum]/bon`, dasselbe Bonpapier wie der
+  Kassenbon (`buildZBonHtml()` in `lib/pos-receipt.ts`, gemeinsames Gerüst
+  `bonGeruest()`).
+- **Löschen** (Migration 026): `delete_pos_day_closing()` nimmt einen Abschluss
+  zurück, `reset_pos_day_closings()` verwirft alle und setzt die Nummerierung
+  auf Z00001 – Letzteres nur hinter getippter Bestätigung, gedacht für die
+  Einrichtungsphase. Die Z-Nummer eines einzeln gelöschten Abschlusses bleibt
+  verbraucht: sie stand womöglich schon auf einem gedruckten Bon, und eine
+  zweite Buchung unter derselben Nummer wäre schlimmer als eine Lücke.
+  Verkäufe werden nie gelöscht, nur die Festschreibung.
+- **`company_settings.pos_closing_from`** ist die Grenze der Automatik. Ohne
+  sie legte `close_open_pos_days()` einen gerade gelöschten Tag beim nächsten
+  Seitenaufruf sofort wieder an. Löschen schiebt die Grenze hinter den Tag,
+  Zurücksetzen auf heute. Von Hand abschließen geht weiterhin für jeden Tag.

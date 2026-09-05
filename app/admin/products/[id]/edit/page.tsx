@@ -51,6 +51,8 @@ export default async function EditProductPage({
             description: product.description,
             is_active: product.is_active,
             stock_available: product.stock_available,
+            retail_price: product.retail_price,
+            list_price: product.list_price,
             variants: product.variants,
             images: product.images,
           }}

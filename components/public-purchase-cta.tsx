@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { SalePrice } from "@/components/sale-price";
 import { formatPrice } from "@/lib/format";
+import { reduzierung } from "@/lib/pricing";
 
 /**
  * Ersetzt ProductPurchase für nicht angemeldete Besucher. Zeigt den
@@ -10,22 +12,33 @@ import { formatPrice } from "@/lib/format";
 export function PublicPurchaseCta({
   priceFrom,
   minOrderQuantity,
+  listPrice = null,
 }: {
   priceFrom: number | null;
   minOrderQuantity: number | null;
+  /** Vorher-Preis für die Rabattanzeige (Migration 023) */
+  listPrice?: number | null;
 }) {
+  const rabatt = reduzierung(listPrice, priceFrom);
+
   return (
     <div className="rounded-md border border-border">
       {priceFrom !== null ? (
         <div className="border-b border-border bg-muted p-5">
-          <p className="eyebrow text-muted-foreground">Großhandelspreis</p>
-          <p className="mt-2 flex items-baseline gap-1.5">
-            <span className="text-sm text-muted-foreground">ab</span>
-            <span className="text-3xl font-bold tabular">
-              {formatPrice(priceFrom)}
-            </span>
-            <span className="text-sm text-muted-foreground">/ Stück</span>
+          <p className="eyebrow text-muted-foreground">
+            {rabatt ? "Reduziert" : "Großhandelspreis"}
           </p>
+          {rabatt ? (
+            <SalePrice reduktion={rabatt} suffix="/ Stück" groesse="gross" className="mt-2" />
+          ) : (
+            <p className="mt-2 flex items-baseline gap-1.5">
+              <span className="text-sm text-muted-foreground">ab</span>
+              <span className="text-3xl font-bold tabular">
+                {formatPrice(priceFrom)}
+              </span>
+              <span className="text-sm text-muted-foreground">/ Stück</span>
+            </p>
+          )}
           {minOrderQuantity ? (
             <p className="mt-1 text-sm text-muted-foreground tabular">
               Mindestabnahme {minOrderQuantity} Stück

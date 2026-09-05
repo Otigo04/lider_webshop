@@ -96,7 +96,7 @@ export function InvoiceForm({
   useEffect(() => {
     if (!manualState.invoiceId) return;
     toast.success("Rechnung angelegt und verschickt.");
-    router.push(`/admin/invoices/${manualState.invoiceId}`);
+    router.push(`/kasse/rechnungen/${manualState.invoiceId}`);
   }, [manualState.invoiceId, router]);
 
   const filteredProducts = useMemo(() => {

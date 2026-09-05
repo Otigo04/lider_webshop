@@ -75,6 +75,16 @@ export interface Product {
   is_topseller: boolean;
   /** Folgt automatisch product_images (Trigger, Migration 020) – kein manueller Schalter. */
   has_image: boolean;
+  /**
+   * Ladenpreis für Privatkunden an der Kasse (Migration 022). null = nicht
+   * gepflegt, dann greift dort die kleinste Großhandelsstaffel.
+   */
+  retail_price: number | null;
+  /**
+   * Vorher-Preis für die Rabattanzeige (Migration 023). null oder nicht höher
+   * als der aktuelle Preis = keine Reduzierung, siehe lib/pricing.ts.
+   */
+  list_price: number | null;
   stock_available: number;
   stock_reserved: number;
   created_by: string | null;
@@ -268,6 +278,30 @@ export interface PosSaleItem {
   created_at: string;
 }
 
+/**
+ * Z-Abschluss eines Kassentags (Migration 025). Festgeschriebene Zahlen eines
+ * Tages mit fortlaufender Z-Nummer – das Gegenstück zum Bon des einzelnen
+ * Verkaufs.
+ */
+export interface PosDayClosing {
+  id: string;
+  /** Kassentag in Ladenzeit (YYYY-MM-DD), nicht der Zeitpunkt des Abschlusses */
+  business_date: string;
+  z_number: string;
+  closed_at: string;
+  /** null = automatisch nachgeholt, sonst der Admin, der abgeschlossen hat */
+  closed_by: string | null;
+  sales_count: number;
+  net_amount: number;
+  vat_amount: number;
+  gross_amount: number;
+  cash_amount: number;
+  card_amount: number;
+  first_receipt: string | null;
+  last_receipt: string | null;
+  note: string | null;
+}
+
 /** Position im Kassen-Warenkorb. Reiner Client-State, nichts davon in der DB. */
 export interface PosCartItem {
   /** null bei einer frei eingetragenen Zeile ohne Artikelstamm */
@@ -280,6 +314,17 @@ export interface PosCartItem {
   /** Frei verfügbarer Bestand beim Erfassen; null bei freien Zeilen */
   maxStock: number | null;
 }
+
+/**
+ * Welche Preisliste an der Kasse gilt. Ergibt sich aus der Kundenwahl: ein
+ * Kundenkonto ist ein Händler, Laufkundschaft zahlt Ladenpreis.
+ */
+export type PosPriceMode = "wholesale" | "retail";
+
+export const POS_PRICE_MODE_LABELS: Record<PosPriceMode, string> = {
+  wholesale: "Großhandelspreise",
+  retail: "Einzelhandelspreise",
+};
 
 export interface CompanySettings {
   company_name: string | null;
@@ -305,6 +350,12 @@ export interface CompanySettings {
   pos_prices_gross: boolean;
   /** Zusatzzeile unter dem Kassenbon (Öffnungszeiten, Rückgabehinweis) */
   pos_receipt_footer: string | null;
+  /**
+   * Ab diesem Kassentag holt die Automatik fehlende Tagesabschlüsse nach
+   * (Migration 026). null = alle Tage. Rückt vor, wenn ein Abschluss gelöscht
+   * wird – sonst legte die Automatik ihn sofort wieder an.
+   */
+  pos_closing_from: string | null;
 }
 
 export interface AccessRequest {

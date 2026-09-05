@@ -1,7 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { toNumber } from "@/lib/format";
-import { baseUnitPrice, freeStock, resolveTier } from "@/lib/pricing";
+import { baseUnitPrice, freeStock } from "@/lib/pricing";
 import type {
   AppUser,
   PosSale,
@@ -27,11 +27,13 @@ export interface PosProduct {
   freeStock: number;
   /** Vorschlagspreis für ein Stück: kleinste Preisstaffel */
   unitPrice: number | null;
+  /** Ladenpreis für Privatkunden; null, wenn keiner gepflegt ist */
+  retailPrice: number | null;
   variants: ProductVariant[];
 }
 
 const POS_COLUMNS = `
-  id, sku, barcode, name, category_id, is_active,
+  id, sku, barcode, name, category_id, is_active, retail_price,
   stock_available, stock_reserved,
   category:categories (id, name),
   variants:product_variants (id, product_id, min_quantity, max_quantity, unit_price, created_at)
@@ -43,6 +45,7 @@ interface PosProductRow {
   barcode: string | null;
   name: string;
   category_id: string;
+  retail_price: number | string | null;
   stock_available: number;
   stock_reserved: number;
   category: { id: string; name: string } | null;
@@ -60,6 +63,9 @@ function zuPosProdukt(row: PosProductRow): PosProduct {
     categoryName: row.category?.name ?? null,
     freeStock: freeStock(row),
     unitPrice: baseUnitPrice(variants),
+    // NUMERIC kommt als string über PostgREST – erst hier zur Zahl machen,
+    // sonst rechnet die Kasse mit Text weiter.
+    retailPrice: row.retail_price === null ? null : toNumber(row.retail_price),
     variants,
   };
 }
@@ -118,13 +124,6 @@ export async function searchPosProducts(term: string, limit = 12): Promise<PosPr
     return [];
   }
   return (data ?? []).map((row) => zuPosProdukt(row as unknown as PosProductRow));
-}
-
-/** Preis für eine Menge – an der Kasse gelten dieselben Staffeln wie im Shop. */
-export function posUnitPrice(product: PosProduct, quantity: number): number {
-  const tier = resolveTier(product.variants, quantity);
-  if (tier) return toNumber(tier.unit_price);
-  return product.unitPrice ?? 0;
 }
 
 // --- Verkäufe ---------------------------------------------------------------

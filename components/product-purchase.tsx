@@ -6,8 +6,15 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useCart } from "@/lib/cart-context";
 import { formatPrice, formatQuantity } from "@/lib/format";
-import { lineTotal, minOrderQuantity, resolveTier } from "@/lib/pricing";
+import {
+  baseUnitPrice,
+  lineTotal,
+  minOrderQuantity,
+  reduzierung,
+  resolveTier,
+} from "@/lib/pricing";
 import { PriceTable } from "@/components/price-table";
+import { SalePrice } from "@/components/sale-price";
 import { QuantityInput } from "@/components/quantity-input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -19,6 +26,8 @@ interface ProductPurchaseProps {
   productSku: string;
   tiers: PriceTier[];
   freeStock: number;
+  /** Vorher-Preis für die Rabattanzeige (Migration 023) */
+  listPrice: number | null;
 }
 
 /**
@@ -31,6 +40,7 @@ export function ProductPurchase({
   productSku,
   tiers,
   freeStock,
+  listPrice,
 }: ProductPurchaseProps) {
   const min = minOrderQuantity(tiers);
   const [quantity, setQuantity] = useState<number>(min);
@@ -40,6 +50,14 @@ export function ProductPurchase({
   const soldOut = freeStock <= 0;
   const noPrices = tiers.length === 0;
   const activeTier = resolveTier(tiers, quantity);
+
+  // Bezug ist der Preis, der bei der eingestellten Menge tatsächlich gilt –
+  // die Ersparnis wandert mit der Staffel mit. Ohne passende Staffel die
+  // kleinste, damit die Angabe nie ins Leere läuft.
+  const rabatt = reduzierung(
+    listPrice,
+    activeTier ? Number(activeTier.unit_price) : baseUnitPrice(tiers),
+  );
 
   const belowMin = quantity < min;
   const aboveStock = quantity > freeStock;
@@ -66,6 +84,16 @@ export function ProductPurchase({
 
   return (
     <div className="space-y-6">
+      {rabatt ? (
+        <div className="rounded-md border-2 border-signal/30 bg-signal-soft p-4">
+          <p className="eyebrow text-signal">Reduziert</p>
+          <SalePrice reduktion={rabatt} suffix="/ Stück" groesse="gross" className="mt-2" />
+          <p className="mt-1 text-sm text-muted-foreground tabular">
+            Sie sparen {formatPrice(rabatt.vorher - rabatt.jetzt)} je Stück.
+          </p>
+        </div>
+      ) : null}
+
       <PriceTable variants={tiers} activeTierId={activeTier?.id} />
 
       {noPrices ? null : (

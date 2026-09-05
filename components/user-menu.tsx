@@ -56,6 +56,9 @@ export function UserMenu({ label, email, isAdmin }: UserMenuProps) {
             <DropdownMenuItem asChild>
               <Link href="/admin">Verwaltung</Link>
             </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/kasse">Kasse &amp; Buchhaltung</Link>
+            </DropdownMenuItem>
           </>
         ) : null}
 

@@ -40,6 +40,12 @@ export interface PublicProductListItem {
    */
   priceFrom: number | null;
   minOrderQuantity: number | null;
+  /**
+   * Vorher-Preis für die Rabattanzeige (Migration 023). Anders als der
+   * Ladenpreis steht er auch im Schaufenster: eine Reduzierung ist eine
+   * Werbeaussage und gehört nach außen.
+   */
+  list_price: number | null;
 }
 
 let viewFehltGemeldet = false;
@@ -101,7 +107,7 @@ export interface ProductDetail extends Omit<Product, "category"> {
 
 const LIST_COLUMNS = `
   id, category_id, sku, barcode, name, description, is_active, is_new, is_topseller, has_image,
-  stock_available, stock_reserved, created_by, created_at, updated_at,
+  retail_price, list_price, stock_available, stock_reserved, created_by, created_at, updated_at,
   variants:product_variants (id, product_id, min_quantity, max_quantity, unit_price, created_at),
   images:product_images (id, product_id, file_path, display_order, created_at)
 `;
@@ -299,7 +305,7 @@ export async function getPublicProducts(options?: {
   let query = supabase
     .from("products_public")
     .select(
-      "id, category_id, sku, name, description, is_new, is_topseller, created_at",
+      "id, category_id, sku, name, description, is_new, is_topseller, created_at, list_price",
     );
 
   query =
@@ -349,6 +355,7 @@ export async function getPublicProducts(options?: {
       imageUrl: urls[index],
       priceFrom: preis?.min_unit_price ?? null,
       minOrderQuantity: preis?.min_order_quantity ?? null,
+      list_price: (row.list_price as number | null) ?? null,
     };
   });
 }
@@ -396,7 +403,9 @@ export async function getLandingData(perSection = 8): Promise<LandingData> {
   const [{ data: rows, error }, categories] = await Promise.all([
     supabase
       .from("products_public")
-      .select("id, category_id, sku, name, description, is_new, is_topseller, created_at")
+      .select(
+        "id, category_id, sku, name, description, is_new, is_topseller, created_at, list_price",
+      )
       .order("created_at", { ascending: false }),
     getCategories(),
   ]);
@@ -469,6 +478,7 @@ export async function getLandingData(perSection = 8): Promise<LandingData> {
       imageUrl: bilder.get(id) ?? null,
       priceFrom: preis?.min_unit_price ?? null,
       minOrderQuantity: preis?.min_order_quantity ?? null,
+      list_price: (row.list_price as number | null) ?? null,
     };
   };
 
@@ -502,7 +512,7 @@ export async function getPublicProduct(id: string): Promise<PublicProductDetail 
   const { data, error } = await supabase
     .from("products_public")
     .select(
-      "id, category_id, sku, name, description, is_new, is_topseller, created_at, category:categories (*)",
+      "id, category_id, sku, name, description, is_new, is_topseller, created_at, list_price, category:categories (*)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -534,6 +544,7 @@ export async function getPublicProduct(id: string): Promise<PublicProductDetail 
     is_new: boolean;
     is_topseller: boolean;
     created_at: string;
+    list_price: number | null;
     category: Category | null;
   };
 
@@ -551,6 +562,7 @@ export async function getPublicProduct(id: string): Promise<PublicProductDetail 
     imageUrls,
     priceFrom: preis?.min_unit_price ?? null,
     minOrderQuantity: preis?.min_order_quantity ?? null,
+    list_price: row.list_price,
   };
 }
 

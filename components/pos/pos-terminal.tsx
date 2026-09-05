@@ -10,6 +10,7 @@ import {
   Loader2,
   Minus,
   Plus,
+  Printer,
   Receipt,
   ScanBarcode,
   Trash2,
@@ -35,17 +36,19 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { formatPrice, formatQuantity, toNumber } from "@/lib/format";
-import { resolveTier } from "@/lib/pricing";
+import { formatPrice, formatQuantity } from "@/lib/format";
+import { counterUnitPrice } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
-import type {
-  AppUser,
-  Category,
-  PosCartItem,
-  PosPaymentMethod,
+import {
+  POS_PRICE_MODE_LABELS,
+  type AppUser,
+  type Category,
+  type PosCartItem,
+  type PosPaymentMethod,
 } from "@/lib/types";
 
 interface AbschlussInfo {
+  saleId: string;
   receiptNumber: string;
   totalAmount: number;
   receiptUrl: string | null;
@@ -154,6 +157,14 @@ export function PosTerminal({
    * durch diese Funktion. Ein Ton pro gebuchtem Artikel, keiner bei
    * Fehlgriffen wie leerem Lager.
    */
+  const preisModus = kunde?.priceMode ?? "retail";
+  // Spiegel wie bonRef: aufDenBon hängt sonst am Modus und würde bei jedem
+  // Kundenwechsel neu erzeugt, obwohl die Funktion sich nicht ändert.
+  const modusRef = useRef(preisModus);
+  useEffect(() => {
+    modusRef.current = preisModus;
+  }, [preisModus]);
+
   const aufDenBon = useCallback((product: PosProduct, menge = 1) => {
     const aktuell = bonRef.current;
     const index = aktuell.findIndex((zeile) => zeile.productId === product.id);
@@ -170,9 +181,9 @@ export function PosTerminal({
       return false;
     }
 
-    // Staffelpreis: an der Kasse gilt dieselbe Preisliste wie im Shop.
-    const staffel = resolveTier(product.variants, neueMenge);
-    const preis = staffel ? toNumber(staffel.unit_price) : (product.unitPrice ?? 0);
+    // Händler mit Konto zahlen die Shop-Staffel, Privatkundschaft den
+    // Ladenpreis des Artikels (lib/pricing.ts).
+    const preis = counterUnitPrice(product, neueMenge, modusRef.current);
 
     if (index >= 0) {
       const kopie = [...aktuell];
@@ -310,6 +321,7 @@ export function PosTerminal({
 
       setBestaetigen(false);
       setAbschluss({
+        saleId: ergebnis.sale.id,
         receiptNumber: ergebnis.sale.receiptNumber,
         totalAmount: ergebnis.sale.totalAmount,
         receiptUrl: ergebnis.sale.receiptUrl,
@@ -336,25 +348,66 @@ export function PosTerminal({
 
   return (
     <div>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Kasse</h1>
-          <p className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
-            <UserRound className="size-4" aria-hidden />
-            {kunde.label}
-            {kunde.customerId ? null : " · ohne Kundenkonto"}
-          </p>
+      {/* Kopf der Arbeitsfläche auf dunklem Grund: an der Kasse steht der
+          Kassierer vor einem hellen Bildschirm und muss auf einen Blick sehen,
+          für wen und zu welchen Preisen gerade kassiert wird. Der farbige
+          Streifen links trägt die Preisliste – Gold für Ladenpreise, Blau für
+          Händler –, damit sie nicht nur als Wort dasteht. */}
+      <div className="overflow-hidden rounded-lg bg-surface-dark text-surface-dark-foreground">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+          <div className="flex items-center gap-4">
+            <span
+              aria-hidden
+              className={cn(
+                "hidden h-12 w-1.5 rounded-full sm:block",
+                preisModus === "retail" ? "bg-gold" : "bg-brand-hover",
+              )}
+            />
+            <div>
+              <h1 className="text-2xl font-semibold tracking-tight">Kasse</h1>
+              <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-surface-dark-muted">
+                <UserRound className="size-4" aria-hidden />
+                {kunde.label}
+                {kunde.customerId ? null : " · ohne Kundenkonto"}
+                <span
+                  className={cn(
+                    "eyebrow rounded px-1.5 py-0.5",
+                    preisModus === "retail"
+                      ? "bg-gold text-gold-foreground"
+                      : "bg-white/15 text-surface-dark-foreground",
+                  )}
+                >
+                  {POS_PRICE_MODE_LABELS[preisModus]}
+                </span>
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              asChild
+              variant="outline"
+              className="border-surface-dark-border bg-transparent text-surface-dark-foreground hover:bg-white/10 hover:text-surface-dark-foreground"
+            >
+              <Link href="/kasse/verkaeufe">
+                <Receipt className="size-4" aria-hidden /> Verkäufe
+              </Link>
+            </Button>
+            <Button
+              variant="ghost"
+              className="text-surface-dark-muted hover:bg-white/10 hover:text-surface-dark-foreground"
+              onClick={() => neuerVorgang(false)}
+            >
+              Kunde wechseln
+            </Button>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" asChild>
-            <Link href="/admin/sales">
-              <Receipt className="size-4" aria-hidden /> Verkäufe
-            </Link>
-          </Button>
-          <Button variant="ghost" onClick={() => neuerVorgang(false)}>
-            Kunde wechseln
-          </Button>
-        </div>
+        <div
+          aria-hidden
+          className={cn(
+            "h-1",
+            preisModus === "retail" ? "bg-gold" : "bg-brand-hover",
+          )}
+        />
       </div>
 
       {/* Die Kamera bekommt eine eigene Spalte ganz links, statt sich über die
@@ -447,6 +500,7 @@ export function PosTerminal({
               fehlt oder nicht lesbar ist. */}
           <div className="mt-6">
             <PosProductSearch
+              preisModus={preisModus}
               onSelect={(product) => {
                 if (aufDenBon(product)) {
                   toast.success(`${product.name} hinzugefügt.`);
@@ -541,9 +595,29 @@ export function PosTerminal({
         </div>
 
         {/* ------------------------------------------------ Summe und Zahlung */}
-        <aside className="rounded-lg border-2 border-brand/30 bg-card lg:sticky lg:top-24">
-          <div className="border-b border-border bg-brand-soft px-5 py-3">
-            <p className="text-sm font-semibold text-brand">Abrechnung</p>
+        <aside
+          className={cn(
+            "rounded-lg border-2 bg-card lg:sticky lg:top-24",
+            preisModus === "retail" ? "border-gold/50" : "border-brand/30",
+          )}
+        >
+          <div
+            className={cn(
+              "flex items-baseline justify-between gap-2 border-b border-border px-5 py-3",
+              preisModus === "retail" ? "bg-gold-soft" : "bg-brand-soft",
+            )}
+          >
+            <p
+              className={cn(
+                "text-sm font-semibold",
+                preisModus === "retail" ? "text-gold" : "text-brand",
+              )}
+            >
+              Abrechnung
+            </p>
+            <p className="eyebrow text-muted-foreground">
+              {POS_PRICE_MODE_LABELS[preisModus]}
+            </p>
           </div>
 
           <dl className="space-y-2 px-5 py-4 text-sm">
@@ -559,7 +633,12 @@ export function PosTerminal({
             </div>
             <div className="flex items-baseline justify-between border-t border-border pt-3">
               <dt className="font-semibold">Gesamt</dt>
-              <dd className="text-2xl font-bold tabular text-brand">
+              <dd
+                className={cn(
+                  "text-2xl font-bold tabular",
+                  preisModus === "retail" ? "text-gold" : "text-brand",
+                )}
+              >
                 {formatPrice(summen.brutto)}
               </dd>
             </div>
@@ -668,6 +747,22 @@ export function PosTerminal({
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
+            {/*
+              Bon zuerst: am Tresen wartet jemand darauf. Das Fenster öffnet
+              den Druckdialog selbst und bleibt danach stehen, falls ein
+              zweiter Ausdruck gebraucht wird.
+            */}
+            {abschluss ? (
+              <Button asChild>
+                <a
+                  href={`/kasse/verkaeufe/${abschluss.saleId}/bon`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Printer className="size-4" aria-hidden /> Bon drucken
+                </a>
+              </Button>
+            ) : null}
             {abschluss?.receiptUrl ? (
               <Button asChild variant="outline">
                 <a
@@ -675,11 +770,11 @@ export function PosTerminal({
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  <Receipt className="size-4" aria-hidden /> Beleg öffnen
+                  <Receipt className="size-4" aria-hidden /> Beleg als PDF
                 </a>
               </Button>
             ) : null}
-            <Button type="button" onClick={() => neuerVorgang(true)}>
+            <Button type="button" variant="secondary" onClick={() => neuerVorgang(true)}>
               Nächster Verkauf
             </Button>
           </DialogFooter>

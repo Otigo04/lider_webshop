@@ -15,6 +15,7 @@ import {
   PRODUCT_BUCKET,
 } from "@/lib/constants";
 import { formatPrice } from "@/lib/format";
+import { reduzierung } from "@/lib/pricing";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -47,6 +48,8 @@ interface ProductFormProps {
     description: string | null;
     is_active: boolean;
     stock_available: number;
+    retail_price: number | null;
+    list_price: number | null;
     variants: ProductVariant[];
     images: { file_path: string }[];
   };
@@ -81,6 +84,16 @@ export function ProductForm({
   const [description, setDescription] = useState(product?.description ?? "");
   const [categoryId, setCategoryId] = useState(product?.category_id ?? "");
   const [barcode, setBarcode] = useState(product?.barcode ?? "");
+  const [retailPrice, setRetailPrice] = useState(
+    product?.retail_price !== null && product?.retail_price !== undefined
+      ? String(product.retail_price)
+      : "",
+  );
+  const [listPrice, setListPrice] = useState(
+    product?.list_price !== null && product?.list_price !== undefined
+      ? String(product.list_price)
+      : "",
+  );
 
   const [tiers, setTiers] = useState<TierRow[]>(() =>
     product && product.variants.length > 0
@@ -93,6 +106,17 @@ export function ProductForm({
             unit_price: String(variant.unit_price),
           }))
       : [{ key: crypto.randomUUID(), min_quantity: "1", max_quantity: "", unit_price: "" }],
+  );
+
+  // Vorschau der Reduzierung. Bezug ist der günstigste Staffelpreis – genau
+  // der Preis, gegen den der Shop den Vorher-Preis später rechnet.
+  const guenstigsterPreis = tiers
+    .map((tier) => Number(tier.unit_price))
+    .filter((preis) => Number.isFinite(preis) && preis > 0)
+    .sort((a, b) => a - b)[0];
+  const rabattVorschau = reduzierung(
+    listPrice.trim() === "" ? null : Number(listPrice),
+    guenstigsterPreis ?? null,
   );
 
   const [images, setImages] = useState<ImageRow[]>(() =>
@@ -170,6 +194,8 @@ export function ProductForm({
     description,
     is_active: true,
     stock_available: 0,
+    retail_price: retailPrice.trim(),
+    list_price: listPrice.trim(),
     tiers: tiers.map((tier) => ({
       min_quantity: tier.min_quantity,
       max_quantity: tier.max_quantity === "" ? null : tier.max_quantity,
@@ -297,9 +323,79 @@ export function ProductForm({
         </div>
       </section>
 
-      <section>
+      <section className="rounded-lg border-2 border-gold/40 bg-gold-soft/50 p-5">
+        <h2 className="font-medium">Einzelhandel · Ladenverkauf</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Preis, den Privatkundschaft an der Kasse zahlt. Gilt unabhängig von
+          der Menge. Leer lassen, wenn der Artikel nicht über den Tresen geht –
+          die Kasse nimmt dann die kleinste Großhandelsstaffel.
+        </p>
+
+        <div className="mt-4 flex flex-wrap items-end gap-3">
+          <div className="w-44 space-y-1">
+            <Label htmlFor="retail_price" className="text-xs">
+              Preis / Stück (€)
+            </Label>
+            <Input
+              id="retail_price"
+              type="number"
+              min={0}
+              step="0.01"
+              inputMode="decimal"
+              value={retailPrice}
+              onChange={(event) => setRetailPrice(event.target.value)}
+              className="tabular"
+              placeholder="—"
+            />
+          </div>
+          <p className="min-w-24 pb-2 text-sm text-muted-foreground tabular">
+            {retailPrice ? formatPrice(retailPrice) : ""}
+          </p>
+        </div>
+      </section>
+
+      <section className="rounded-lg border-2 border-signal/30 bg-signal-soft/50 p-5">
+        <h2 className="font-medium">Reduzierung · Vorher-Preis</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Der frühere Preis. Liegt er über dem aktuellen, zeigt der Shop ihn
+          durchgestrichen neben dem neuen Preis und rechnet die Ersparnis in
+          Prozent aus. Leer lassen, solange der Artikel nicht reduziert ist.
+        </p>
+
+        <div className="mt-4 flex flex-wrap items-end gap-3">
+          <div className="w-44 space-y-1">
+            <Label htmlFor="list_price" className="text-xs">
+              Vorher / Stück (€)
+            </Label>
+            <Input
+              id="list_price"
+              type="number"
+              min={0}
+              step="0.01"
+              inputMode="decimal"
+              value={listPrice}
+              onChange={(event) => setListPrice(event.target.value)}
+              className="tabular"
+              placeholder="—"
+            />
+          </div>
+          {rabattVorschau ? (
+            <p className="pb-2 text-sm font-medium text-signal tabular">
+              {formatPrice(rabattVorschau.vorher)} →{" "}
+              {formatPrice(rabattVorschau.jetzt)} · −{rabattVorschau.prozent} %
+            </p>
+          ) : listPrice ? (
+            <p className="pb-2 text-sm text-muted-foreground">
+              Liegt nicht über dem aktuellen Preis – es wird keine Reduzierung
+              angezeigt.
+            </p>
+          ) : null}
+        </div>
+      </section>
+
+      <section className="rounded-lg border-2 border-brand/30 bg-brand-soft/40 p-5">
         <div className="flex items-center justify-between">
-          <h2 className="font-medium">Preisstaffeln</h2>
+          <h2 className="font-medium">Großhandel · Preisstaffeln</h2>
           <Button
             type="button"
             variant="outline"
@@ -321,8 +417,8 @@ export function ProductForm({
         </div>
 
         <p className="mt-1 text-sm text-muted-foreground">
-          Höchstmenge leer lassen für die offene Staffel nach oben (z. B.
-          „ab 200 Stück“).
+          Gilt im Shop und an der Kasse für Kunden mit Konto. Höchstmenge leer
+          lassen für die offene Staffel nach oben (z. B. „ab 200 Stück“).
         </p>
 
         <div className="mt-4 space-y-3">

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Receipt, Search } from "lucide-react";
+import { Printer, Receipt, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,7 +25,7 @@ function alsText(wert: string | string[] | undefined): string {
 
 export default async function AdminSalesPage({
   searchParams,
-}: PageProps<"/admin/sales">) {
+}: PageProps<"/kasse/verkaeufe">) {
   const params = await searchParams;
   const von = alsText(params.von);
   const bis = alsText(params.bis);
@@ -63,7 +63,7 @@ export default async function AdminSalesPage({
           </p>
         </div>
         <Button asChild>
-          <Link href="/admin/pos">
+          <Link href="/kasse/terminal">
             <Receipt className="size-4" aria-hidden /> Zur Kasse
           </Link>
         </Button>
@@ -83,7 +83,7 @@ export default async function AdminSalesPage({
       </div>
 
       <form
-        action="/admin/sales"
+        action="/kasse/verkaeufe"
         className="mt-8 grid gap-3 rounded-lg border border-border bg-muted/60 p-4 sm:grid-cols-2 lg:grid-cols-5 lg:items-end"
       >
         <div className="space-y-1.5">
@@ -127,7 +127,7 @@ export default async function AdminSalesPage({
         <div className="flex gap-2">
           <Button type="submit">Filtern</Button>
           <Button asChild variant="ghost">
-            <Link href="/admin/sales">Zurücksetzen</Link>
+            <Link href="/kasse/verkaeufe">Zurücksetzen</Link>
           </Button>
         </div>
       </form>
@@ -194,15 +194,26 @@ export default async function AdminSalesPage({
                     {formatPrice(sale.total_amount)}
                   </td>
                   <td className="py-3 text-right">
-                    <Button asChild variant="ghost" size="sm">
-                      <a
-                        href={`/admin/sales/${sale.id}/receipt`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        PDF
-                      </a>
-                    </Button>
+                    <div className="flex justify-end gap-1">
+                      <Button asChild variant="secondary" size="sm">
+                        <a
+                          href={`/kasse/verkaeufe/${sale.id}/bon`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <Printer className="size-4" aria-hidden /> Bon
+                        </a>
+                      </Button>
+                      <Button asChild variant="ghost" size="sm">
+                        <a
+                          href={`/kasse/verkaeufe/${sale.id}/receipt`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          PDF
+                        </a>
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))}

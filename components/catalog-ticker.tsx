@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ImageOff } from "lucide-react";
 import { formatPrice } from "@/lib/format";
+import { reduzierung } from "@/lib/pricing";
 import type { PublicProductListItem } from "@/lib/queries/products";
 
 /**
@@ -9,9 +10,11 @@ import type { PublicProductListItem } from "@/lib/queries/products";
  * "ab"-Preis. Kein Dekor: es zeigt echte Ware aus dem Katalog, und jede Kachel
  * führt direkt zum Artikel.
  *
- * Die zweite Kopie der Liste sorgt für den nahtlosen Umlauf und ist für
- * Screenreader ausgeblendet; sie enthält auch keine Links, damit die
- * Tastaturreihenfolge nicht doppelt durchläuft.
+ * Die zweite Kopie der Liste sorgt für den nahtlosen Umlauf. Sie ist für
+ * Screenreader ausgeblendet und aus der Tastaturreihenfolge genommen, führt
+ * aber denselben Link wie das Original: über die halbe Umlaufzeit zeigt das
+ * Band die Kopie, und wer dort auf eine Kachel klickte, klickte bisher ins
+ * Leere – am häufigsten bei frisch angelegter Ware, die vorne steht.
  *
  * Läuft ohne JavaScript (reine CSS-Animation), hält beim Draufzeigen an und
  * steht still, wenn der Besucher reduzierte Bewegung eingestellt hat.
@@ -59,6 +62,8 @@ function TickerCard({
   product: PublicProductListItem;
   kopie?: boolean;
 }) {
+  const rabatt = reduzierung(product.list_price, product.priceFrom);
+
   const inhalt = (
     <>
       <span className="relative block size-16 shrink-0 overflow-hidden rounded bg-white">
@@ -85,9 +90,27 @@ function TickerCard({
           {product.name}
         </span>
         {product.priceFrom !== null ? (
-          <span className="mt-0.5 block text-sm text-gold-bright tabular">
-            ab {formatPrice(product.priceFrom)}
-            <span className="text-surface-dark-muted"> / Stück</span>
+          /*
+            Auf dem dunklen Band trägt nicht der Preis die Signalfarbe, sondern
+            das Prozentbadge: Rot auf Anthrazit liest sich schlecht, Weiß auf
+            Rot immer. Der Preis bleibt in Gold wie bei allen anderen Kacheln,
+            der Vorher-Preis steht durchgestrichen daneben.
+          */
+          <span className="mt-0.5 flex flex-wrap items-baseline gap-x-1.5 text-sm text-gold-bright tabular">
+            <span>
+              ab {formatPrice(product.priceFrom)}
+              <span className="text-surface-dark-muted"> / Stück</span>
+            </span>
+            {rabatt ? (
+              <>
+                <span className="text-xs text-surface-dark-muted line-through">
+                  {formatPrice(rabatt.vorher)}
+                </span>
+                <span className="rounded bg-signal px-1 text-[0.6875rem] font-semibold text-signal-foreground">
+                  −{rabatt.prozent}&nbsp;%
+                </span>
+              </>
+            ) : null}
           </span>
         ) : (
           <span className="mt-0.5 block text-xs text-surface-dark-muted">
@@ -98,16 +121,13 @@ function TickerCard({
     </>
   );
 
-  const klassen =
-    "flex w-[19rem] items-center gap-3 rounded-md border border-surface-dark-border px-3 py-2";
-
-  // Die Kopie ist reine Fülllung für den Umlauf – kein zweiter Tabstopp.
-  if (kopie) return <span className={klassen}>{inhalt}</span>;
-
   return (
     <Link
       href={`/shop/product/${product.id}`}
-      className={`${klassen} transition-colors hover:border-brand hover:bg-white/[0.04]`}
+      // Die Kopie ist Füllung für den Umlauf: anklickbar wie das Original,
+      // aber kein zweiter Tabstopp und für Screenreader nicht vorhanden.
+      tabIndex={kopie ? -1 : undefined}
+      className="flex w-[19rem] items-center gap-3 rounded-md border border-surface-dark-border px-3 py-2 transition-colors hover:border-brand hover:bg-white/[0.04]"
     >
       {inhalt}
     </Link>

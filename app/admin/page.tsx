@@ -53,21 +53,21 @@ export default async function AdminDashboardPage() {
         <h2 className="eyebrow text-muted-foreground">Ladenkasse heute</h2>
         <div className="mt-3 grid gap-4 sm:grid-cols-3">
           <Kachel
-            href="/admin/sales"
+            href="/kasse/verkaeufe"
             icon={Euro}
             label="Umsatz brutto"
             wert={formatPrice(heute.grossTotal)}
             ton="brand"
           />
           <Kachel
-            href="/admin/sales"
+            href="/kasse/verkaeufe"
             icon={Receipt}
             label="Belege"
             wert={formatQuantity(heute.salesCount)}
             ton="gold"
           />
           <Kachel
-            href="/admin/pos"
+            href="/kasse/terminal"
             icon={Euro}
             label="davon netto"
             wert={formatPrice(heute.netTotal)}
@@ -187,7 +187,7 @@ export default async function AdminDashboardPage() {
             <div className="flex items-center justify-between">
               <h2 className="font-medium">Letzte Kassenbons</h2>
               <Link
-                href="/admin/sales"
+                href="/kasse/verkaeufe"
                 className="text-sm text-brand hover:underline"
               >
                 alle ansehen

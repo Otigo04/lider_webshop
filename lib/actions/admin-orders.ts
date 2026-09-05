@@ -106,9 +106,9 @@ export async function updateInvoiceStatus(
     revalidatePath(`/admin/orders/${parsed.data.orderId}`);
     revalidatePath(`/orders/${parsed.data.orderId}`);
   } else {
-    revalidatePath(`/admin/invoices/${parsed.data.id}`);
+    revalidatePath(`/kasse/rechnungen/${parsed.data.id}`);
   }
-  revalidatePath("/admin/invoices");
+  revalidatePath("/kasse/rechnungen");
   return {
     success: `Rechnungsstatus auf „${INVOICE_STATUS_LABELS[parsed.data.status]}“ gesetzt.`,
   };

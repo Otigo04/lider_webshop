@@ -7,25 +7,29 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import type { AppUser } from "@/lib/types";
+import type { AppUser, PosPriceMode } from "@/lib/types";
 
 export interface PosCustomerChoice {
   customerId: string | null;
   /** Beschriftung auf dem Bon – bei Laufkundschaft der einzige Hinweis */
   label: string;
+  /** Welche Preisliste der Bon benutzt – folgt direkt aus der Kundenwahl */
+  priceMode: PosPriceMode;
 }
 
-type Modus = "bestand" | "neu" | "anonym";
+type Modus = "bestand" | "neu" | "privat";
 
 /**
  * Erster Schritt an der Kasse: für wen wird kassiert?
  *
  * Drei Wege, weil der Laden drei Fälle kennt: ein Händler mit Konto (Bon läuft
  * auf sein Kundenkonto und taucht in seinem Portal auf), ein Kunde ohne Konto,
- * der eins bekommen soll, und Laufkundschaft, die einfach zahlt.
+ * der eins bekommen soll, und Privatkundschaft, die einfach zahlt.
  *
- * Der dritte Weg ist der häufigste und steht deshalb nicht am Ende versteckt,
- * sondern gleichberechtigt daneben.
+ * Die Wahl entscheidet zugleich über die Preisliste: ein Kundenkonto ist ein
+ * Händler und bekommt die Staffelpreise, Privatkundschaft den Ladenpreis. Das
+ * ist keine zusätzliche Einstellung, sondern hängt an derselben Frage – zwei
+ * Schalter dafür wären zwei Gelegenheiten, sich zu vertun.
  */
 export function PosCustomerStep({
   customers,
@@ -41,10 +45,11 @@ export function PosCustomerStep({
   const gewaehlt = customers.find((customer) => customer.id === customerId) ?? null;
 
   function bestaetigen() {
-    if (modus === "anonym") {
+    if (modus === "privat") {
       onWeiter({
         customerId: null,
         label: bezeichnung.trim() || "Barverkauf",
+        priceMode: "retail",
       });
       return;
     }
@@ -52,6 +57,7 @@ export function PosCustomerStep({
     onWeiter({
       customerId: gewaehlt.id,
       label: gewaehlt.company_name || gewaehlt.full_name || gewaehlt.email,
+      priceMode: "wholesale",
     });
   }
 
@@ -59,8 +65,8 @@ export function PosCustomerStep({
     <div className="mx-auto max-w-3xl">
       <h1 className="text-2xl font-semibold tracking-tight">Kasse</h1>
       <p className="mt-1 text-muted-foreground">
-        Für wen wird kassiert? Die Auswahl steht auf dem Beleg und entscheidet,
-        ob der Verkauf im Kundenkonto auftaucht.
+        Für wen wird kassiert? Die Auswahl steht auf dem Beleg, entscheidet über
+        die Preisliste und darüber, ob der Verkauf im Kundenkonto auftaucht.
       </p>
 
       <div className="mt-8 grid gap-3 sm:grid-cols-3">
@@ -68,22 +74,26 @@ export function PosCustomerStep({
           aktiv={modus === "bestand"}
           onClick={() => setModus("bestand")}
           icon={Users}
-          titel="Bestandskunde"
-          text="Konto vorhanden – Bon läuft auf den Kunden."
+          titel="Händler mit Konto"
+          text="Bon läuft auf den Kunden."
+          preis="Großhandelspreise"
         />
         <Auswahlkachel
           aktiv={modus === "neu"}
           onClick={() => setModus("neu")}
           icon={UserPlus}
-          titel="Neuer Kunde"
+          titel="Neuer Händler"
           text="Konto jetzt anlegen, Startpasswort wird angezeigt."
+          preis="Großhandelspreise"
         />
         <Auswahlkachel
-          aktiv={modus === "anonym"}
-          onClick={() => setModus("anonym")}
+          aktiv={modus === "privat"}
+          onClick={() => setModus("privat")}
           icon={UserRound}
-          titel="Ohne Anmeldung"
+          titel="Privatkunde"
           text="Laufkundschaft, nur Beleg – kein Konto."
+          preis="Einzelhandelspreise"
+          ton="gold"
         />
       </div>
 
@@ -110,7 +120,7 @@ export function PosCustomerStep({
         </div>
       ) : null}
 
-      {modus === "anonym" ? (
+      {modus === "privat" ? (
         <div className="mt-8 rounded-lg border border-border bg-card p-5">
           <div className="space-y-2">
             <Label htmlFor="pos-label">Bezeichnung auf dem Beleg</Label>
@@ -132,7 +142,7 @@ export function PosCustomerStep({
         type="button"
         size="lg"
         className="mt-8 w-full sm:w-auto"
-        disabled={modus === null || (modus !== "anonym" && !gewaehlt)}
+        disabled={modus === null || (modus !== "privat" && !gewaehlt)}
         onClick={bestaetigen}
       >
         <ScanBarcode className="size-4" aria-hidden />
@@ -143,41 +153,68 @@ export function PosCustomerStep({
   );
 }
 
+/**
+ * Die Preiszeile steht bewusst auf der Kachel und nicht im Kleingedruckten:
+ * an welchem Preis kassiert wird, ist die Folge dieser Wahl und muss vor dem
+ * Klick sichtbar sein, nicht danach.
+ */
 function Auswahlkachel({
   aktiv,
   onClick,
   icon: Icon,
   titel,
   text,
+  preis,
+  ton = "brand",
 }: {
   aktiv: boolean;
   onClick: () => void;
   icon: typeof Users;
   titel: string;
   text: string;
+  preis: string;
+  ton?: "brand" | "gold";
 }) {
+  const gold = ton === "gold";
+
   return (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={aktiv}
       className={cn(
-        "rounded-lg border-2 p-4 text-left transition-colors",
+        "rounded-lg border-2 p-4 text-left transition-all duration-200",
         aktiv
-          ? "border-brand bg-brand-soft"
-          : "border-border bg-card hover:border-brand/40 hover:bg-muted",
+          ? gold
+            ? "border-gold bg-gold-soft shadow-sm"
+            : "border-brand bg-brand-soft shadow-sm"
+          : gold
+            ? "border-border bg-card hover:-translate-y-0.5 hover:border-gold/50 hover:bg-gold-soft/40"
+            : "border-border bg-card hover:-translate-y-0.5 hover:border-brand/40 hover:bg-muted",
       )}
     >
       <span
         className={cn(
-          "flex size-9 items-center justify-center rounded-md",
-          aktiv ? "bg-brand text-brand-foreground" : "bg-muted text-muted-foreground",
+          "flex size-9 items-center justify-center rounded-md transition-colors",
+          aktiv
+            ? gold
+              ? "bg-gold text-gold-foreground"
+              : "bg-brand text-brand-foreground"
+            : "bg-muted text-muted-foreground",
         )}
       >
         <Icon className="size-5" aria-hidden />
       </span>
       <span className="mt-3 block font-semibold">{titel}</span>
       <span className="mt-1 block text-sm text-muted-foreground">{text}</span>
+      <span
+        className={cn(
+          "eyebrow mt-3 inline-block rounded px-1.5 py-0.5",
+          gold ? "bg-gold text-gold-foreground" : "bg-brand text-brand-foreground",
+        )}
+      >
+        {preis}
+      </span>
     </button>
   );
 }

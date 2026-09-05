@@ -77,9 +77,11 @@ export function AdminTabs({ tabs }: { tabs: AdminTab[] }) {
               aktiv
                 ? "bg-brand text-brand-foreground"
                 : "text-muted-foreground hover:bg-muted hover:text-foreground",
-              // Die Kasse ist ein eigener Arbeitsplatz, kein Verwaltungspunkt
-              // wie die anderen – sie trägt deshalb die Signalfarbe.
-              tab.hervorgehoben && !aktiv && "text-signal hover:text-signal",
+              // Die Kasse ist ein eigenes Portal, kein Verwaltungspunkt wie die
+              // anderen – sie steht als goldener Knopf da, nicht als Reiter.
+              tab.hervorgehoben &&
+                !aktiv &&
+                "ml-auto bg-gold text-gold-foreground shadow-sm hover:bg-gold/85 hover:text-gold-foreground",
             )}
           >
             <Icon className="size-4" aria-hidden />

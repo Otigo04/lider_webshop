@@ -10,6 +10,8 @@ import { cn } from "@/lib/utils";
 export interface NavLink {
   href: string;
   label: string;
+  /** Kein Shop-Reiter, sondern der Weg in ein anderes Portal (Kasse) */
+  hervorgehoben?: boolean;
 }
 
 /**
@@ -128,7 +130,9 @@ export function MobileNav({
                       "menu-item group flex items-center justify-between gap-4 rounded-md px-4 py-4 text-lg transition-colors",
                       aktiv
                         ? "bg-white/[0.06] text-surface-dark-foreground"
-                        : "text-surface-dark-muted hover:bg-white/[0.04] hover:text-surface-dark-foreground",
+                        : "text-surface-dark-foreground/85 hover:bg-white/[0.06] hover:text-surface-dark-foreground",
+                      link.hervorgehoben &&
+                        "font-semibold text-gold-bright hover:text-gold-bright",
                     )}
                   >
                     <span className="flex items-baseline gap-3">

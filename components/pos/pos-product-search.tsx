@@ -6,7 +6,9 @@ import { searchPosProductsAction } from "@/lib/actions/pos";
 import type { PosProduct } from "@/lib/queries/pos";
 import { Input } from "@/components/ui/input";
 import { formatPrice, formatQuantity } from "@/lib/format";
+import { counterUnitPrice } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
+import type { PosPriceMode } from "@/lib/types";
 
 /**
  * Artikel über die Bezeichnung finden, statt zu scannen.
@@ -32,8 +34,11 @@ const VERZOEGERUNG = 250;
 
 export function PosProductSearch({
   onSelect,
+  preisModus,
 }: {
   onSelect: (product: PosProduct) => void;
+  /** Bestimmt, welcher Preis in der Trefferliste steht */
+  preisModus: PosPriceMode;
 }) {
   const [begriff, setBegriff] = useState("");
   const [treffer, setTreffer] = useState<PosProduct[]>([]);
@@ -207,9 +212,7 @@ export function PosProductSearch({
                 </span>
                 <span className="shrink-0 text-right">
                   <span className="block font-semibold tabular">
-                    {product.unitPrice !== null
-                      ? formatPrice(product.unitPrice)
-                      : "—"}
+                    {formatPrice(counterUnitPrice(product, 1, preisModus))}
                   </span>
                   <span
                     className={cn(

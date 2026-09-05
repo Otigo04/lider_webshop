@@ -2,13 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
+import { CreateInvoiceButton } from "@/components/admin/create-invoice-button";
 import { OrderStatusSelect } from "@/components/admin/order-status-select";
 import { InvoiceStatusSelect } from "@/components/admin/invoice-status-select";
 import { formatDate, formatPrice, formatQuantity } from "@/lib/format";
 import { getAdminOrder } from "@/lib/queries/admin";
 import { getInvoiceForOrder } from "@/lib/queries/orders";
 import { getInvoiceUrl } from "@/lib/storage";
-import { INVOICE_STATUS_LABELS } from "@/lib/types";
 import {
   DELIVERY_METHOD_LABELS,
   qualifiesForFreeShipping,
@@ -125,9 +125,6 @@ export default async function AdminOrderDetailPage({
         {invoice ? (
           <div className="mt-3 flex flex-wrap items-center gap-4 text-sm">
             <span className="tabular">{invoice.invoice_number}</span>
-            <span className="text-muted-foreground">
-              {INVOICE_STATUS_LABELS[invoice.status]}
-            </span>
             {invoiceUrl ? (
               <a
                 href={invoiceUrl}
@@ -149,9 +146,13 @@ export default async function AdminOrderDetailPage({
             />
           </div>
         ) : (
-          <p className="mt-2 text-sm text-muted-foreground">
-            Noch keine Rechnung vorhanden.
-          </p>
+          <div className="mt-2 space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Noch keine Rechnung vorhanden. Sie wird sonst beim Anlegen der
+              Bestellung erzeugt und dem Kunden zugeschickt.
+            </p>
+            <CreateInvoiceButton orderId={order.id} />
+          </div>
         )}
       </section>
 

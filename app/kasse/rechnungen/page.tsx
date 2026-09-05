@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { InvoiceStatusSelect } from "@/components/admin/invoice-status-select";
 import { Button } from "@/components/ui/button";
 import { formatDate, formatPrice } from "@/lib/format";
 import { getAdminInvoices } from "@/lib/queries/admin";
@@ -13,7 +14,7 @@ function isStatus(value: unknown): value is InvoiceStatus {
 
 export default async function AdminInvoicesPage({
   searchParams,
-}: PageProps<"/admin/invoices">) {
+}: PageProps<"/kasse/rechnungen">) {
   const params = await searchParams;
   const search = typeof params.search === "string" ? params.search : undefined;
   const status = isStatus(params.status) ? params.status : undefined;
@@ -25,11 +26,11 @@ export default async function AdminInvoicesPage({
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-2xl font-semibold tracking-tight">Rechnungen</h1>
         <Button asChild>
-          <Link href="/admin/invoices/new">Neue Rechnung</Link>
+          <Link href="/kasse/rechnungen/new">Neue Rechnung</Link>
         </Button>
       </div>
 
-      <form className="mt-6 flex flex-wrap gap-3" action="/admin/invoices">
+      <form className="mt-6 flex flex-wrap gap-3" action="/kasse/rechnungen">
         <input
           type="search"
           name="search"
@@ -80,7 +81,7 @@ export default async function AdminInvoicesPage({
                 const href =
                   invoice.type === "order"
                     ? `/admin/orders/${invoice.order_id}`
-                    : `/admin/invoices/${invoice.id}`;
+                    : `/kasse/rechnungen/${invoice.id}`;
                 return (
                   <tr key={invoice.id} className="border-b border-border last:border-0">
                     <td className="py-3 pr-4 tabular">
@@ -102,8 +103,14 @@ export default async function AdminInvoicesPage({
                     <td className="py-3 pr-4 text-right font-medium tabular">
                       {formatPrice(amount)}
                     </td>
-                    <td className="py-3 text-muted-foreground">
-                      {INVOICE_STATUS_LABELS[invoice.status]}
+                    {/* Bezahlt-Setzen ist der häufigste Vorgang der Liste –
+                        er gehört in die Zeile, nicht auf eine Unterseite. */}
+                    <td className="py-3">
+                      <InvoiceStatusSelect
+                        invoiceId={invoice.id}
+                        orderId={invoice.order_id ?? undefined}
+                        status={invoice.status}
+                      />
                     </td>
                   </tr>
                 );

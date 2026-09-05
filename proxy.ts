@@ -10,8 +10,8 @@ import { createServerClient } from "@supabase/ssr";
  *  2. Nicht angemeldete Besucher von geschützten Bereichen auf /login schicken.
  *
  * Die Rollenprüfung (admin vs. customer) passiert NICHT hier, sondern in
- * app/admin/layout.tsx. Grund: die Rolle steht in public.users, und ein
- * DB-Query pro Request wäre im Proxy zu teuer.
+ * app/admin/layout.tsx und app/kasse/layout.tsx. Grund: die Rolle steht in
+ * public.users, und ein DB-Query pro Request wäre im Proxy zu teuer.
  */
 
 /**
@@ -26,6 +26,7 @@ const PROTECTED_PREFIXES = [
   "/orders",
   "/account",
   "/admin",
+  "/kasse",
 ];
 
 export async function proxy(request: NextRequest) {

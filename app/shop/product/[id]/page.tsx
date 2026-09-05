@@ -85,6 +85,7 @@ export default async function ProductPage({
               <PublicPurchaseCta
                 priceFrom={product.priceFrom}
                 minOrderQuantity={product.minOrderQuantity}
+                listPrice={product.list_price}
               />
             </div>
           </div>
@@ -160,6 +161,7 @@ export default async function ProductPage({
               productSku={product.sku}
               tiers={product.variants}
               freeStock={free}
+              listPrice={product.list_price}
             />
           </div>
         </div>

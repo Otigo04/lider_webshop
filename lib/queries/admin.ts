@@ -29,6 +29,20 @@ export interface AdminProductRow extends Omit<Product, "category"> {
 export interface AdminOrderRow extends Omit<Order, "customer"> {
   customer: Pick<AppUser, "id" | "email" | "full_name" | "company_name"> | null;
   items: OrderItem[];
+  /**
+   * Rechnung zur Bestellung, sofern bereits gestellt. PostgREST liefert die
+   * Einbettung als Liste (invoices.order_id ist nur über einen partiellen
+   * Index eindeutig); fachlich gibt es höchstens eine – siehe
+   * create_invoice_for_order, Migration 024.
+   */
+  invoices?: Pick<Invoice, "id" | "invoice_number" | "status">[];
+}
+
+/** Die eine Rechnung einer Bestellung, oder null. */
+export function orderInvoice(
+  order: AdminOrderRow,
+): Pick<Invoice, "id" | "invoice_number" | "status"> | null {
+  return order.invoices?.[0] ?? null;
 }
 
 export interface DashboardStats {
@@ -256,7 +270,8 @@ export async function getAdminOrders(
     .select(
       `*, customer:users (id, email, full_name, company_name),
        items:order_items (id, order_id, product_variant_id, product_name,
-                          product_sku, quantity, unit_price, subtotal, created_at)`,
+                          product_sku, quantity, unit_price, subtotal, created_at),
+       invoices (id, invoice_number, status)`,
     )
     .order("created_at", { ascending: false });
 
@@ -330,7 +345,7 @@ export interface AdminInvoiceRow extends Omit<Invoice, "customer"> {
 
 /**
  * Alle Rechnungen (Katalog-Bestellungen und freie Rechnungen zusammen) für
- * die Übersicht unter /admin/invoices.
+ * die Übersicht unter /kasse/rechnungen.
  */
 export async function getAdminInvoices(options?: {
   search?: string;
@@ -372,7 +387,7 @@ export interface ManualInvoiceRow extends Omit<Invoice, "customer"> {
   items: InvoiceItem[];
 }
 
-/** Eine freie Rechnung inkl. Positionen und Kunde, für /admin/invoices/[id]. */
+/** Eine freie Rechnung inkl. Positionen und Kunde, für /kasse/rechnungen/[id]. */
 export async function getManualInvoice(id: string): Promise<ManualInvoiceRow | null> {
   const supabase = await createClient();
   const { data, error } = await supabase

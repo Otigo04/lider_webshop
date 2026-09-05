@@ -48,6 +48,7 @@ export function PosNewProductDialog({
     barcode,
     category_id: categories[0]?.id ?? "",
     unit_price: "",
+    retail_price: "",
     stock_available: "1",
   });
 
@@ -59,6 +60,7 @@ export function PosNewProductDialog({
         barcode: felder.barcode || undefined,
         category_id: felder.category_id,
         unit_price: felder.unit_price,
+        retail_price: felder.retail_price.trim(),
         stock_available: felder.stock_available,
       });
 
@@ -131,7 +133,7 @@ export function PosNewProductDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="pos-price">Preis / Stück (€)</Label>
+            <Label htmlFor="pos-price">Großhandel / Stück (€)</Label>
             <Input
               id="pos-price"
               type="number"
@@ -142,6 +144,23 @@ export function PosNewProductDialog({
               className="tabular"
               onChange={(event) =>
                 setFelder((f) => ({ ...f, unit_price: event.target.value }))
+              }
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="pos-retail">Einzelhandel / Stück (€)</Label>
+            <Input
+              id="pos-retail"
+              type="number"
+              min={0}
+              step="0.01"
+              inputMode="decimal"
+              value={felder.retail_price}
+              className="tabular"
+              placeholder="wie Großhandel"
+              onChange={(event) =>
+                setFelder((f) => ({ ...f, retail_price: event.target.value }))
               }
             />
           </div>

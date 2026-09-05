@@ -32,9 +32,16 @@ export async function generateAndSendOrderInvoice(
 
   const fullOrder: Order = { ...order, customer };
 
+  // Der Mailversand steht vor der Rechnung, darf sie aber nicht aufhalten:
+  // wirft der Versand (Netzfehler beim Anbieter), entstünde sonst eine
+  // Bestellung ganz ohne Rechnung.
   if (options.sendOrderConfirmation ?? true) {
-    const confirmation = orderConfirmationEmail(fullOrder);
-    await sendEmail({ to: customer.email, ...confirmation });
+    try {
+      const confirmation = orderConfirmationEmail(fullOrder);
+      await sendEmail({ to: customer.email, ...confirmation });
+    } catch (fehler) {
+      console.error("[rechnung] Bestellbestätigung:", fehler);
+    }
   }
 
   const supabase = await createClient();
@@ -69,12 +76,17 @@ export async function generateAndSendOrderInvoice(
 
   await admin.from("invoices").update({ file_path: filePath }).eq("id", invoice.id);
 
-  const invoiceMail = invoiceEmail(fullOrder, invoice.invoice_number);
-  await sendEmail({
-    to: customer.email,
-    ...invoiceMail,
-    attachments: [{ filename: `${invoice.invoice_number}.pdf`, content: pdfBytes }],
-  });
+  try {
+    const invoiceMail = invoiceEmail(fullOrder, invoice.invoice_number);
+    await sendEmail({
+      to: customer.email,
+      ...invoiceMail,
+      attachments: [{ filename: `${invoice.invoice_number}.pdf`, content: pdfBytes }],
+    });
+  } catch (fehler) {
+    // Die Rechnung liegt zu diesem Zeitpunkt gestellt und hochgeladen vor.
+    console.error("[rechnung] Rechnungsmail:", fehler);
+  }
 }
 
 /**

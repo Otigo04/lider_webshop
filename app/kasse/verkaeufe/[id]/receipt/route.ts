@@ -14,7 +14,7 @@ import { getPosReceiptUrl } from "@/lib/actions/pos";
  */
 export async function GET(
   _request: Request,
-  { params }: RouteContext<"/admin/sales/[id]/receipt">,
+  { params }: RouteContext<"/kasse/verkaeufe/[id]/receipt">,
 ) {
   await requireAdmin();
 

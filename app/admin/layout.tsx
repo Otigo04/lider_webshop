@@ -8,17 +8,30 @@ import { requireAdmin } from "@/lib/auth";
  * anzeigen und erst danach umleiten.
  */
 
+/**
+ * Kasse, Verkäufe und Rechnungen stehen hier nicht mehr: sie bilden unter
+ * /kasse ein eigenes Portal. Die Verwaltung pflegt Stammdaten und
+ * Bestellungen, die Kasse führt das Geld – zwei Arbeitsplätze, zwei Leisten.
+ * Der letzte Reiter ist deshalb kein Verwaltungspunkt, sondern die Tür dorthin.
+ *
+ * Zugangsanfragen haben keinen eigenen Reiter mehr: seit der Selbstregistrierung
+ * unter /register laufen dort keine Vorgänge mehr auf, die täglich anzusehen
+ * wären. Die Seite bleibt unter /admin/zugangsanfragen erreichbar, damit
+ * Altbestand und verlinkte Benachrichtigungen weiter funktionieren.
+ */
 const ADMIN_TABS: AdminTab[] = [
   { href: "/admin", label: "Übersicht", icon: "dashboard" },
-  { href: "/admin/pos", label: "Kasse", icon: "kasse", hervorgehoben: true },
   { href: "/admin/products", label: "Artikel", icon: "artikel" },
   { href: "/admin/categories", label: "Kategorien", icon: "kategorien" },
   { href: "/admin/customers", label: "Kunden", icon: "kunden" },
   { href: "/admin/orders", label: "Bestellungen", icon: "bestellungen" },
-  { href: "/admin/sales", label: "Verkäufe", icon: "verkaeufe" },
-  { href: "/admin/invoices", label: "Rechnungen", icon: "rechnungen" },
-  { href: "/admin/zugangsanfragen", label: "Zugangsanfragen", icon: "anfragen" },
   { href: "/admin/settings", label: "Einstellungen", icon: "einstellungen" },
+  {
+    href: "/kasse",
+    label: "Kasse & Buchhaltung",
+    icon: "kasse",
+    hervorgehoben: true,
+  },
 ];
 
 export default async function AdminLayout({ children }: LayoutProps<"/admin">) {

@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { OrderStatusBadge } from "@/components/order-status-badge";
+import { InvoiceStatusSelect } from "@/components/admin/invoice-status-select";
+import { OrderStatusSelect } from "@/components/admin/order-status-select";
 import { formatDate, formatPrice } from "@/lib/format";
-import { getAdminOrders } from "@/lib/queries/admin";
+import { getAdminOrders, orderInvoice } from "@/lib/queries/admin";
 import { ORDER_STATUS_LABELS, type OrderStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -104,42 +105,69 @@ export default async function AdminOrdersPage({
                     {SORT_LABELS.customer}
                   </Link>
                 </th>
-                <th className="py-2 pr-4 font-medium">Positionen</th>
+                <th className="py-2 pr-4 font-medium">Pos.</th>
                 <th className="py-2 pr-4 font-medium">Status</th>
+                <th className="py-2 pr-4 font-medium">Rechnung</th>
                 <th className="py-2 text-right font-medium">Summe netto</th>
               </tr>
             </thead>
             <tbody>
-              {orders.map((order) => (
-                <tr key={order.id} className="border-b border-border last:border-0">
-                  <td className="py-3 pr-4">
-                    <Link
-                      href={`/admin/orders/${order.id}`}
-                      className="font-medium tabular hover:underline"
-                    >
-                      {order.order_number}
-                    </Link>
-                  </td>
-                  <td className="py-3 pr-4 tabular text-muted-foreground">
-                    {formatDate(order.created_at)}
-                  </td>
-                  <td className="py-3 pr-4">
-                    {order.customer?.company_name ||
-                      order.customer?.full_name ||
-                      order.customer?.email ||
-                      "–"}
-                  </td>
-                  <td className="py-3 pr-4 tabular text-muted-foreground">
-                    {order.items?.length ?? 0}
-                  </td>
-                  <td className="py-3 pr-4">
-                    <OrderStatusBadge status={order.status} />
-                  </td>
-                  <td className="py-3 text-right font-medium tabular">
-                    {formatPrice(order.total_amount)}
-                  </td>
-                </tr>
-              ))}
+              {orders.map((order) => {
+                const invoice = orderInvoice(order);
+                return (
+                  <tr key={order.id} className="border-b border-border last:border-0">
+                    <td className="py-3 pr-4">
+                      <Link
+                        href={`/admin/orders/${order.id}`}
+                        className="font-medium tabular hover:underline"
+                      >
+                        {order.order_number}
+                      </Link>
+                    </td>
+                    <td className="py-3 pr-4 tabular text-muted-foreground">
+                      {formatDate(order.created_at)}
+                    </td>
+                    <td className="py-3 pr-4">
+                      {order.customer?.company_name ||
+                        order.customer?.full_name ||
+                        order.customer?.email ||
+                        "–"}
+                    </td>
+                    <td className="py-3 pr-4 tabular text-muted-foreground">
+                      {order.items?.length ?? 0}
+                    </td>
+
+                    {/* Status direkt hier umstellen – ohne Umweg über die
+                        Detailseite, wo der Vorgang bisher lag. */}
+                    <td className="py-3 pr-4">
+                      <OrderStatusSelect orderId={order.id} status={order.status} />
+                    </td>
+
+                    <td className="py-3 pr-4">
+                      {invoice ? (
+                        <div className="flex flex-col gap-1">
+                          <span className="text-xs text-muted-foreground tabular">
+                            {invoice.invoice_number}
+                          </span>
+                          <InvoiceStatusSelect
+                            invoiceId={invoice.id}
+                            orderId={order.id}
+                            status={invoice.status}
+                          />
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">
+                          keine
+                        </span>
+                      )}
+                    </td>
+
+                    <td className="py-3 text-right font-medium tabular">
+                      {formatPrice(order.total_amount)}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

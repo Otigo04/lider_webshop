@@ -27,6 +27,24 @@ const productSchema = z.object({
   description: z.string().trim().max(5000).optional(),
   is_active: z.boolean(),
   stock_available: z.coerce.number().int().min(0),
+  /** Ladenpreis für Privatkunden an der Kasse. Leer = nicht gepflegt. */
+  retail_price: z.preprocess(
+    (wert) => (wert === "" || wert === null || wert === undefined ? null : wert),
+    z.coerce
+      .number({ message: "Ladenpreis muss eine Zahl sein" })
+      .min(0, "Ladenpreis darf nicht negativ sein")
+      .max(1_000_000)
+      .nullable(),
+  ),
+  /** Vorher-Preis für die Rabattanzeige. Leer = nicht reduziert. */
+  list_price: z.preprocess(
+    (wert) => (wert === "" || wert === null || wert === undefined ? null : wert),
+    z.coerce
+      .number({ message: "Vorher-Preis muss eine Zahl sein" })
+      .min(0, "Vorher-Preis darf nicht negativ sein")
+      .max(1_000_000)
+      .nullable(),
+  ),
   tiers: z.array(tierSchema).min(1, "Mindestens eine Preisstaffel angeben"),
   images: z.array(imageSchema),
 });
@@ -107,6 +125,8 @@ export async function saveProduct(
     description: data.description || null,
     is_active: data.is_active,
     stock_available: data.stock_available,
+    retail_price: data.retail_price,
+    list_price: data.list_price,
     created_by: admin.id,
   });
 
@@ -262,6 +282,22 @@ const inlineFieldSchemas = {
     .number({ message: "Preis muss eine Zahl sein" })
     .min(0, "Preis darf nicht negativ sein")
     .max(1_000_000),
+  retail_price: z.preprocess(
+    (wert) => (wert === "" ? null : wert),
+    z.coerce
+      .number({ message: "Ladenpreis muss eine Zahl sein" })
+      .min(0, "Ladenpreis darf nicht negativ sein")
+      .max(1_000_000)
+      .nullable(),
+  ),
+  list_price: z.preprocess(
+    (wert) => (wert === "" ? null : wert),
+    z.coerce
+      .number({ message: "Vorher-Preis muss eine Zahl sein" })
+      .min(0, "Vorher-Preis darf nicht negativ sein")
+      .max(1_000_000)
+      .nullable(),
+  ),
 } as const;
 
 export type InlineField = keyof typeof inlineFieldSchemas;

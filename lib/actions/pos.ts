@@ -65,6 +65,15 @@ const quickProductSchema = z.object({
     .number({ message: "Preis fehlt" })
     .min(0, "Preis darf nicht negativ sein")
     .max(1_000_000),
+  /** Ladenpreis für Privatkundschaft. Leer = keiner gepflegt (Migration 022). */
+  retail_price: z.preprocess(
+    (wert) => (wert === "" || wert === undefined ? null : wert),
+    z.coerce
+      .number({ message: "Ladenpreis muss eine Zahl sein" })
+      .min(0, "Ladenpreis darf nicht negativ sein")
+      .max(1_000_000)
+      .nullable(),
+  ),
   stock_available: z.coerce
     .number({ message: "Bestand fehlt" })
     .int("Bestand muss eine ganze Zahl sein")
@@ -81,8 +90,8 @@ export interface QuickProductResult {
  * Artikel anlegen, wenn ein Scan ins Leere läuft.
  *
  * Bewusst reduziert auf das, was am Tresen bekannt ist: Bezeichnung, Barcode,
- * Preis, Warengruppe, Bestand. Fotos und Beschreibung kommen später über die
- * Artikelverwaltung dazu. Die Artikelnummer zieht wie überall der
+ * beide Preise, Warengruppe, Bestand. Fotos und Beschreibung kommen später
+ * über die Artikelverwaltung dazu. Die Artikelnummer zieht wie überall der
  * Nummernkreis der Kategorie (RPC next_sku).
  */
 export async function createQuickProduct(
@@ -127,6 +136,7 @@ export async function createQuickProduct(
       name: daten.name,
       is_active: true,
       stock_available: daten.stock_available,
+      retail_price: daten.retail_price,
       created_by: admin.id,
     })
     .select("id")
@@ -248,7 +258,7 @@ export async function completePosSale(
   const sale = data as unknown as PosSale;
   const receiptUrl = await erzeugeBeleg(sale.id);
 
-  revalidatePath("/admin/sales");
+  revalidatePath("/kasse/verkaeufe");
   revalidatePath("/admin");
   revalidatePath("/admin/products");
 

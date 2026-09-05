@@ -10,7 +10,7 @@ import { INVOICE_STATUS_LABELS } from "@/lib/types";
 
 export async function generateMetadata({
   params,
-}: PageProps<"/admin/invoices/[id]">): Promise<Metadata> {
+}: PageProps<"/kasse/rechnungen/[id]">): Promise<Metadata> {
   const { id } = await params;
   const invoice = await getManualInvoice(id);
   return { title: invoice ? `Rechnung ${invoice.invoice_number}` : "Rechnung" };
@@ -18,7 +18,7 @@ export async function generateMetadata({
 
 export default async function AdminInvoiceDetailPage({
   params,
-}: PageProps<"/admin/invoices/[id]">) {
+}: PageProps<"/kasse/rechnungen/[id]">) {
   const { id } = await params;
   const invoice = await getManualInvoice(id);
   if (!invoice) notFound();
@@ -29,7 +29,7 @@ export default async function AdminInvoiceDetailPage({
   return (
     <div>
       <Link
-        href="/admin/invoices"
+        href="/kasse/rechnungen"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
       >
         <ChevronLeft className="size-4" aria-hidden />

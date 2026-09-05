@@ -102,6 +102,6 @@ export async function updateCompanySettings(
   }
 
   revalidatePath("/admin/settings");
-  revalidatePath("/admin/pos");
+  revalidatePath("/kasse/terminal");
   return { success: "Firmendaten gespeichert." };
 }

@@ -21,6 +21,11 @@ export async function Header() {
     { href: "/shop/topseller", label: "Topseller" },
     ...(user ? [{ href: "/orders", label: "Bestellungen" }] : []),
     ...(isAdmin ? [{ href: "/admin", label: "Verwaltung" }] : []),
+    // Eigenes Portal für Ladengeschäft und Buchhaltung, nur für Admins –
+    // deshalb hervorgehoben statt als weiterer grauer Reiter.
+    ...(isAdmin
+      ? [{ href: "/kasse", label: "Kasse", hervorgehoben: true }]
+      : []),
   ];
 
   return (
@@ -28,10 +33,10 @@ export async function Header() {
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4">
         <Link
           href="/"
-          className="flex shrink-0 items-center gap-2.5 leading-none focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold"
+          className="group flex shrink-0 items-center gap-2.5 leading-none focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold"
         >
           {logoPath ? (
-            <span className="relative block size-10 shrink-0">
+            <span className="relative block size-10 shrink-0 transition-transform duration-300 group-hover:scale-105">
               <Image
                 src={logoPath}
                 alt="LIDER Großhandel"
@@ -77,13 +82,13 @@ export async function Header() {
             <div className="hidden items-center gap-2 md:flex">
               <Link
                 href="/register"
-                className="rounded-md border border-surface-dark-border px-3 py-1.5 text-sm font-medium text-surface-dark-foreground transition-colors hover:bg-white/10"
+                className="rounded-md border border-surface-dark-border px-3 py-1.5 text-sm font-medium text-surface-dark-foreground transition-colors duration-200 hover:border-gold/60 hover:bg-white/10"
               >
                 Registrieren
               </Link>
               <Link
                 href="/login"
-                className="rounded-md bg-gold px-3 py-1.5 text-sm font-semibold text-gold-foreground transition-colors hover:bg-gold/85"
+                className="rounded-md bg-gold px-3 py-1.5 text-sm font-semibold text-gold-foreground transition-all duration-200 hover:bg-gold/85 hover:shadow-md hover:shadow-gold/25"
               >
                 Anmelden
               </Link>

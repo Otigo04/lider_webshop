@@ -1,5 +1,5 @@
 import { toNumber } from "@/lib/format";
-import type { PriceTier } from "@/lib/types";
+import type { PosPriceMode, PriceTier } from "@/lib/types";
 
 /**
  * Staffelpreis-Logik. Eine Staffel gilt von `min_quantity` bis `max_quantity`
@@ -85,11 +85,68 @@ export function discountPercent(
   return percent > 0 ? percent : null;
 }
 
+// --- Reduzierte Artikel ------------------------------------------------------
+
+export interface Reduzierung {
+  /** Durchgestrichener Vorher-Preis */
+  vorher: number;
+  /** Aktueller Preis – der günstigste, den der Kunde erreichen kann */
+  jetzt: number;
+  /** Ersparnis auf ganze Prozent gerundet, immer > 0 */
+  prozent: number;
+}
+
+/**
+ * Reduzierung eines Artikels aus dem Vorher-Preis (products.list_price,
+ * Migration 023) gegenüber dem aktuellen Preis.
+ *
+ * null, wenn kein Vorher-Preis gepflegt ist oder er nicht über dem aktuellen
+ * Preis liegt: eine Ersparnis von 0 % oder gar eine negative wäre eine
+ * Falschaussage im Schaufenster. Ebenso, wenn gerundet 0 % herauskämen – ein
+ * Cent Unterschied ist kein Angebot.
+ */
+export function reduzierung(
+  listPrice: number | null | undefined,
+  aktuellerPreis: number | null | undefined,
+): Reduzierung | null {
+  if (listPrice === null || listPrice === undefined) return null;
+  if (aktuellerPreis === null || aktuellerPreis === undefined) return null;
+
+  const vorher = toNumber(listPrice);
+  const jetzt = toNumber(aktuellerPreis);
+  if (!(vorher > jetzt) || vorher <= 0) return null;
+
+  const prozent = Math.round(((vorher - jetzt) / vorher) * 100);
+  if (prozent <= 0) return null;
+
+  return { vorher, jetzt, prozent };
+}
+
 /** Positionssumme für eine Menge. 0, wenn keine Staffel greift. */
 export function lineTotal(variants: PriceTier[], quantity: number): number {
   const tier = resolveTier(variants, quantity);
   if (!tier) return 0;
   return toNumber(tier.unit_price) * quantity;
+}
+
+/**
+ * Stückpreis am Tresen. Ein Privatkunde zahlt den Ladenpreis des Artikels,
+ * ein Händler mit Konto die Staffel wie im Shop.
+ *
+ * Ist kein Ladenpreis gepflegt, greift die Staffel – lieber der falsche Kanal
+ * als ein Artikel, der sich an der Kasse nicht buchen lässt.
+ */
+export function counterUnitPrice(
+  product: { variants: PriceTier[]; retailPrice: number | null },
+  quantity: number,
+  modus: PosPriceMode,
+): number {
+  if (modus === "retail" && product.retailPrice !== null) {
+    return toNumber(product.retailPrice);
+  }
+  const tier = resolveTier(product.variants, quantity);
+  if (tier) return toNumber(tier.unit_price);
+  return baseUnitPrice(product.variants) ?? 0;
 }
 
 // --- Bestand ----------------------------------------------------------------

@@ -15,7 +15,7 @@ export default async function NewInvoicePage() {
   return (
     <div>
       <Link
-        href="/admin/invoices"
+        href="/kasse/rechnungen"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
       >
         <ChevronLeft className="size-4" aria-hidden />

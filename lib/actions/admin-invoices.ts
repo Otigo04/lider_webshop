@@ -8,6 +8,7 @@ import {
   generateAndSendManualInvoice,
   generateAndSendOrderInvoice,
 } from "@/lib/actions/invoicing";
+import type { AdminFormState } from "@/lib/actions/admin-categories";
 import type { AppUser } from "@/lib/types";
 
 export interface InvoiceActionState {
@@ -97,8 +98,55 @@ export async function createCatalogInvoiceOrder(
   }
 
   revalidatePath("/admin/orders");
-  revalidatePath("/admin/invoices");
+  revalidatePath("/kasse/rechnungen");
   return { orderId: order.id };
+}
+
+/**
+ * Rechnung zu einer bestehenden Bestellung nachträglich erzeugen.
+ *
+ * Nötig für Bestellungen, bei denen die Rechnung beim Anlegen scheiterte –
+ * etwa unter dem Fehler, den Migration 024 behebt. Die DB-Funktion gibt eine
+ * bereits vorhandene Rechnung unverändert zurück, ein zweiter Klick legt also
+ * keine zweite Nummer an.
+ */
+export async function createOrderInvoice(
+  _prevState: AdminFormState,
+  formData: FormData,
+): Promise<AdminFormState> {
+  await requireAdmin();
+
+  const orderId = String(formData.get("orderId") ?? "");
+  if (!z.string().uuid().safeParse(orderId).success) {
+    return { error: "Keine Bestellung ausgewählt." };
+  }
+
+  const supabase = await createClient();
+  const { data: order, error } = await supabase
+    .from("orders")
+    .select("customer:users (*)")
+    .eq("id", orderId)
+    .maybeSingle();
+
+  if (error || !order?.customer) {
+    console.error("[admin] Bestellung für Rechnung laden:", error?.message);
+    return { error: "Die Bestellung konnte nicht geladen werden." };
+  }
+
+  try {
+    // Bestellbestätigung nicht erneut verschicken – die Bestellung ist alt.
+    await generateAndSendOrderInvoice(orderId, order.customer as unknown as AppUser, {
+      sendOrderConfirmation: false,
+    });
+  } catch (err) {
+    console.error("[admin] Rechnung nacherzeugen:", err);
+    return { error: "Die Rechnung konnte nicht erzeugt werden." };
+  }
+
+  revalidatePath(`/admin/orders/${orderId}`);
+  revalidatePath("/admin/orders");
+  revalidatePath("/kasse/rechnungen");
+  return { success: "Rechnung erzeugt und verschickt." };
 }
 
 const manualItemSchema = z.object({
@@ -163,6 +211,6 @@ export async function createManualInvoice(
     console.error("[admin] Rechnung/Mailversand fehlgeschlagen:", err);
   }
 
-  revalidatePath("/admin/invoices");
+  revalidatePath("/kasse/rechnungen");
   return { invoiceId: invoice.id };
 }

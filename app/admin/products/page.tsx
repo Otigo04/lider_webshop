@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Plus, Search } from "lucide-react";
+import { Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { ConfirmAction } from "@/components/admin/confirm-action";
 import { InlineEdit } from "@/components/admin/inline-edit";
 import { ProductFlagsMenu } from "@/components/admin/product-flag-toggle";
@@ -9,12 +9,33 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { deleteProduct } from "@/lib/actions/admin-products";
 import { formatPrice, formatQuantity } from "@/lib/format";
-import { freeStock, lowestUnitPrice } from "@/lib/pricing";
+import { freeStock, lowestUnitPrice, reduzierung } from "@/lib/pricing";
 import { getAdminProducts } from "@/lib/queries/admin";
 import { getCategories } from "@/lib/queries/products";
 import { getProductFlags } from "@/lib/queries/product-flags";
 
 export const metadata: Metadata = { title: "Artikel" };
+
+/**
+ * Eine Preiszeile in der Sammelspalte: links das Kürzel (GH = Großhandel,
+ * EH = Einzelhandel, „vorher" = Streichpreis), rechts das bearbeitbare Feld.
+ */
+function PreisZeile({
+  kuerzel,
+  children,
+}: {
+  kuerzel: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center gap-1">
+      <span className="w-14 shrink-0 text-xs text-muted-foreground">
+        {kuerzel}
+      </span>
+      <div className="min-w-0 flex-1">{children}</div>
+    </div>
+  );
+}
 
 /**
  * Artikelverwaltung.
@@ -165,8 +186,9 @@ export default async function AdminProductsPage({
       </div>
 
       <p className="mt-4 rounded-md border border-brand/25 bg-brand-soft px-3 py-2 text-sm text-brand">
-        Bezeichnung, Barcode, Warengruppe, Preis und Bestand lassen sich direkt
-        in der Tabelle ändern – anklicken, tippen, Enter.
+        Bezeichnung, Barcode, Warengruppe, alle drei Preise (GH = Großhandel,
+        EH = Einzelhandel, vorher = Streichpreis) und der Bestand lassen sich
+        direkt in der Tabelle ändern – anklicken, tippen, Enter.
       </p>
 
       {products.length === 0 ? (
@@ -176,34 +198,37 @@ export default async function AdminProductsPage({
             : "Noch keine Artikel angelegt."}
         </p>
       ) : (
-        <div className="mt-6 overflow-x-auto">
-          <table className="w-full min-w-5xl border-collapse text-sm">
+        /*
+         * Eine Tabellenbreite, keine Seitwärtsbewegung: früher standen zehn
+         * Spalten nebeneinander und „Löschen" lag jenseits des Bildrands.
+         * Zusammengelegt sind jetzt Artikelnummer unter die Bezeichnung, die
+         * drei Preise in eine Spalte und Bestand samt Verfügbarkeit in eine
+         * weitere. Die Aktionen sind Symbolknöpfe mit Beschriftung für
+         * Screenreader.
+         */
+        <div className="mt-6">
+          <table className="w-full border-collapse text-sm">
             <thead>
               <tr className="border-b-2 border-border text-left text-muted-foreground">
-                <th className="py-2 pr-4 font-medium">Artikelnummer</th>
-                <th className="py-2 pr-4 font-medium">Bezeichnung</th>
-                <th className="py-2 pr-4 font-medium">Barcode</th>
-                <th className="py-2 pr-4 font-medium">Warengruppe</th>
-                <th className="py-2 pr-4 text-right font-medium">Preis ab</th>
-                <th className="py-2 pr-4 text-right font-medium">Bestand</th>
-                <th className="py-2 pr-4 font-medium">Verfügbar</th>
-                <th className="py-2 pr-4 font-medium">Flags</th>
-                <th className="py-2 text-right font-medium">Aktionen</th>
+                <th className="py-2 pr-3 font-medium">Artikel</th>
+                <th className="py-2 pr-3 font-medium">Barcode</th>
+                <th className="py-2 pr-3 font-medium">Warengruppe</th>
+                <th className="py-2 pr-3 font-medium">Preise</th>
+                <th className="py-2 pr-3 font-medium">Bestand</th>
+                <th className="py-2 pr-3 font-medium">Flags</th>
+                <th className="w-20 py-2 text-right font-medium">Aktionen</th>
               </tr>
             </thead>
             <tbody>
               {products.map((product) => {
                 const ab = lowestUnitPrice(product.variants ?? []);
+                const rabatt = reduzierung(product.list_price, ab);
                 return (
                   <tr
                     key={product.id}
-                    className="border-b border-border last:border-0 hover:bg-muted/50"
+                    className="border-b border-border align-top last:border-0 hover:bg-muted/50"
                   >
-                    <td className="whitespace-nowrap py-2 pr-4 tabular">
-                      {product.sku}
-                    </td>
-
-                    <td className="py-2 pr-4">
+                    <td className="py-2 pr-3">
                       <InlineEdit
                         id={product.id}
                         field="name"
@@ -211,20 +236,17 @@ export default async function AdminProductsPage({
                         anzeige={product.name}
                         className="font-medium"
                       />
-                      <Link
-                        href={`/admin/products/${product.id}/edit`}
-                        className="ml-2 text-xs text-muted-foreground hover:text-brand hover:underline"
-                      >
-                        Details
-                      </Link>
-                      {!product.is_active ? (
-                        <span className="ml-2 rounded-md border border-border bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-                          ausgeblendet
-                        </span>
-                      ) : null}
+                      <p className="mt-0.5 flex flex-wrap items-center gap-1.5 px-2 text-xs text-muted-foreground">
+                        <span className="tabular">{product.sku}</span>
+                        {!product.is_active ? (
+                          <span className="rounded border border-border bg-muted px-1 py-px">
+                            ausgeblendet
+                          </span>
+                        ) : null}
+                      </p>
                     </td>
 
-                    <td className="py-2 pr-4">
+                    <td className="py-2 pr-3">
                       <InlineEdit
                         id={product.id}
                         field="barcode"
@@ -234,7 +256,7 @@ export default async function AdminProductsPage({
                       />
                     </td>
 
-                    <td className="py-2 pr-4">
+                    <td className="py-2 pr-3">
                       <InlineEdit
                         id={product.id}
                         field="category_id"
@@ -246,18 +268,70 @@ export default async function AdminProductsPage({
                       />
                     </td>
 
-                    <td className="py-2 pr-4">
-                      <InlineEdit
-                        id={product.id}
-                        field="unit_price"
-                        typ="decimal"
-                        ausrichtung="right"
-                        value={ab !== null ? String(ab) : "0"}
-                        anzeige={ab !== null ? formatPrice(ab) : "—"}
-                      />
+                    {/* Drei Preise übereinander statt in drei Spalten: die
+                        Kürzel tragen die Bedeutung, die Zeile bleibt schmal. */}
+                    <td className="py-2 pr-3">
+                      <div className="space-y-0.5">
+                        <PreisZeile kuerzel="GH">
+                          <InlineEdit
+                            id={product.id}
+                            field="unit_price"
+                            typ="decimal"
+                            ausrichtung="right"
+                            value={ab !== null ? String(ab) : "0"}
+                            anzeige={ab !== null ? formatPrice(ab) : "—"}
+                          />
+                        </PreisZeile>
+                        <PreisZeile kuerzel="EH">
+                          <InlineEdit
+                            id={product.id}
+                            field="retail_price"
+                            typ="decimal"
+                            ausrichtung="right"
+                            value={
+                              product.retail_price !== null
+                                ? String(product.retail_price)
+                                : ""
+                            }
+                            anzeige={
+                              product.retail_price !== null
+                                ? formatPrice(product.retail_price)
+                                : "—"
+                            }
+                            className={
+                              product.retail_price === null
+                                ? "text-muted-foreground"
+                                : ""
+                            }
+                          />
+                        </PreisZeile>
+                        <PreisZeile kuerzel={rabatt ? `−${rabatt.prozent} %` : "vorher"}>
+                          <InlineEdit
+                            id={product.id}
+                            field="list_price"
+                            typ="decimal"
+                            ausrichtung="right"
+                            value={
+                              product.list_price !== null
+                                ? String(product.list_price)
+                                : ""
+                            }
+                            anzeige={
+                              product.list_price !== null
+                                ? formatPrice(product.list_price)
+                                : "—"
+                            }
+                            className={
+                              rabatt
+                                ? "text-signal line-through"
+                                : "text-muted-foreground"
+                            }
+                          />
+                        </PreisZeile>
+                      </div>
                     </td>
 
-                    <td className="py-2 pr-4">
+                    <td className="py-2 pr-3">
                       <InlineEdit
                         id={product.id}
                         field="stock_available"
@@ -267,13 +341,12 @@ export default async function AdminProductsPage({
                         value={String(product.stock_available)}
                         anzeige={formatQuantity(product.stock_available)}
                       />
+                      <div className="mt-0.5 px-2">
+                        <StockBadge free={freeStock(product)} />
+                      </div>
                     </td>
 
-                    <td className="py-2 pr-4">
-                      <StockBadge free={freeStock(product)} />
-                    </td>
-
-                    <td className="py-2 pr-4">
+                    <td className="py-2 pr-3">
                       <ProductFlagsMenu
                         productId={product.id}
                         flags={{
@@ -286,10 +359,18 @@ export default async function AdminProductsPage({
                     </td>
 
                     <td className="py-2 text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button asChild variant="ghost" size="sm">
+                      <div className="flex justify-end gap-0.5">
+                        <Button
+                          asChild
+                          variant="ghost"
+                          size="icon"
+                          title="Details bearbeiten"
+                        >
                           <Link href={`/admin/products/${product.id}/edit`}>
-                            Bearbeiten
+                            <Pencil className="size-4" aria-hidden />
+                            <span className="sr-only">
+                              {product.name} bearbeiten
+                            </span>
                           </Link>
                         </Button>
                         <ConfirmAction
@@ -300,8 +381,16 @@ export default async function AdminProductsPage({
                           confirmLabel="Löschen"
                           destructive
                           trigger={
-                            <Button variant="ghost" size="sm">
-                              Löschen
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title="Artikel löschen"
+                              className="text-muted-foreground hover:text-destructive"
+                            >
+                              <Trash2 className="size-4" aria-hidden />
+                              <span className="sr-only">
+                                {product.name} löschen
+                              </span>
                             </Button>
                           }
                         />

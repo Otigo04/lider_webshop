@@ -2,7 +2,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { ImageOff } from "lucide-react";
 import { ProductFlagBadges } from "@/components/product-flag-badges";
+import { RabattBadge, SalePrice } from "@/components/sale-price";
 import { formatPrice } from "@/lib/format";
+import { reduzierung } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import type { PublicProductListItem } from "@/lib/queries/products";
 
@@ -17,6 +19,8 @@ export function PublicProductCard({
   product: PublicProductListItem;
   className?: string;
 }) {
+  const rabatt = reduzierung(product.list_price, product.priceFrom);
+
   return (
     <Link
       href={`/shop/product/${product.id}`}
@@ -27,6 +31,12 @@ export function PublicProductCard({
     >
       <div className="relative aspect-4/3 overflow-hidden border-b border-border bg-muted">
         <ProductFlagBadges product={product} />
+        {rabatt ? (
+          <RabattBadge
+            prozent={rabatt.prozent}
+            className="absolute right-2 top-2 z-10 px-2 py-0.5 shadow-sm"
+          />
+        ) : null}
         {product.imageUrl ? (
           <Image
             src={product.imageUrl}
@@ -63,13 +73,17 @@ export function PublicProductCard({
         <div className="mt-auto border-t border-border pt-3">
           {product.priceFrom !== null ? (
             <>
-              <p className="flex items-baseline gap-1">
-                <span className="text-xs text-muted-foreground">ab</span>
-                <span className="text-xl font-bold tabular">
-                  {formatPrice(product.priceFrom)}
-                </span>
-                <span className="text-xs text-muted-foreground">/ Stück</span>
-              </p>
+              {rabatt ? (
+                <SalePrice reduktion={rabatt} suffix="/ Stück" />
+              ) : (
+                <p className="flex items-baseline gap-1">
+                  <span className="text-xs text-muted-foreground">ab</span>
+                  <span className="text-xl font-bold tabular">
+                    {formatPrice(product.priceFrom)}
+                  </span>
+                  <span className="text-xs text-muted-foreground">/ Stück</span>
+                </p>
+              )}
               <p className="mt-0.5 text-xs text-muted-foreground">
                 Staffelpreise nach Anmeldung
               </p>
