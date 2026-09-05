@@ -4,10 +4,14 @@ import type { CompanySettings } from "@/lib/types";
 
 const EMPTY_SETTINGS: CompanySettings = {
   company_name: null,
+  owner_name: null,
   address_street: null,
   address_zip: null,
   address_city: null,
   address_country: "Deutschland",
+  phone: null,
+  email: null,
+  website: null,
   tax_number: null,
   vat_id: null,
   bank_name: null,

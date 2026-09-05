@@ -50,6 +50,16 @@ export function CompanySettingsForm({ settings }: { settings: CompanySettings })
             />
           </div>
           <div className="space-y-2 sm:col-span-2">
+            <Label htmlFor="owner_name">Inhaber</Label>
+            <Input
+              id="owner_name"
+              name="owner_name"
+              defaultValue={settings.owner_name ?? ""}
+              maxLength={160}
+              placeholder="Vor- und Nachname – ohne „Inh.“"
+            />
+          </div>
+          <div className="space-y-2 sm:col-span-2">
             <Label htmlFor="address_street">Straße und Hausnummer</Label>
             <Input
               id="address_street"
@@ -84,6 +94,46 @@ export function CompanySettingsForm({ settings }: { settings: CompanySettings })
               defaultValue={settings.address_country}
               required
               maxLength={80}
+            />
+          </div>
+        </div>
+      </section>
+
+      <section className="border-t border-border pt-6">
+        <h2 className="font-medium">Kontakt</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Steht in der Fußzeile jeder Rechnung und jedes Kassenbelegs.
+        </p>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="phone">Telefon</Label>
+            <Input
+              id="phone"
+              name="phone"
+              type="tel"
+              defaultValue={settings.phone ?? ""}
+              maxLength={60}
+              className="tabular"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="email">E-Mail</Label>
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              defaultValue={settings.email ?? ""}
+              maxLength={160}
+            />
+          </div>
+          <div className="space-y-2 sm:col-span-2">
+            <Label htmlFor="website">Webseite</Label>
+            <Input
+              id="website"
+              name="website"
+              defaultValue={settings.website ?? ""}
+              maxLength={160}
+              placeholder="www.example.de"
             />
           </div>
         </div>

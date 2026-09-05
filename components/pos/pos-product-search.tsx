@@ -16,6 +16,12 @@ import { cn } from "@/lib/utils";
  * Bezeichnung, Artikelnummer und Barcode; die Trefferliste ist mit den
  * Pfeiltasten bedienbar, damit man an der Kasse die Hand nicht von der
  * Tastatur nehmen muss.
+ *
+ * Die Liste **schwebt** über der Seite, statt zwischen Suchfeld und Bon
+ * eingeschoben zu werden. Eine Suche nach einer Marke bringt schnell dutzende
+ * Treffer; inline geschoben rutschte der Bon aus dem Bild und man scrollte
+ * nach jeder Auswahl zurück. Gescrollt wird nur noch in der Liste selbst –
+ * die Pfeiltasten ziehen die Markierung dabei mit.
  */
 
 /** Ab so vielen Zeichen wird gesucht. Darunter träfe fast alles zu. */
@@ -36,6 +42,8 @@ export function PosProductSearch({
   const [laeuft, startSuche] = useTransition();
   const feldRef = useRef<HTMLInputElement>(null);
   const zeitgeber = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const huelleRef = useRef<HTMLDivElement>(null);
+  const listeRef = useRef<HTMLUListElement>(null);
 
   // Nur aufräumen, kein Zustand: ein noch offener Zeitgeber soll nach dem
   // Ausbauen der Komponente nicht mehr feuern.
@@ -44,6 +52,37 @@ export function PosProductSearch({
       if (zeitgeber.current) clearTimeout(zeitgeber.current);
     };
   }, []);
+
+  /*
+   * Markierung im Blick behalten. Ohne das läuft sie beim Blättern mit den
+   * Pfeiltasten aus dem sichtbaren Bereich – bei fünfzig Treffern tippt man
+   * dann ins Leere. `nearest` scrollt nur so weit wie nötig, die Liste
+   * springt also nicht bei jedem Schritt.
+   */
+  useEffect(() => {
+    const liste = listeRef.current;
+    if (!liste) return;
+    liste.children[markiert]?.scrollIntoView({ block: "nearest" });
+  }, [markiert, treffer]);
+
+  /*
+   * Klick neben die Liste schließt sie. Ein schwebendes Feld, das offen
+   * bleibt, während man am Bon arbeitet, verdeckt genau das, was man sehen
+   * will. Der Suchbegriff bleibt stehen, damit sich die Liste durch einen
+   * Klick ins Feld wieder öffnen lässt.
+   */
+  useEffect(() => {
+    if (treffer.length === 0) return;
+
+    function beiKlick(event: MouseEvent) {
+      const ziel = event.target as Node | null;
+      if (ziel && huelleRef.current?.contains(ziel)) return;
+      setTreffer([]);
+    }
+
+    document.addEventListener("mousedown", beiKlick);
+    return () => document.removeEventListener("mousedown", beiKlick);
+  }, [treffer.length]);
 
   /**
    * Die Suche hängt am Tastendruck, nicht an einem Effekt: so wird nur
@@ -102,7 +141,7 @@ export function PosProductSearch({
   }
 
   return (
-    <div>
+    <div ref={huelleRef} className="relative">
       <label
         htmlFor="pos-suche"
         className="flex items-center gap-2 text-sm font-medium"
@@ -136,9 +175,10 @@ export function PosProductSearch({
       {treffer.length > 0 ? (
         <ul
           id="pos-treffer"
+          ref={listeRef}
           role="listbox"
           aria-label="Gefundene Artikel"
-          className="mt-2 max-h-80 divide-y divide-border overflow-y-auto rounded-md border border-border bg-card"
+          className="absolute inset-x-0 top-full z-30 mt-2 max-h-96 divide-y divide-border overflow-y-auto rounded-md border border-border bg-card shadow-lg"
         >
           {treffer.map((product, index) => (
             <li key={product.id}>
@@ -191,7 +231,7 @@ export function PosProductSearch({
       ) : null}
 
       {gesucht && !laeuft && treffer.length === 0 ? (
-        <p className="mt-2 rounded-md border border-dashed border-border px-3 py-3 text-sm text-muted-foreground">
+        <p className="absolute inset-x-0 top-full z-30 mt-2 rounded-md border border-border bg-card px-3 py-3 text-sm text-muted-foreground shadow-lg">
           Kein Artikel gefunden. Über den Scan eines unbekannten Codes lässt
           sich ein neuer Artikel anlegen.
         </p>

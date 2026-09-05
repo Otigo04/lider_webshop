@@ -100,7 +100,7 @@ export interface ProductDetail extends Omit<Product, "category"> {
 }
 
 const LIST_COLUMNS = `
-  id, category_id, sku, barcode, name, description, is_active, is_new, is_topseller,
+  id, category_id, sku, barcode, name, description, is_active, is_new, is_topseller, has_image,
   stock_available, stock_reserved, created_by, created_at, updated_at,
   variants:product_variants (id, product_id, min_quantity, max_quantity, unit_price, created_at),
   images:product_images (id, product_id, file_path, display_order, created_at)
@@ -198,7 +198,9 @@ export async function getProducts(options?: {
   let query = supabase
     .from("products")
     .select(LIST_COLUMNS)
-    .eq("is_active", true);
+    .eq("is_active", true)
+    // Kein Foto = kein Sortiment (Migration 020) – automatisch, kein Schalter.
+    .eq("has_image", true);
 
   query =
     options?.orderBy === "created_at"

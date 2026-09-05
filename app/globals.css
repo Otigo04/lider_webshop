@@ -17,6 +17,7 @@
   --color-gold: var(--gold);
   --color-gold-foreground: var(--gold-foreground);
   --color-gold-soft: var(--gold-soft);
+  --color-gold-bright: var(--gold-bright);
   --color-signal: var(--signal);
   --color-signal-foreground: var(--signal-foreground);
   --color-signal-soft: var(--signal-soft);
@@ -107,6 +108,9 @@
   --gold: #b8721c;
   --gold-foreground: #ffffff;
   --gold-soft: #fdf1dc;
+  /* Helleres Gold für kleine/dünne Schrift auf --surface-dark: --gold reicht
+     für die fette Hero-Zeile (3:1 genügt), aber Fließtextgröße braucht 4,5:1. */
+  --gold-bright: #e2a13f;
 
   --signal: #a02020;
   --signal-foreground: #ffffff;

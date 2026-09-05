@@ -22,6 +22,7 @@ import { PosCustomerStep, type PosCustomerChoice } from "@/components/pos/pos-cu
 import { PosCameraScanner } from "@/components/pos/pos-camera-scanner";
 import { PosNewProductDialog } from "@/components/pos/pos-new-product-dialog";
 import { PosProductSearch } from "@/components/pos/pos-product-search";
+import { useScannerBeep } from "@/components/pos/use-scanner-beep";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -77,6 +78,7 @@ export function PosTerminal({
   pricesGross: boolean;
 }) {
   const router = useRouter();
+  const piepen = useScannerBeep();
 
   const [kunde, setKunde] = useState<PosCustomerChoice | null>(null);
   const [bon, setBon] = useState<PosCartItem[]>([]);
@@ -99,14 +101,12 @@ export function PosTerminal({
   useEffect(() => {
     bonRef.current = bon;
   }, [bon]);
-  // Gleiches Muster für den Kamerazustand: scanVerarbeiten läuft asynchron und
-  // darf nicht auf einen veralteten Wert aus seinem Abschluss zurückgreifen.
-  const kameraRef = useRef(kamera);
-  useEffect(() => {
-    kameraRef.current = kamera;
-  }, [kamera]);
-  const dialogOffen =
-    neuDialog.offen || bestaetigen || kamera || abschluss !== null;
+  /*
+   * Die Kamera zählt hier bewusst nicht mit: sie ist eine Spalte neben der
+   * Kasse, kein Fenster darüber. Der Tastatur-Wächter bleibt deshalb scharf,
+   * und Handscanner und Kamera lassen sich gleichzeitig benutzen.
+   */
+  const dialogOffen = neuDialog.offen || bestaetigen || abschluss !== null;
 
   /**
    * Tastatur-Wächter: Der Scanner tippt blind los, egal wo der Fokus steht.
@@ -148,6 +148,11 @@ export function PosTerminal({
    * Die Prüfung läuft gegen bonRef statt im setState-Updater: dort dürfen
    * keine Meldungen ausgelöst werden, React ruft den Updater unter Umständen
    * mehrfach auf und der Kassierer bekäme dieselbe Warnung doppelt.
+   *
+   * Hier hängt auch der Quittungston: jeder Weg auf den Bon – Kamera,
+   * Handscanner, getippter Code, Namenssuche, neu angelegte Ware – läuft
+   * durch diese Funktion. Ein Ton pro gebuchtem Artikel, keiner bei
+   * Fehlgriffen wie leerem Lager.
    */
   const aufDenBon = useCallback((product: PosProduct, menge = 1) => {
     const aktuell = bonRef.current;
@@ -187,8 +192,9 @@ export function PosTerminal({
         },
       ]);
     }
+    piepen();
     return true;
-  }, []);
+  }, [piepen]);
 
   async function scanVerarbeiten(code: string) {
     const gesucht = code.trim();
@@ -200,11 +206,14 @@ export function PosTerminal({
       if (product) {
         aufDenBon(product);
         toast.success(`${product.name} hinzugefügt.`);
+        // Weiter geht es blind: der nächste Scan soll ohne Mausklick sitzen.
+        scanRef.current?.focus();
       } else {
-        // Kein Treffer ist der Regelfall bei neuer Ware, kein Fehler.
-        // Kam der Code aus der Kamera, muss deren Fenster weichen: zwei
-        // Dialoge übereinander wären nicht bedienbar.
-        setKamera(false);
+        // Kein Treffer ist der Regelfall bei neuer Ware, kein Fehler. Die
+        // Kamera darf dabei weiterlaufen – sie liegt neben der Kasse, nicht
+        // darüber. Sie hält über `pausiert` nur ihre Meldungen zurück, damit
+        // sie nicht hinter dem offenen Anlegedialog weiterbucht. Der Fokus
+        // bleibt beim Dialog, deshalb hier kein Griff ins Scannerfeld.
         setNeuDialog({ offen: true, code: gesucht });
       }
     } catch (fehler) {
@@ -213,9 +222,6 @@ export function PosTerminal({
     } finally {
       setSuchend(false);
       setScan("");
-      // Nicht zurück ins Scannerfeld greifen, solange ein Fenster offen ist –
-      // das würde dessen Fokusführung stören.
-      if (!kameraRef.current) scanRef.current?.focus();
     }
   }
 
@@ -351,7 +357,40 @@ export function PosTerminal({
         </div>
       </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_22rem] lg:items-start">
+      {/* Die Kamera bekommt eine eigene Spalte ganz links, statt sich über die
+          Seite zu legen: Bon und Abrechnung bleiben sichtbar und bedienbar,
+          während gescannt wird. Ohne Kamera fällt die Spalte weg und der
+          Inhalt rückt zurück.
+
+          Die Kameraspalte ist bewusst breit (22rem, ab xl 28rem): am Laptop
+          hält jemand den Artikel eine Armlänge entfernt vor die eingebaute
+          Kamera, und auf einem daumennagelgroßen Bild ist nicht zu erkennen,
+          ob der Barcode überhaupt im Zielrahmen liegt.
+
+          Drei Spalten passen dafür nicht mehr in die 72rem-Spalte des
+          Adminbereichs – dem Bon blieben sonst gut 430 px, zu wenig für
+          Bezeichnung, Menge, Preis und Summe nebeneinander. Die Kasse tritt
+          deshalb aus dem Rahmen und wächst mit der Bildschirmbreite; sie ist
+          die einzige Adminseite, die als Arbeitsfläche gedacht ist. Der Rand
+          reicht dafür aus, es entsteht kein Querlauf. */}
+      <div
+        className={cn(
+          "mt-6 grid gap-6 lg:items-start",
+          kamera
+            ? "lg:grid-cols-[22rem_1fr_22rem] lg:-mx-16 xl:grid-cols-[28rem_1fr_22rem] xl:-mx-32 2xl:-mx-48"
+            : "lg:grid-cols-[1fr_22rem]",
+        )}
+      >
+        {kamera ? (
+          <PosCameraScanner
+            onClose={() => setKamera(false)}
+            pausiert={dialogOffen}
+            onCode={(code) => {
+              void scanVerarbeiten(code);
+            }}
+          />
+        ) : null}
+
         {/* --------------------------------------------------- Scan und Bon */}
         <div>
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -362,16 +401,17 @@ export function PosTerminal({
               <ScanBarcode className="size-4 text-brand" aria-hidden />
               Barcode scannen
             </label>
-            {/* Ersatzweg, wenn der Handscanner streikt: die Kamera des
-                Rechners übernimmt das Ablesen. */}
+            {/* Ergänzung zum Handscanner, kein Ersatz: beide laufen
+                nebeneinander, weil die Kamera kein Fenster mehr aufzieht. */}
             <Button
               type="button"
-              variant="outline"
+              variant={kamera ? "secondary" : "outline"}
               size="sm"
-              onClick={() => setKamera(true)}
+              aria-pressed={kamera}
+              onClick={() => setKamera((an) => !an)}
             >
               <Camera className="size-4" aria-hidden />
-              Kamera statt Scanner
+              {kamera ? "Kamera ausblenden" : "Kamera zuschalten"}
             </Button>
           </div>
           <div className="relative mt-2">
@@ -571,17 +611,6 @@ export function PosTerminal({
           </div>
         </aside>
       </div>
-
-      {/* Nur eingebaut, solange gescannt wird – so gibt die Komponente beim
-          Schließen die Kamera wieder frei. */}
-      {kamera ? (
-        <PosCameraScanner
-          onClose={() => setKamera(false)}
-          onCode={(code) => {
-            void scanVerarbeiten(code);
-          }}
-        />
-      ) : null}
 
       <PosNewProductDialog
         key={neuDialog.code}

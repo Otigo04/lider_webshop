@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
-import { getLogoMarkPath } from "@/lib/logo";
+import { getLogoMarkPath, getLogoWordmarkPath, LOGO_WORDMARK_ASPECT } from "@/lib/logo";
 import { CartLink } from "@/components/cart-link";
 import { MainNav } from "@/components/main-nav";
 import { MobileNav, type NavLink } from "@/components/mobile-nav";
@@ -11,6 +11,7 @@ export async function Header() {
   const user = await getCurrentUser();
   const isAdmin = user?.role === "admin";
   const logoPath = getLogoMarkPath();
+  const wordmarkPath = getLogoWordmarkPath();
 
   // /shop und die Flag-Filter sind auch ohne Login sichtbar (Schaufenster
   // ohne Preise), deshalb unabhängig vom Login-Status.
@@ -41,14 +42,25 @@ export async function Header() {
               />
             </span>
           ) : null}
-          <span className="flex flex-col">
+          {wordmarkPath ? (
+            <span
+              className="relative block h-10"
+              style={{ width: `calc(2.5rem * ${LOGO_WORDMARK_ASPECT})` }}
+            >
+              <Image
+                src={wordmarkPath}
+                alt="LIDER"
+                fill
+                sizes="200px"
+                priority
+                className="object-contain object-left"
+              />
+            </span>
+          ) : (
             <span className="text-base font-bold leading-tight tracking-[0.16em]">
               LIDER
             </span>
-            <span className="text-[0.625rem] font-medium uppercase leading-tight tracking-[0.22em] text-gold">
-              Berlin · seit 2007
-            </span>
-          </span>
+          )}
         </Link>
 
         <MainNav links={links} />

@@ -64,7 +64,7 @@ export default async function HomePage() {
       <section className="bg-surface-dark text-surface-dark-foreground">
         <div className="mx-auto grid max-w-6xl gap-12 px-4 py-20 lg:grid-cols-[1.1fr_1fr] lg:items-center lg:gap-16 lg:py-24">
           <div>
-            <p className="eyebrow enter text-gold">
+            <p className="eyebrow enter text-gold-bright">
               Großhandel für Gewerbekunden
             </p>
             <h1 className="headline enter enter-1 mt-4 text-4xl font-bold leading-[1.08] sm:text-6xl">
@@ -337,7 +337,7 @@ export default async function HomePage() {
       <section id="kontakt" className="bg-surface-dark text-surface-dark-foreground">
         <div className="mx-auto max-w-6xl px-4 py-20">
           <Reveal>
-            <p className="eyebrow text-gold">Kontakt</p>
+            <p className="eyebrow text-gold-bright">Kontakt</p>
             <h2 className="headline mt-3 text-3xl font-bold sm:text-4xl">
               Registrieren
             </h2>

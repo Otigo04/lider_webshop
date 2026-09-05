@@ -73,6 +73,8 @@ export interface Product {
   is_active: boolean;
   is_new: boolean;
   is_topseller: boolean;
+  /** Folgt automatisch product_images (Trigger, Migration 020) – kein manueller Schalter. */
+  has_image: boolean;
   stock_available: number;
   stock_reserved: number;
   created_by: string | null;
@@ -82,6 +84,18 @@ export interface Product {
   variants?: ProductVariant[];
   images?: ProductImage[];
   category?: Category;
+}
+
+/**
+ * Frei definierbares Organisations-Flag (Migration 021) – admin-verwaltet,
+ * rein intern. Anders als is_new/is_topseller kein Sonderverhalten im Shop.
+ */
+export interface ProductFlagDef {
+  id: string;
+  name: string;
+  /** Index in die .tag-N-Palette (app/globals.css), 1–6. */
+  color: number;
+  created_at: string;
 }
 
 export interface AppUser {
@@ -269,10 +283,16 @@ export interface PosCartItem {
 
 export interface CompanySettings {
   company_name: string | null;
+  /** Inhaber – steht in der Rechnungsfußzeile unter dem Firmennamen */
+  owner_name: string | null;
   address_street: string | null;
   address_zip: string | null;
   address_city: string | null;
   address_country: string;
+  phone: string | null;
+  email: string | null;
+  /** Ohne Schema gepflegt (www.example.de) */
+  website: string | null;
   tax_number: string | null;
   vat_id: string | null;
   bank_name: string | null;

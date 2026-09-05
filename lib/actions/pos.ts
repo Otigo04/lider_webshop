@@ -41,10 +41,18 @@ export async function lookupPosProduct(code: string): Promise<PosLookupResult> {
   return { product: await findProductByCode(sauber), code: sauber };
 }
 
-/** Freitextsuche, wenn das Etikett nicht lesbar ist. */
+/**
+ * Freitextsuche, wenn das Etikett nicht lesbar ist.
+ *
+ * 50 statt der Voreinstellung: an der Kasse wird oft nach einer Marke gesucht,
+ * und ein Dutzend Treffer schneidet die Hälfte des Sortiments ab. Die Liste
+ * klappt über die Seite und scrollt, mehr Treffer kosten also keinen Platz.
+ */
+const SUCHTREFFER = 50;
+
 export async function searchPosProductsAction(term: string): Promise<PosProduct[]> {
   await requireAdmin();
-  return searchPosProducts(term.slice(0, 80));
+  return searchPosProducts(term.slice(0, 80), SUCHTREFFER);
 }
 
 // --- Artikel direkt an der Kasse anlegen -------------------------------------

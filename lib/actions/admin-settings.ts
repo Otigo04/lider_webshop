@@ -8,10 +8,22 @@ import type { AdminFormState } from "@/lib/actions/admin-categories";
 
 const settingsSchema = z.object({
   company_name: z.string().trim().max(160).optional(),
+  owner_name: z.string().trim().max(160).optional(),
   address_street: z.string().trim().max(200).optional(),
   address_zip: z.string().trim().max(20).optional(),
   address_city: z.string().trim().max(120).optional(),
   address_country: z.string().trim().min(1, "Land fehlt").max(80),
+  // Kontaktangaben der Rechnungsfußzeile. Die E-Mail wird als E-Mail geprüft,
+  // damit keine unerreichbare Adresse auf jedem Beleg landet; Telefon und
+  // Webseite bleiben frei, dafür gibt es keine sinnvolle Prüfung.
+  phone: z.string().trim().max(60).optional(),
+  email: z
+    .string()
+    .trim()
+    .max(160)
+    .email("Keine gültige E-Mail-Adresse")
+    .optional(),
+  website: z.string().trim().max(160).optional(),
   tax_number: z.string().trim().max(60).optional(),
   vat_id: z.string().trim().max(60).optional(),
   bank_name: z.string().trim().max(120).optional(),
@@ -35,10 +47,14 @@ export async function updateCompanySettings(
 
   const parsed = settingsSchema.safeParse({
     company_name: formData.get("company_name") || undefined,
+    owner_name: formData.get("owner_name") || undefined,
     address_street: formData.get("address_street") || undefined,
     address_zip: formData.get("address_zip") || undefined,
     address_city: formData.get("address_city") || undefined,
     address_country: formData.get("address_country") || "Deutschland",
+    phone: formData.get("phone") || undefined,
+    email: formData.get("email") || undefined,
+    website: formData.get("website") || undefined,
     tax_number: formData.get("tax_number") || undefined,
     vat_id: formData.get("vat_id") || undefined,
     bank_name: formData.get("bank_name") || undefined,
@@ -60,10 +76,14 @@ export async function updateCompanySettings(
     .from("company_settings")
     .update({
       company_name: data.company_name || null,
+      owner_name: data.owner_name || null,
       address_street: data.address_street || null,
       address_zip: data.address_zip || null,
       address_city: data.address_city || null,
       address_country: data.address_country,
+      phone: data.phone || null,
+      email: data.email || null,
+      website: data.website || null,
       tax_number: data.tax_number || null,
       vat_id: data.vat_id || null,
       bank_name: data.bank_name || null,

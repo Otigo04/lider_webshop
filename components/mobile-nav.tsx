@@ -134,7 +134,7 @@ export function MobileNav({
                     <span className="flex items-baseline gap-3">
                       {/* Laufende Nummer: die Reihenfolge ist hier echte Struktur,
                           vom Sortiment zur Verwaltung. */}
-                      <span className="code text-xs text-gold">
+                      <span className="code text-xs text-gold-bright">
                         {String(index + 1).padStart(2, "0")}
                       </span>
                       {link.label}

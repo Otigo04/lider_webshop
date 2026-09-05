@@ -37,7 +37,7 @@ export function AuthShell({
                 className="mb-8 h-auto w-28 object-contain"
               />
             ) : null}
-            <p className="eyebrow text-gold">{eyebrow}</p>
+            <p className="eyebrow text-gold-bright">{eyebrow}</p>
             <h2 className="headline mt-3 text-3xl font-bold leading-tight">
               {title}
             </h2>

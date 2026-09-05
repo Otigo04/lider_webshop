@@ -94,7 +94,9 @@ export default async function ProductPage({
   }
 
   const product = await getProduct(id);
-  if (!product || !product.is_active) notFound();
+  // has_image: kein Foto = kein Sortiment (Migration 020), auch nicht über
+  // einen direkten Link – gilt hier genauso wie is_active.
+  if (!product || !product.is_active || !product.has_image) notFound();
 
   const free = freeStock(product);
 

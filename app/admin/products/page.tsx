@@ -12,6 +12,7 @@ import { formatPrice, formatQuantity } from "@/lib/format";
 import { freeStock, lowestUnitPrice } from "@/lib/pricing";
 import { getAdminProducts } from "@/lib/queries/admin";
 import { getCategories } from "@/lib/queries/products";
+import { getProductFlags } from "@/lib/queries/product-flags";
 
 export const metadata: Metadata = { title: "Artikel" };
 
@@ -28,9 +29,16 @@ export default async function AdminProductsPage({
 }: PageProps<"/admin/products">) {
   const params = await searchParams;
   const search = typeof params.q === "string" ? params.q : "";
-  const [products, categories] = await Promise.all([
-    getAdminProducts(search),
+  const ohneBild = params.bild === "ohne";
+  const inaktiv = params.status === "inaktiv";
+  const flagIds = (Array.isArray(params.flag) ? params.flag : params.flag ? [params.flag] : []).filter(
+    (f): f is string => typeof f === "string",
+  );
+
+  const [products, categories, customFlags] = await Promise.all([
+    getAdminProducts({ search, ohneBild, inaktiv, flagIds }),
     getCategories(),
+    getProductFlags(),
   ]);
 
   const kategorieOptionen = categories.map((category) => ({
@@ -39,6 +47,10 @@ export default async function AdminProductsPage({
   }));
 
   const ohneBarcode = products.filter((product) => !product.barcode).length;
+  const FESTE_FLAGS = [
+    { value: "is_new", label: "Neuheit" },
+    { value: "is_topseller", label: "Topseller" },
+  ];
 
   return (
     <div>
@@ -54,7 +66,7 @@ export default async function AdminProductsPage({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <form action="/admin/products" className="flex gap-2">
+          <form action="/admin/products" className="flex flex-wrap items-center gap-2">
             <div className="relative">
               <Search
                 className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
@@ -69,8 +81,78 @@ export default async function AdminProductsPage({
                 className="pl-9"
               />
             </div>
+
+            <label className="flex items-center gap-1.5 text-sm text-muted-foreground">
+              <input
+                type="checkbox"
+                name="bild"
+                value="ohne"
+                defaultChecked={ohneBild}
+                className="size-4 rounded border-input"
+              />
+              Ohne Bild
+            </label>
+
+            <label className="flex items-center gap-1.5 text-sm text-muted-foreground">
+              <input
+                type="checkbox"
+                name="status"
+                value="inaktiv"
+                defaultChecked={inaktiv}
+                className="size-4 rounded border-input"
+              />
+              Ausgeblendet
+            </label>
+
+            <details className="relative">
+              <summary className="cursor-pointer list-none rounded-md border border-input px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted">
+                Flags{flagIds.length > 0 ? ` (${flagIds.length})` : ""}
+              </summary>
+              <div className="absolute z-10 mt-1 min-w-48 rounded-md border border-border bg-popover p-2 shadow-md">
+                {FESTE_FLAGS.map((flag) => (
+                  <label
+                    key={flag.value}
+                    className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted"
+                  >
+                    <input
+                      type="checkbox"
+                      name="flag"
+                      value={flag.value}
+                      defaultChecked={flagIds.includes(flag.value)}
+                      className="size-4 rounded border-input"
+                    />
+                    {flag.label}
+                  </label>
+                ))}
+                {customFlags.length > 0 ? (
+                  <>
+                    <div className="my-1.5 border-t border-border" />
+                    {customFlags.map((flag) => (
+                      <label
+                        key={flag.id}
+                        className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted"
+                      >
+                        <input
+                          type="checkbox"
+                          name="flag"
+                          value={flag.id}
+                          defaultChecked={flagIds.includes(flag.id)}
+                          className="size-4 rounded border-input"
+                        />
+                        <span
+                          aria-hidden
+                          className={`inline-block size-2 rounded-full tag-dot-${flag.color}`}
+                        />
+                        {flag.name}
+                      </label>
+                    ))}
+                  </>
+                ) : null}
+              </div>
+            </details>
+
             <Button type="submit" variant="secondary">
-              Suchen
+              Filtern
             </Button>
           </form>
 
@@ -89,8 +171,8 @@ export default async function AdminProductsPage({
 
       {products.length === 0 ? (
         <p className="mt-8 rounded-md border border-dashed border-border px-4 py-12 text-center text-sm text-muted-foreground">
-          {search
-            ? `Keine Treffer für „${search}“.`
+          {search || ohneBild || inaktiv || flagIds.length > 0
+            ? "Keine Treffer für diese Suche/Filter."
             : "Noch keine Artikel angelegt."}
         </p>
       ) : (
@@ -198,6 +280,8 @@ export default async function AdminProductsPage({
                           is_new: product.is_new,
                           is_topseller: product.is_topseller,
                         }}
+                        customFlags={customFlags}
+                        activeCustomFlagIds={product.flags.map((flag) => flag.id)}
                       />
                     </td>
 

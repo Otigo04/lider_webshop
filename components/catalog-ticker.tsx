@@ -85,7 +85,7 @@ function TickerCard({
           {product.name}
         </span>
         {product.priceFrom !== null ? (
-          <span className="mt-0.5 block text-sm text-brand tabular">
+          <span className="mt-0.5 block text-sm text-gold-bright tabular">
             ab {formatPrice(product.priceFrom)}
             <span className="text-surface-dark-muted"> / Stück</span>
           </span>

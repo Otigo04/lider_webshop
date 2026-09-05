@@ -38,9 +38,15 @@ const nextConfig: NextConfig = {
             key: "Referrer-Policy",
             value: "strict-origin-when-cross-origin",
           },
+          // `camera=(self)`, nicht `camera=()`: die Ladenkasse scannt Barcodes
+          // über die Kamera. Eine leere Liste schaltet das Gerät für das
+          // Dokument ab, noch bevor der Browser jemanden fragt – die Kasse
+          // bekäme dann ewig NotAllowedError, egal was in den
+          // Browsereinstellungen steht. Fremde Seiten, die uns einbetten,
+          // erhalten weiterhin nichts.
           {
             key: "Permissions-Policy",
-            value: "camera=(), microphone=(), geolocation=(), payment=()",
+            value: "camera=(self), microphone=(), geolocation=(), payment=()",
           },
         ],
       },

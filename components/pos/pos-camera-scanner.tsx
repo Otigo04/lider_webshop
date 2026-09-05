@@ -1,15 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Camera, CameraOff, Loader2 } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { CameraOff, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 
@@ -17,15 +9,23 @@ import { Label } from "@/components/ui/label";
  * Barcode über die Kamera erfassen – der Ersatzweg, wenn der Handscanner
  * ausfällt.
  *
+ * Bewusst **kein** Dialog, sondern eine Spalte neben der Kasse: ein modales
+ * Fenster legt sich mit Weichzeichner über die Seite, und genau das darf hier
+ * nicht passieren. Wer dreimal dieselbe Powerbank vor die Linse hält, muss den
+ * Bon mitlaufen sehen und eine verzählte Menge sofort korrigieren können,
+ * ohne die Kamera zu schließen. Aus demselben Grund greift die Komponente
+ * nicht nach dem Tastaturfokus – der bleibt im Scannerfeld, sodass Handgerät
+ * und Kamera gleichzeitig benutzbar sind.
+ *
  * Zwei Decoder, in dieser Reihenfolge:
  *   1. `BarcodeDetector` des Browsers, wenn vorhanden. Kostet nichts, weil er
  *      im Browser eingebaut ist – auf Android und macOS ist er da.
  *   2. ZXing als dynamischer Import. Chrome unter Windows kennt
  *      `BarcodeDetector` nicht, und genau dort steht die Ladenkasse. Der
- *      Import läuft erst beim Öffnen dieses Dialogs, damit die Kasse selbst
+ *      Import läuft erst beim Aufklappen dieser Spalte, damit die Kasse selbst
  *      nicht schwerer lädt.
  *
- * Der Dialog bleibt nach einem Treffer offen: mehrere Artikel hintereinander
+ * Die Spalte bleibt nach einem Treffer offen: mehrere Artikel hintereinander
  * vor die Kamera zu halten ist der Normalfall. Derselbe Code wird innerhalb
  * von zwei Sekunden nicht doppelt gemeldet, sonst zählt ein still gehaltener
  * Artikel als Dutzend.
@@ -52,12 +52,29 @@ type DetektorKlasse = new (optionen?: { formats?: string[] }) => NativerDetektor
 export function PosCameraScanner({
   onClose,
   onCode,
+  pausiert = false,
 }: {
   onClose: () => void;
   /** Wird bei jedem erkannten Code aufgerufen – wie ein Scan des Handgeräts. */
   onCode: (code: string) => void;
+  /**
+   * Meldungen zurückhalten, solange ein Fenster über der Kasse liegt (etwa der
+   * Anlegedialog für unbekannte Ware). Das Bild läuft weiter – nur gebucht
+   * wird nichts, sonst schöbe die Kamera Artikel hinter dem offenen Fenster
+   * auf den Bon.
+   */
+  pausiert?: boolean;
 }) {
-  const videoRef = useRef<HTMLVideoElement>(null);
+  /*
+   * Das Videoelement steht im Zustand, nicht in einem Ref. Der Dialoginhalt
+   * hängt sich erst nach den Effekten dieser Komponente in die Seite – ein
+   * Ref wäre beim Start also noch leer, der Kamerastart bliebe stumm liegen
+   * und das Fenster zeigte für immer „Kamera wird gestartet“. Über den
+   * Zustand läuft der Effekt erneut, sobald das Element wirklich da ist.
+   */
+  const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(
+    null,
+  );
   const stopRef = useRef<(() => void) | null>(null);
   const letzterCode = useRef<{ code: string; zeit: number }>({
     code: "",
@@ -84,9 +101,18 @@ export function PosCameraScanner({
     onCodeRef.current = onCode;
   }, [onCode]);
 
+  // Gleiches Muster: die Pause darf `melden` nicht neu erzeugen, sonst liefe
+  // der Datenstrom bei jedem Umschalten neu an.
+  const pausiertRef = useRef(pausiert);
+  useEffect(() => {
+    pausiertRef.current = pausiert;
+  }, [pausiert]);
+
   /** Meldet einen Code weiter, sofern er nicht gerade eben schon kam. */
   const melden = useCallback(
     (code: string) => {
+      if (pausiertRef.current) return;
+
       const sauber = code.trim();
       if (!sauber) return;
 
@@ -105,32 +131,49 @@ export function PosCameraScanner({
   );
 
   useEffect(() => {
+    if (!videoElement) return;
+    const video = videoElement;
     let abgebrochen = false;
 
     // Beim ersten Mal blendet Chrome die Rechtefrage über der Seite ein. Bis
     // jemand dort zustimmt, kommt die Kamera nicht – ohne Hinweis sähe das an
-    // der Kasse nach einem hängenden Programm aus.
-    setWartetAufFreigabe(false);
+    // der Kasse nach einem hängenden Programm aus. Zurückgesetzt wird der
+    // Hinweis beim Aufräumen; beim Einbau steht er ohnehin auf `false`.
     const freigabeHinweis = setTimeout(() => setWartetAufFreigabe(true), 2000);
 
     async function starten() {
-      const video = videoRef.current;
-      if (!video) return;
-
       if (!navigator.mediaDevices?.getUserMedia) {
         setStatus("fehler");
         setFehler("Dieser Browser gibt keinen Zugriff auf die Kamera.");
         return;
       }
 
+      // Die Rechtefrage stellt allein `getUserMedia`. `enumerateDevices`
+      // fragt nichts: ohne Freigabe kommen Geräte ohne Kennung und ohne Namen
+      // zurück, und ein `exact`-Filter auf die leere Kennung scheitert mit
+      // OverconstrainedError – an der Kasse sähe das nach einer fehlenden
+      // Kamera aus, obwohl nur die Freigabe fehlt. Also erst fragen, dann
+      // auflisten.
+      let freigabe: MediaStream | null = null;
+      const freigabeLoesen = () => {
+        if (!freigabe) return;
+        for (const spur of freigabe.getTracks()) spur.stop();
+        freigabe = null;
+      };
+
       try {
+        freigabe = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment" },
+        });
+        const freigegeben =
+          freigabe.getVideoTracks()[0]?.getSettings().deviceId ?? "";
+
         const { BrowserMultiFormatReader, BrowserCodeReader } = await import(
           "@zxing/browser"
         );
         if (abgebrochen) return;
 
-        // Erst nach der Freigabe liefert der Browser echte Kameranamen. Der
-        // Aufruf hier ist zugleich die Rechteabfrage.
+        // Jetzt liefert der Browser echte Kennungen und Kameranamen.
         const geraete = await BrowserCodeReader.listVideoInputDevices();
         if (abgebrochen) return;
 
@@ -151,7 +194,8 @@ export function PosCameraScanner({
         const rueckseitig = liste.find((k) =>
           /back|rear|rück|environment/i.test(k.label),
         );
-        const gewaehlt = geraet || rueckseitig?.deviceId || liste[0].deviceId;
+        const gewaehlt =
+          geraet || rueckseitig?.deviceId || freigegeben || liste[0].deviceId;
         if (!geraet) setGeraet(gewaehlt);
 
         const nativ = (
@@ -159,8 +203,22 @@ export function PosCameraScanner({
         ).BarcodeDetector;
 
         if (nativ) {
-          await mitNativemDecoder(video, gewaehlt, nativ);
+          // Zeigt die Freigabe schon auf die gewählte Kamera, läuft ihr Strom
+          // weiter – dasselbe Gerät ein zweites Mal zu öffnen spart das.
+          const strom =
+            gewaehlt === freigegeben && freigabe
+              ? freigabe
+              : await navigator.mediaDevices.getUserMedia({
+                  video: { deviceId: { exact: gewaehlt } },
+                });
+          if (strom !== freigabe) freigabeLoesen();
+          // Ab hier gehört der Strom dem Decoder, nicht mehr dem `finally`.
+          freigabe = null;
+          await mitNativemDecoder(video, strom, nativ);
         } else {
+          // ZXing öffnet den Strom selbst; zwei offene Ströme auf derselben
+          // Kamera schlagen fehl, also die Freigabe vorher zurückgeben.
+          freigabeLoesen();
           const leser = new BrowserMultiFormatReader(undefined, {
             delayBetweenScanAttempts: 150,
           });
@@ -185,21 +243,32 @@ export function PosCameraScanner({
         console.error("[kasse] Kamera:", problem);
         setStatus("fehler");
         setFehler(kameraFehlertext(problem));
+      } finally {
+        // Greift nur, wenn der Strom niemand übernommen hat – nach Abbruch
+        // oder Fehler. Sonst steht `freigabe` längst auf null.
+        freigabeLoesen();
       }
     }
 
     /**
-     * Weg über den eingebauten Decoder: eigener Stream, eigene Schleife über
-     * requestAnimationFrame. ZXing bringt beides selbst mit, hier nicht.
+     * Weg über den eingebauten Decoder: eigene Schleife über
+     * requestAnimationFrame. ZXing bringt die selbst mit, hier nicht.
      */
     async function mitNativemDecoder(
       video: HTMLVideoElement,
-      deviceId: string,
+      stream: MediaStream,
       Detektor: DetektorKlasse,
     ) {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { deviceId: { exact: deviceId } },
-      });
+      let laeuft = true;
+      // Vor dem ersten `await` setzen: bricht der Dialog währenddessen ab,
+      // muss die Aufräumfunktion den Strom schon kennen, sonst läuft die
+      // Kamera weiter.
+      stopRef.current = () => {
+        laeuft = false;
+        for (const spur of stream.getTracks()) spur.stop();
+        video.srcObject = null;
+      };
+
       video.srcObject = stream;
       await video.play();
 
@@ -216,7 +285,6 @@ export function PosCameraScanner({
         ],
       });
 
-      let laeuft = true;
       const schleife = async () => {
         if (!laeuft) return;
         try {
@@ -229,12 +297,6 @@ export function PosCameraScanner({
         if (laeuft) requestAnimationFrame(schleife);
       };
       requestAnimationFrame(schleife);
-
-      stopRef.current = () => {
-        laeuft = false;
-        for (const spur of stream.getTracks()) spur.stop();
-        video.srcObject = null;
-      };
     }
 
     void starten();
@@ -242,27 +304,38 @@ export function PosCameraScanner({
     return () => {
       abgebrochen = true;
       clearTimeout(freigabeHinweis);
+      setWartetAufFreigabe(false);
       stopRef.current?.();
       stopRef.current = null;
     };
     // `geraet` gehört dazu: ein Kamerawechsel startet den Datenstrom neu.
-  }, [geraet, melden]);
+  }, [videoElement, geraet, melden]);
 
   return (
-    <Dialog open onOpenChange={(offen) => !offen && onClose()}>
-      <DialogContent className="sm:max-w-xl">
-        <DialogHeader>
-          <DialogTitle>Mit der Kamera scannen</DialogTitle>
-          <DialogDescription>
-            Barcode ruhig und formatfüllend vor die Kamera halten. Erkannte
-            Artikel wandern sofort auf den Bon – das Fenster bleibt offen, bis
-            Sie es schließen.
-          </DialogDescription>
-        </DialogHeader>
+    <aside
+      aria-label="Mit der Kamera scannen"
+      className="rounded-lg border-2 border-brand/30 bg-card lg:sticky lg:top-24"
+    >
+      <div className="flex items-center justify-between gap-2 border-b border-border bg-brand-soft px-4 py-2.5">
+        <p className="text-sm font-semibold text-brand">Kamera</p>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          aria-label="Kamera schließen"
+          onClick={onClose}
+        >
+          <X className="size-4" aria-hidden />
+        </Button>
+      </div>
 
-        <div className="relative aspect-video overflow-hidden rounded-md border-2 border-border bg-black">
+      <div className="space-y-3 p-4">
+        {/* 4:3 statt 16:9: Webcams liefern meist 4:3, und `object-contain`
+            legte davon links und rechts breite schwarze Balken an – das Bild
+            wäre schmaler als die Spalte, die es bekommt. */}
+        <div className="relative aspect-[4/3] overflow-hidden rounded-md border-2 border-border bg-black">
           <video
-            ref={videoRef}
+            ref={setVideoElement}
             playsInline
             muted
             className="size-full object-contain"
@@ -272,7 +345,7 @@ export function PosCameraScanner({
           {status === "laeuft" ? (
             <div
               aria-hidden
-              className="pointer-events-none absolute inset-x-[15%] inset-y-[30%] rounded-md border-2 border-gold/80"
+              className="pointer-events-none absolute inset-x-[10%] inset-y-[32%] rounded-md border-2 border-gold/80"
             />
           ) : null}
 
@@ -321,24 +394,17 @@ export function PosCameraScanner({
           </div>
         ) : null}
 
-        <p className="text-sm text-muted-foreground" aria-live="polite">
+        <p className="text-xs text-muted-foreground" aria-live="polite">
           {treffer ? (
             <>
               Zuletzt erkannt: <span className="code">{treffer}</span>
             </>
           ) : (
-            "Noch kein Code erkannt."
+            "Barcode formatfüllend vor die Kamera halten. Treffer wandern sofort auf den Bon."
           )}
         </p>
-
-        <DialogFooter>
-          <Button type="button" onClick={onClose}>
-            <Camera className="size-4" aria-hidden />
-            Fertig
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </aside>
   );
 }
 

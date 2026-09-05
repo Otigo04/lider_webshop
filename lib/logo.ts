@@ -34,6 +34,11 @@ export function getLogoMarkPath(): string | null {
   return vorhanden("logo-mark.svg", "logo-mark.png") ?? getLogoPath();
 }
 
+/** Nur der Schriftzug „LIDER", quer – Kopfleiste neben dem Wappen. */
+export function getLogoWordmarkPath(): string | null {
+  return vorhanden("logo-wordmark.svg", "logo-wordmark.png");
+}
+
 /** Absoluter Dateipfad der Druckfassung, für das Einbetten ins PDF. */
 export function getLogoPrintFile(): string | null {
   for (const datei of ["logo-print.png", "logo.png"]) {
@@ -45,3 +50,6 @@ export function getLogoPrintFile(): string | null {
 
 /** Seitenverhältnis der Lockup-Datei (900 × 685) für Breiten-/Höhenangaben. */
 export const LOGO_ASPECT = 900 / 685;
+
+/** Seitenverhältnis der Wordmark-Datei (2400 × 603) für Breiten-/Höhenangaben. */
+export const LOGO_WORDMARK_ASPECT = 2400 / 603;

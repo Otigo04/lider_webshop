@@ -390,6 +390,32 @@ die Akzentfarbe auf dunklen Flächen, Rot bleibt Signalfarbe.
 
 ---
 
+## 🧾 Rechnungs- und Belegvorlage
+
+Ein Layout für alles: `generateInvoicePdf()` in `lib/invoice.ts` zeichnet
+Katalogrechnung, freie Rechnung und Kassenbeleg. Die drei `build*PdfData()`
+bringen ihre Quelle vorher auf dieselbe `InvoicePdfData`-Form.
+
+- **Aufbau**: Briefkopf (Logo rechts, Absender links, Eckdatenkasten),
+  Empfängeranschrift im Fensterfeld, Positionstabelle
+  *Pos. · Bezeichnung · Menge · Preis · Gesamt*, Summenblock
+  (netto → USt. je Satz → Bruttobalken), Zahlungshinweis, Fußzeile.
+- **Fußzeile** steht auf **jeder** Seite, vierspaltig: Anschrift (mit Inhaber),
+  Kontakt, Bankverbindung, Steuernummer/USt-IdNr. Leere Angaben fallen weg.
+- **Zahlungsziel** nur auf Rechnung. Setzt der Aufrufer `paymentNote`
+  (Kassenbeleg: „bar erhalten"), entfällt das Fälligkeitsdatum – sonst läse
+  sich ein bezahlter Bon wie eine offene Forderung.
+- **Farbe** kommt aus dem Logo: Wappenblau trägt Tabellenkopf und Endbetrag,
+  Gold die Trennlinien. Kein Schmuck ohne Funktion.
+- **Umlaute und fremde Schriftzeichen**: `sicher()` entschärft jeden Text vor
+  der Ausgabe. Die Standardschriften von pdf-lib sind WinAnsi-kodiert und
+  werfen sonst bei „Yılmaz" oder „Şahin" – aus einer Rechnung würde ein 500er.
+- **Kontaktdaten** der Fußzeile (`owner_name`, `phone`, `email`, `website`)
+  stehen in `company_settings` (Migration 019) und werden unter
+  `/admin/settings` gepflegt.
+
+---
+
 ## 🆕 Neu-Kennzeichnung
 
 Ein Artikel gilt als neu, wenn das Flag `is_new` gesetzt ist **oder** er jünger

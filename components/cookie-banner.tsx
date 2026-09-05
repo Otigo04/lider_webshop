@@ -22,7 +22,7 @@ export function CookieBanner() {
     <div
       role="dialog"
       aria-label="Cookie-Einstellungen"
-      className="fixed inset-x-0 bottom-0 z-50 border-t-2 border-brand bg-surface-dark px-4 py-5 text-surface-dark-foreground shadow-[0_-4px_24px_rgba(0,0,0,0.35)]"
+      className="fixed inset-x-0 bottom-0 z-50 border-t-2 border-gold bg-surface-dark px-4 py-5 text-surface-dark-foreground shadow-[0_-4px_24px_rgba(0,0,0,0.35)]"
     >
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4">
         <p className="max-w-2xl text-sm text-surface-dark-muted">
@@ -43,7 +43,7 @@ export function CookieBanner() {
             Nur notwendige
           </Button>
           <Button
-            className="bg-brand text-brand-foreground hover:bg-brand-hover"
+            className="bg-gold text-gold-foreground hover:bg-gold/85"
             onClick={() => acceptAllConsent()}
           >
             Alle akzeptieren

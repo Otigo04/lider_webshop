@@ -9,6 +9,7 @@ import type {
   Order,
   OrderItem,
   Product,
+  ProductFlagDef,
   ProductVariant,
 } from "@/lib/types";
 
@@ -22,6 +23,7 @@ import type {
 export interface AdminProductRow extends Omit<Product, "category"> {
   category: { id: string; name: string } | null;
   variants: ProductVariant[];
+  flags: ProductFlagDef[];
 }
 
 export interface AdminOrderRow extends Omit<Order, "customer"> {
@@ -143,20 +145,71 @@ export async function getTopProducts(limit = 5) {
     .slice(0, limit);
 }
 
-export async function getAdminProducts(search?: string): Promise<AdminProductRow[]> {
+const FIXED_FLAGS = ["is_new", "is_topseller"] as const;
+
+export interface AdminProductFilter {
+  search?: string;
+  /** Nur Artikel ohne Foto (= automatisch nicht im Shop, Migration 020). */
+  ohneBild?: boolean;
+  /** Nur ausgeblendete Artikel (is_active = false). */
+  inaktiv?: boolean;
+  /**
+   * ODER-verknüpft: gemischt aus den festen Flags ("is_new"/"is_topseller")
+   * und UUIDs frei definierter Flags (Migration 021).
+   */
+  flagIds?: string[];
+}
+
+export async function getAdminProducts(
+  filter?: AdminProductFilter,
+): Promise<AdminProductRow[]> {
   const supabase = await createClient();
 
   let query = supabase
     .from("products")
     .select(
       `*, category:categories (id, name),
-       variants:product_variants (id, product_id, min_quantity, max_quantity, unit_price, created_at)`,
+       variants:product_variants (id, product_id, min_quantity, max_quantity, unit_price, created_at),
+       flag_links:product_flag_links (flag:product_flags (id, name, color, created_at))`,
     )
     .order("name");
 
-  const term = search?.replace(/[,()*\\%]/g, " ").trim();
+  const term = filter?.search?.replace(/[,()*\\%]/g, " ").trim();
   if (term) {
     query = query.or(`name.ilike.%${term}%,sku.ilike.%${term}%`);
+  }
+
+  if (filter?.ohneBild) {
+    query = query.eq("has_image", false);
+  }
+  if (filter?.inaktiv) {
+    query = query.eq("is_active", false);
+  }
+
+  const gewaehlt = filter?.flagIds ?? [];
+  if (gewaehlt.length > 0) {
+    const istFixesFlag = (f: string): f is (typeof FIXED_FLAGS)[number] =>
+      (FIXED_FLAGS as readonly string[]).includes(f);
+    const fixeFlags = gewaehlt.filter(istFixesFlag);
+    const eigeneFlagIds = gewaehlt.filter((f) => !istFixesFlag(f));
+
+    const bedingungen = fixeFlags.map((flag) => `${flag}.eq.true`);
+
+    if (eigeneFlagIds.length > 0) {
+      const { data: verknuepft } = await supabase
+        .from("product_flag_links")
+        .select("product_id")
+        .in("flag_id", eigeneFlagIds);
+      const produktIds = [...new Set((verknuepft ?? []).map((v) => v.product_id as string))];
+      // Kein Treffer bei den eigenen Flags: eine unerfüllbare Bedingung statt
+      // die .or()-Kette leer zu lassen, sonst würde is_new/is_topseller allein
+      // wieder alle Artikel durchlassen statt keinen.
+      bedingungen.push(`id.in.(${produktIds.length > 0 ? produktIds.join(",") : "00000000-0000-0000-0000-000000000000"})`);
+    }
+
+    if (bedingungen.length > 0) {
+      query = query.or(bedingungen.join(","));
+    }
   }
 
   const { data, error } = await query;
@@ -164,7 +217,18 @@ export async function getAdminProducts(search?: string): Promise<AdminProductRow
     console.error("[admin] Artikelliste:", error.message);
     return [];
   }
-  return (data ?? []) as unknown as AdminProductRow[];
+
+  return (data ?? []).map((row) => {
+    const { flag_links, ...rest } = row as unknown as AdminProductRow & {
+      flag_links: { flag: ProductFlagDef | null }[];
+    };
+    return {
+      ...rest,
+      flags: (flag_links ?? [])
+        .map((link) => link.flag)
+        .filter((flag): flag is ProductFlagDef => flag !== null),
+    };
+  });
 }
 
 export async function getCustomers(): Promise<AppUser[]> {
