@@ -24,7 +24,8 @@ export function InvoiceStatusSelect({
   status,
 }: {
   invoiceId: string;
-  orderId: string;
+  /** Nur bei Bestellungs-Rechnungen gesetzt, freie Rechnungen haben keine Bestellung. */
+  orderId?: string;
   status: InvoiceStatus;
 }) {
   const [state, formAction] = useActionState<AdminFormState, FormData>(
@@ -44,7 +45,7 @@ export function InvoiceStatusSelect({
   return (
     <form action={formAction} className="flex items-center gap-2">
       <input type="hidden" name="id" value={invoiceId} />
-      <input type="hidden" name="orderId" value={orderId} />
+      {orderId ? <input type="hidden" name="orderId" value={orderId} /> : null}
       <label htmlFor={`invoice-status-${invoiceId}`} className="sr-only">
         Rechnungsstatus
       </label>

@@ -18,9 +18,9 @@ export function StockBadge({
 
   // success/warning sind eigene Theme-Tokens aus globals.css
   const styles = {
-    ok: "border-success/30 bg-success/10 text-success",
-    low: "border-warning/30 bg-warning/10 text-warning",
-    out: "border-destructive/30 bg-destructive/10 text-destructive",
+    ok: "border-success/40 bg-success/15 text-success",
+    low: "border-warning/40 bg-warning/15 text-warning",
+    out: "border-destructive/40 bg-destructive/15 text-destructive",
   }[level];
 
   const label = {
@@ -32,7 +32,10 @@ export function StockBadge({
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium",
+        // whitespace-nowrap ist hier kein Feinschliff: in schmalen
+        // Tabellenspalten brach "nur noch 12 verfügbar" hinter der Zahl um und
+        // zog die Zeile auf.
+        "inline-flex items-center whitespace-nowrap rounded-md border px-2 py-0.5 text-xs font-medium",
         styles,
         className,
       )}

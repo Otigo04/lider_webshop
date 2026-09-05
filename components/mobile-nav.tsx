@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ArrowRight, Menu, X } from "lucide-react";
@@ -26,9 +27,12 @@ export interface NavLink {
 export function MobileNav({
   links,
   angemeldet,
+  logoSrc,
 }: {
   links: NavLink[];
   angemeldet: boolean;
+  /** Wappen aus lib/logo.ts – die Kopfleiste reicht es als Prop durch. */
+  logoSrc?: string | null;
 }) {
   const [offen, setOffen] = useState(false);
   const pfad = usePathname();
@@ -83,9 +87,20 @@ export function MobileNav({
             aria-label="Hauptmenü"
             className="menu-panel absolute inset-x-0 top-0 bg-surface-dark text-surface-dark-foreground shadow-2xl outline-none"
           >
-            <div className="flex h-14 items-center justify-between border-b border-surface-dark-border px-4">
-              <span className="text-base font-semibold tracking-[0.14em]">
-                LIDER BERLIN
+            <div className="flex h-16 items-center justify-between border-b-2 border-gold px-4">
+              <span className="flex items-center gap-2.5">
+                {logoSrc ? (
+                  <Image
+                    src={logoSrc}
+                    alt=""
+                    width={36}
+                    height={36}
+                    className="size-9 object-contain"
+                  />
+                ) : null}
+                <span className="text-base font-bold tracking-[0.16em]">
+                  LIDER BERLIN
+                </span>
               </span>
               <button
                 type="button"
@@ -119,7 +134,7 @@ export function MobileNav({
                     <span className="flex items-baseline gap-3">
                       {/* Laufende Nummer: die Reihenfolge ist hier echte Struktur,
                           vom Sortiment zur Verwaltung. */}
-                      <span className="code text-xs text-surface-dark-border">
+                      <span className="code text-xs text-gold">
                         {String(index + 1).padStart(2, "0")}
                       </span>
                       {link.label}
@@ -141,16 +156,16 @@ export function MobileNav({
                 <Link
                   href="/login"
                   onClick={() => setOffen(false)}
-                  className="flex items-center justify-center rounded-md bg-brand px-4 py-3 font-medium text-brand-foreground transition-colors hover:bg-brand-hover"
+                  className="flex items-center justify-center rounded-md bg-gold px-4 py-3 font-semibold text-gold-foreground transition-colors hover:bg-gold/85"
                 >
                   Anmelden
                 </Link>
                 <Link
-                  href="/#kontakt"
+                  href="/register"
                   onClick={() => setOffen(false)}
-                  className="mt-3 block text-center text-sm text-surface-dark-muted underline underline-offset-4 hover:text-surface-dark-foreground"
+                  className="mt-2 flex items-center justify-center rounded-md border border-surface-dark-border px-4 py-3 font-medium text-surface-dark-foreground transition-colors hover:bg-white/[0.06]"
                 >
-                  Noch kein Zugang? Anfragen
+                  Konto registrieren
                 </Link>
               </div>
             )}

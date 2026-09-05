@@ -2,6 +2,7 @@ import "server-only";
 import type { ProductFlag } from "@/lib/actions/admin-products";
 import { createClient } from "@/lib/supabase/server";
 import { getImageUrls } from "@/lib/storage";
+import { NEU_TAGE, istNeu } from "@/lib/product-flags";
 import type { Category, Product, ProductImage, ProductVariant } from "@/lib/types";
 
 /**
@@ -28,6 +29,8 @@ export interface PublicProductListItem {
   description: string | null;
   is_new: boolean;
   is_topseller: boolean;
+  /** Aufnahmedatum – trägt zusammen mit is_new das Neu-Label (lib/product-flags.ts) */
+  created_at: string;
   imageUrl: string | null;
   /**
    * Günstigster Stückpreis für die "ab"-Angabe. Kommt aus der View
@@ -97,7 +100,7 @@ export interface ProductDetail extends Omit<Product, "category"> {
 }
 
 const LIST_COLUMNS = `
-  id, category_id, sku, name, description, is_active, is_new, is_topseller,
+  id, category_id, sku, barcode, name, description, is_active, is_new, is_topseller,
   stock_available, stock_reserved, created_by, created_at, updated_at,
   variants:product_variants (id, product_id, min_quantity, max_quantity, unit_price, created_at),
   images:product_images (id, product_id, file_path, display_order, created_at)
@@ -110,6 +113,21 @@ const LIST_COLUMNS = `
  */
 function sanitizeSearch(term: string): string {
   return term.replace(/[,()*\\%]/g, " ").trim();
+}
+
+/**
+ * Filter für "Neuheiten". Das Flag allein reicht nicht: frisch aufgenommene
+ * Artikel gelten drei Tage lang automatisch als neu (lib/product-flags.ts).
+ * PostgREST verknüpft mehrere .or()-Aufrufe mit UND, der Suchfilter bleibt
+ * also unberührt.
+ */
+function neuheitenFilter(seit: Date): string {
+  return `is_new.eq.true,created_at.gte.${seit.toISOString()}`;
+}
+
+/** Beginn des Zeitfensters, in dem ein Artikel automatisch als neu gilt. */
+function neuAb(): Date {
+  return new Date(Date.now() - NEU_TAGE * 24 * 60 * 60 * 1000);
 }
 
 export async function getCategories(): Promise<Category[]> {
@@ -138,7 +156,11 @@ export async function getCategoryCounts(options?: {
   const supabase = await createClient();
 
   let query = supabase.from("products_public").select("category_id");
-  if (options?.flag) query = query.eq(options.flag, true);
+  if (options?.flag === "is_new") {
+    query = query.or(neuheitenFilter(neuAb()));
+  } else if (options?.flag) {
+    query = query.eq(options.flag, true);
+  }
 
   const { data, error } = await query;
   if (error) {
@@ -187,7 +209,9 @@ export async function getProducts(options?: {
     query = query.eq("category_id", options.categoryId);
   }
 
-  if (options?.flag) {
+  if (options?.flag === "is_new") {
+    query = query.or(neuheitenFilter(neuAb()));
+  } else if (options?.flag) {
     query = query.eq(options.flag, true);
   }
 
@@ -272,7 +296,9 @@ export async function getPublicProducts(options?: {
 
   let query = supabase
     .from("products_public")
-    .select("id, category_id, sku, name, description, is_new, is_topseller");
+    .select(
+      "id, category_id, sku, name, description, is_new, is_topseller, created_at",
+    );
 
   query =
     options?.orderBy === "created_at"
@@ -283,7 +309,9 @@ export async function getPublicProducts(options?: {
     query = query.eq("category_id", options.categoryId);
   }
 
-  if (options?.flag) {
+  if (options?.flag === "is_new") {
+    query = query.or(neuheitenFilter(neuAb()));
+  } else if (options?.flag) {
     query = query.eq(options.flag, true);
   }
 
@@ -315,6 +343,7 @@ export async function getPublicProducts(options?: {
       description: row.description as string | null,
       is_new: row.is_new as boolean,
       is_topseller: row.is_topseller as boolean,
+      created_at: row.created_at as string,
       imageUrl: urls[index],
       priceFrom: preis?.min_unit_price ?? null,
       minOrderQuantity: preis?.min_order_quantity ?? null,
@@ -335,6 +364,12 @@ export interface LandingData {
   productCount: number;
   /** Zuletzt aufgenommene Artikel für das Katalogband im Kopfbereich */
   ticker: PublicProductListItem[];
+  /**
+   * Querschnitt fürs Sortiment-Schaufenster direkt unter dem Kopfbereich:
+   * pro Warengruppe die zuletzt aufgenommenen Artikel, damit die Auswahl
+   * nicht aus einer einzigen Gruppe besteht.
+   */
+  sortiment: PublicProductListItem[];
 }
 
 /**
@@ -353,6 +388,7 @@ export async function getLandingData(perSection = 8): Promise<LandingData> {
     categories: [],
     productCount: 0,
     ticker: [],
+    sortiment: [],
   };
 
   const [{ data: rows, error }, categories] = await Promise.all([
@@ -372,13 +408,42 @@ export async function getLandingData(perSection = 8): Promise<LandingData> {
   // Bilder und Preise nur für die Artikel holen, die tatsächlich auf der Seite
   // landen – hervorgehobene plus die des Laufbands. Der restliche Katalog
   // zählt nur für die Kennzahlen.
+  // "Neu" ist nicht nur das Flag, sondern auch das Aufnahmedatum – siehe
+  // lib/product-flags.ts. Deshalb hier über istNeu() filtern, nicht über
+  // row.is_new.
   const hervorgehoben = rows
-    .filter((row) => row.is_new || row.is_topseller)
+    .filter((row) => istNeu(row as { is_new: boolean; created_at: string }) || row.is_topseller)
     .slice(0, perSection * 2);
   const bandZeilen = rows.slice(0, 10);
 
+  // Querschnitt: reihum eine Warengruppe nach der anderen, damit das
+  // Schaufenster die Breite des Sortiments zeigt und nicht nur die Gruppe,
+  // in der zuletzt eingepflegt wurde.
+  const nachGruppe = new Map<string, typeof rows>();
+  for (const row of rows) {
+    const gruppe = row.category_id as string;
+    const liste = nachGruppe.get(gruppe) ?? [];
+    liste.push(row);
+    nachGruppe.set(gruppe, liste);
+  }
+  const sortimentZeilen: typeof rows = [];
+  for (let runde = 0; sortimentZeilen.length < 12; runde += 1) {
+    let nachgelegt = false;
+    for (const liste of nachGruppe.values()) {
+      if (liste.length <= runde) continue;
+      sortimentZeilen.push(liste[runde]);
+      nachgelegt = true;
+      if (sortimentZeilen.length >= 12) break;
+    }
+    if (!nachgelegt) break;
+  }
+
   const ids = [
-    ...new Set([...hervorgehoben, ...bandZeilen].map((row) => row.id as string)),
+    ...new Set(
+      [...hervorgehoben, ...bandZeilen, ...sortimentZeilen].map(
+        (row) => row.id as string,
+      ),
+    ),
   ];
   const [coverPaths, preise] = await Promise.all([
     firstImagePathsFor(supabase, ids),
@@ -398,6 +463,7 @@ export async function getLandingData(perSection = 8): Promise<LandingData> {
       description: row.description as string | null,
       is_new: row.is_new as boolean,
       is_topseller: row.is_topseller as boolean,
+      created_at: row.created_at as string,
       imageUrl: bilder.get(id) ?? null,
       priceFrom: preis?.min_unit_price ?? null,
       minOrderQuantity: preis?.min_order_quantity ?? null,
@@ -413,7 +479,7 @@ export async function getLandingData(perSection = 8): Promise<LandingData> {
   }
 
   return {
-    neuheiten: items.filter((p) => p.is_new).slice(0, perSection),
+    neuheiten: items.filter((p) => istNeu(p)).slice(0, perSection),
     topseller: items.filter((p) => p.is_topseller).slice(0, perSection),
     categories: categories.map((category) => ({
       ...category,
@@ -421,6 +487,7 @@ export async function getLandingData(perSection = 8): Promise<LandingData> {
     })),
     productCount: rows.length,
     ticker: bandZeilen.map(zuArtikel),
+    sortiment: sortimentZeilen.map(zuArtikel),
   };
 }
 
@@ -433,7 +500,7 @@ export async function getPublicProduct(id: string): Promise<PublicProductDetail 
   const { data, error } = await supabase
     .from("products_public")
     .select(
-      "id, category_id, sku, name, description, is_new, is_topseller, category:categories (*)",
+      "id, category_id, sku, name, description, is_new, is_topseller, created_at, category:categories (*)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -464,6 +531,7 @@ export async function getPublicProduct(id: string): Promise<PublicProductDetail 
     description: string | null;
     is_new: boolean;
     is_topseller: boolean;
+    created_at: string;
     category: Category | null;
   };
 
@@ -475,6 +543,7 @@ export async function getPublicProduct(id: string): Promise<PublicProductDetail 
     description: row.description,
     is_new: row.is_new,
     is_topseller: row.is_topseller,
+    created_at: row.created_at,
     category: row.category ?? null,
     imageUrl: imageUrls[0] ?? null,
     imageUrls,

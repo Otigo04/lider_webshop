@@ -66,7 +66,9 @@ export async function updateOrderStatus(
 
 const invoiceStatusSchema = z.object({
   id: z.string().uuid(),
-  orderId: z.string().uuid(),
+  // Nur bei Bestellungs-Rechnungen gesetzt – freie Rechnungen haben keine
+  // Bestellung, siehe supabase/migrations/016_firmendaten_und_rechnungen.sql.
+  orderId: z.string().uuid().optional(),
   status: z.enum(["open", "paid", "overdue"]),
 });
 
@@ -78,7 +80,7 @@ export async function updateInvoiceStatus(
 
   const parsed = invoiceStatusSchema.safeParse({
     id: formData.get("id"),
-    orderId: formData.get("orderId"),
+    orderId: formData.get("orderId") || undefined,
     status: formData.get("status"),
   });
 
@@ -100,8 +102,13 @@ export async function updateInvoiceStatus(
     return { error: "Der Rechnungsstatus konnte nicht geändert werden." };
   }
 
-  revalidatePath(`/admin/orders/${parsed.data.orderId}`);
-  revalidatePath(`/orders/${parsed.data.orderId}`);
+  if (parsed.data.orderId) {
+    revalidatePath(`/admin/orders/${parsed.data.orderId}`);
+    revalidatePath(`/orders/${parsed.data.orderId}`);
+  } else {
+    revalidatePath(`/admin/invoices/${parsed.data.id}`);
+  }
+  revalidatePath("/admin/invoices");
   return {
     success: `Rechnungsstatus auf „${INVOICE_STATUS_LABELS[parsed.data.status]}“ gesetzt.`,
   };

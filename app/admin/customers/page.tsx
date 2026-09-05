@@ -25,8 +25,8 @@ export default async function AdminCustomersPage({
     <div>
       <h1 className="text-2xl font-semibold tracking-tight">Kunden</h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        Zugänge werden ausschließlich hier angelegt – es gibt keine öffentliche
-        Registrierung.
+        Kunden können sich auch selbst unter /register anmelden. Diese Seite
+        ist für manuell angelegte Konten, z. B. bei Telefonbestellungen.
       </p>
 
       <div className="mt-8 grid gap-10 lg:grid-cols-[1fr_22rem]">

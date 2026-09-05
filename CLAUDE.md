@@ -60,7 +60,7 @@
 | **Styling** | Tailwind CSS v4 + shadcn/ui | Professionell, schnell, keine KI-Vibes |
 | **Database** | Supabase (PostgreSQL) | Real-time, Auth, Storage für Bilder |
 | **Auth** | Supabase Auth via `@supabase/ssr` | Einfach, sicher, keine externe OAuth nötig |
-| **File Storage** | Supabase Storage, Bucket `products` (**privat**) | Fotos nur über Signed URLs, `lib/storage.ts` |
+| **File Storage** | Supabase Storage, Buckets `products` und `invoices` (**privat**) | Fotos und Belege nur über Signed URLs, `lib/storage.ts` |
 | **Hosting** | Vercel | Native Next.js Support, Auto-Deploy |
 | **API** | Next.js Route Handlers + Server Actions | TypeScript, Type-Safe |
 
@@ -187,13 +187,17 @@ CREATE TABLE product_images (
 - `/account` – Account-Settings
 
 ### **Admin Pages (Protected, nur für Admins):**
-- `/admin` – Admin Dashboard (Stats, Übersicht)
+- `/admin` – Admin Dashboard (Stats, Übersicht, Tagesumsatz der Kasse)
+- `/admin/pos` – Ladenkasse (Barcodescanner, Bon, Beleg)
+- `/admin/sales` – Verkaufshistorie der Kasse
 - `/admin/customers` – Kundenverwaltung
 - `/admin/products` – Produktverwaltung
 - `/admin/products/new` – Produkt erstellen
 - `/admin/products/[id]/edit` – Produkt bearbeiten
 - `/admin/orders` – Bestellverwaltung
 - `/admin/categories` – Kategorien verwalten
+- `/admin/invoices` – Rechnungen (auch freie Rechnungen ohne Bestellbezug)
+- `/admin/settings` – Firmendaten und Kassenvorgaben
 
 ### **Shared Components:**
 - `Header` (Navbar mit Logo, Nav-Links, User-Menu)
@@ -332,8 +336,73 @@ Artikel: "Kunststoff-Widget"
 ## 📝 Notizen
 
 - Admin-Account (dein Konto) wird manuell in Supabase erstellt
-- Customers werden nur vom Admin erstellt (kein Public Sign-Up)
+- Customers können sich unter `/register` selbst registrieren (sofort aktiv,
+  keine Freischaltung nötig) oder werden manuell vom Admin angelegt (z. B.
+  Telefonbestellungen)
 - Bilder werden in Supabase Storage gespeichert (nicht DB)
 - Keine Zahlung/Payment in Phase 1 (nur Warenkorb + Bestellung)
 - Reports/Export = Phase 2
 - Mobile App = Phase 3+
+
+
+---
+
+## 🏷️ Marke und Logo
+
+Die Logodateien liegen unter `public/logo/`, der Zugriff läuft über
+`lib/logo.ts` – nie direkt über den Pfad:
+
+| Datei | Zweck |
+|-------|-------|
+| `logo.png` | Lockup (Wappen über Schriftzug) – Impressum, Fußzeile, Anmeldeseiten |
+| `logo-mark.png` | nur das Wappen, quadratisch – Kopfleiste und Menü |
+| `logo-print.png` | RGB ohne Alpha, klein – Briefkopf im Rechnungs-PDF |
+| `logo-original.png` | unbeschnittene Quelldatei, wird nicht ausgeliefert |
+
+`app/icon.png` ist das Favicon (Wappen, 256 px). Die Markenfarben in
+`app/globals.css` sind aus dem Logo gezogen: Wappenblau `#284078` (`--brand`),
+Lorbeergold `#b8721c` (`--gold`), Schriftrot `#a02020` (`--signal`). Gold ist
+die Akzentfarbe auf dunklen Flächen, Rot bleibt Signalfarbe.
+
+---
+
+## 🏪 Ladenkasse (POS)
+
+`/admin/pos`, nur für Admins. Grundlage: `supabase/migrations/018_kasse_pos.sql`.
+
+- **Scanner**: USB-Handscanner melden sich als Tastatur an und schließen jeden
+  Code mit Enter ab. `components/pos/pos-terminal.tsx` hält den Fokus im
+  Scannerfeld; getippte Zeichen außerhalb eines Eingabefelds springen dorthin.
+- **Suche**: `products.barcode` zuerst, danach `products.sku` als Notnagel
+  (`lib/queries/pos.ts`). Kein Treffer öffnet den Anlegedialog mit dem
+  gescannten Code.
+- **Buchen**: ausschließlich über `create_pos_sale()` in der Datenbank – dort
+  wird der Bestand unter Zeilensperre geprüft und abgebucht und die Summen
+  gerechnet. Der Browser rechnet nur für die Anzeige mit.
+- **Steuersatz und Preislesart** stehen in `company_settings`
+  (`pos_vat_rate`, `pos_prices_gross`) und werden unter `/admin/settings`
+  gepflegt – nichts davon ist im Code festverdrahtet.
+- **Belege**: PDF über `lib/invoice.ts` (`buildPosReceiptPdfData`), abgelegt im
+  Bucket `invoices` unter `pos/<sale_id>/<Belegnummer>.pdf`, erreichbar über
+  `/admin/sales/[id]/receipt`.
+- **Nummernkreise**: Bestellungen `LG-JJJJ-00001`, Rechnungen `LIxxxxxxx`
+  (Migration 017), Kassenbelege `LBxxxxxxx`.
+
+---
+
+## 🆕 Neu-Kennzeichnung
+
+Ein Artikel gilt als neu, wenn das Flag `is_new` gesetzt ist **oder** er jünger
+als drei Tage ist (`lib/product-flags.ts`, `NEU_TAGE`). Die Regel gilt an allen
+Stellen gleich: Badge auf der Karte, Neuheiten-Sektion der Startseite, Filter
+und die Route `/shop/neuheiten`.
+
+---
+
+## ✍️ Inline-Bearbeitung im Adminpanel
+
+`components/admin/inline-edit.tsx` verwandelt eine Tabellenzelle beim Anklicken
+in ein Eingabefeld; Enter oder Fokusverlust speichert sofort, Escape verwirft.
+Die Zelle kennt ihr Ziel nicht – die Server Action kommt als Prop
+(`updateProductField`, `updateCategoryField`). Jedes Feld hat dort ein eigenes
+Zod-Schema; ein Feldname ohne Schema wird abgewiesen.

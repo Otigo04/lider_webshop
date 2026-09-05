@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { AuthShell } from "@/components/auth-shell";
 import { ForgotPasswordForm } from "@/components/forms/forgot-password-form";
 
 export const metadata: Metadata = {
@@ -18,7 +19,16 @@ export default async function ForgotPasswordPage({
     typeof params.error === "string" ? ERROR_MESSAGES[params.error] : undefined;
 
   return (
-    <div className="mx-auto flex max-w-md flex-col justify-center px-4 py-16">
+    <AuthShell
+      eyebrow="Kundenportal"
+      title="Zugang wiederherstellen"
+      subtitle="Ein Link genügt, um ein neues Passwort zu vergeben."
+      points={[
+        "Link ist eine Stunde gültig",
+        "Konto bleibt währenddessen unverändert",
+        "Bei Problemen: direkter Draht zu uns",
+      ]}
+    >
       <h1 className="text-2xl font-semibold tracking-tight">Passwort vergessen</h1>
       <p className="mt-2 text-sm text-muted-foreground">
         Geben Sie Ihre E-Mail-Adresse ein. Wir senden Ihnen einen Link zum
@@ -34,9 +44,9 @@ export default async function ForgotPasswordPage({
         </p>
       ) : null}
 
-      <div className="mt-8 rounded-md border border-border bg-card p-6">
+      <div className="mt-6">
         <ForgotPasswordForm />
       </div>
-    </div>
+    </AuthShell>
   );
 }

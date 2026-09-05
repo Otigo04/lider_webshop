@@ -72,7 +72,33 @@ export default async function OrderDetailPage({
         </div>
       </dl>
 
-      <div className="mt-8 overflow-x-auto">
+      {/* Schmale Bildschirme: Karten statt Tabelle. */}
+      <ul className="mt-8 divide-y divide-border rounded-md border border-border sm:hidden">
+        {items.map((item) => (
+          <li key={item.id} className="flex items-center justify-between gap-3 p-4">
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground tabular">
+                {item.product_sku}
+              </p>
+              <p className="font-medium">{item.product_name}</p>
+              <p className="mt-0.5 text-sm text-muted-foreground tabular">
+                {formatQuantity(item.quantity)} × {formatPrice(item.unit_price)}
+              </p>
+            </div>
+            <p className="shrink-0 font-semibold tabular">
+              {formatPrice(item.subtotal)}
+            </p>
+          </li>
+        ))}
+        <li className="flex items-center justify-between gap-3 bg-muted p-4">
+          <span className="text-sm text-muted-foreground">Summe netto</span>
+          <span className="text-lg font-semibold tabular">
+            {formatPrice(order.total_amount)}
+          </span>
+        </li>
+      </ul>
+
+      <div className="mt-8 hidden overflow-x-auto sm:block">
         <table className="w-full min-w-xl border-collapse text-sm">
           <thead>
             <tr className="border-b border-border text-left text-muted-foreground">

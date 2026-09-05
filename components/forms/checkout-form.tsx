@@ -39,16 +39,25 @@ function DeliveryOption({
       onClick={() => onSelect(method)}
       aria-pressed={active}
       className={cn(
-        "flex gap-3 rounded-md border p-4 text-left",
+        "flex gap-3 rounded-md border p-4 text-left transition-colors",
         active
           ? "border-foreground bg-secondary"
           : "border-border hover:border-foreground/30",
       )}
     >
       <span className="mt-0.5 text-muted-foreground">{icon}</span>
-      <span>
+      <span className="flex-1">
         <span className="block font-medium">{title}</span>
         <span className="mt-1 block text-sm text-muted-foreground">{text}</span>
+      </span>
+      <span
+        aria-hidden
+        className={cn(
+          "mt-1 flex size-4 shrink-0 items-center justify-center rounded-full border",
+          active ? "border-foreground" : "border-border",
+        )}
+      >
+        {active ? <span className="size-2 rounded-full bg-foreground" /> : null}
       </span>
     </button>
   );
@@ -116,7 +125,7 @@ export function CheckoutForm({ defaultAddress }: { defaultAddress?: string }) {
               return (
                 <li
                   key={item.productId}
-                  className="flex flex-wrap items-baseline justify-between gap-2 p-4"
+                  className="flex flex-wrap items-baseline justify-between gap-2 p-4 transition-colors hover:bg-muted/40"
                 >
                   <div>
                     <p className="text-xs text-muted-foreground tabular">
@@ -199,7 +208,7 @@ export function CheckoutForm({ defaultAddress }: { defaultAddress?: string }) {
         </section>
       </div>
 
-      <aside className="h-fit rounded-md border border-border p-5">
+      <aside className="h-fit rounded-md border border-border p-5 lg:sticky lg:top-20">
         <h2 className="font-medium">Zusammenfassung</h2>
 
         <div className="mt-4 flex items-end justify-between border-t border-border pt-4">

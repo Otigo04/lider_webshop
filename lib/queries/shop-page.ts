@@ -2,6 +2,7 @@ import "server-only";
 import type { ProductFlag } from "@/lib/actions/admin-products";
 import { getCurrentUser } from "@/lib/auth";
 import { lowestUnitPrice, minOrderQuantity, freeStock } from "@/lib/pricing";
+import { istNeu } from "@/lib/product-flags";
 import {
   getCategories,
   getCategoryCounts,
@@ -31,7 +32,7 @@ const KUNDE: FilterAdapter<ProductListItem> = {
   name: (p) => p.name,
   price: (p) => lowestUnitPrice(p.variants),
   minQuantity: (p) => minOrderQuantity(p.variants),
-  isNew: (p) => p.is_new,
+  isNew: (p) => istNeu(p),
   isTopseller: (p) => p.is_topseller,
   stock: (p) => freeStock(p),
 };
@@ -40,7 +41,7 @@ const BESUCHER: FilterAdapter<PublicProductListItem> = {
   name: (p) => p.name,
   price: (p) => p.priceFrom,
   minQuantity: (p) => p.minOrderQuantity,
-  isNew: (p) => p.is_new,
+  isNew: (p) => istNeu(p),
   isTopseller: (p) => p.is_topseller,
   // Bestände sind ohne Login nicht sichtbar – der Filter entfällt dort.
   stock: () => null,

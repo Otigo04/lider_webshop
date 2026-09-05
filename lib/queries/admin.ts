@@ -4,6 +4,8 @@ import { toNumber } from "@/lib/format";
 import type {
   AccessRequest,
   AppUser,
+  Invoice,
+  InvoiceItem,
   Order,
   OrderItem,
   Product,
@@ -252,6 +254,75 @@ export async function getAccessRequests(status?: string): Promise<AccessRequest[
     return [];
   }
   return (data ?? []) as AccessRequest[];
+}
+
+export interface AdminInvoiceRow extends Omit<Invoice, "customer"> {
+  customer: Pick<AppUser, "id" | "email" | "full_name" | "company_name"> | null;
+  // Nur bei type "order" gesetzt – liefert Bestellnummer und Betrag, weil
+  // Bestellungs-Rechnungen ihre Summe nicht selbst tragen (siehe net_amount/
+  // total_amount in Invoice, nur für freie Rechnungen befüllt).
+  order: { order_number: string; total_amount: number } | null;
+}
+
+/**
+ * Alle Rechnungen (Katalog-Bestellungen und freie Rechnungen zusammen) für
+ * die Übersicht unter /admin/invoices.
+ */
+export async function getAdminInvoices(options?: {
+  search?: string;
+  type?: "order" | "manual";
+  status?: string;
+}): Promise<AdminInvoiceRow[]> {
+  const supabase = await createClient();
+
+  let query = supabase
+    .from("invoices")
+    .select(
+      `*, customer:users (id, email, full_name, company_name),
+       order:orders (order_number, total_amount)`,
+    )
+    .order("issued_at", { ascending: false });
+
+  if (options?.type) query = query.eq("type", options.type);
+  if (options?.status) query = query.eq("status", options.status);
+
+  const { data, error } = await query;
+  if (error) {
+    console.error("[admin] Rechnungsliste:", error.message);
+    return [];
+  }
+
+  const rows = (data ?? []) as unknown as AdminInvoiceRow[];
+  const term = options?.search?.trim().toLowerCase();
+  if (!term) return rows;
+
+  return rows.filter((row) =>
+    [row.invoice_number, row.customer?.company_name, row.customer?.full_name]
+      .filter(Boolean)
+      .some((value) => value!.toLowerCase().includes(term)),
+  );
+}
+
+export interface ManualInvoiceRow extends Omit<Invoice, "customer"> {
+  customer: AppUser;
+  items: InvoiceItem[];
+}
+
+/** Eine freie Rechnung inkl. Positionen und Kunde, für /admin/invoices/[id]. */
+export async function getManualInvoice(id: string): Promise<ManualInvoiceRow | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("invoices")
+    .select(`*, customer:users (*), items:invoice_items (*)`)
+    .eq("id", id)
+    .eq("type", "manual")
+    .maybeSingle();
+
+  if (error) {
+    console.error("[admin] Rechnungsdetail:", error.message);
+    return null;
+  }
+  return (data as unknown as ManualInvoiceRow) ?? null;
 }
 
 export async function getAccessRequest(id: string): Promise<AccessRequest | null> {

@@ -4,14 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { getOrder } from "@/lib/queries/orders";
-import { generateInvoicePdf } from "@/lib/invoice";
-import { sendEmail } from "@/lib/email";
-import { orderConfirmationEmail } from "@/lib/emails/order-confirmation";
-import { invoiceEmail } from "@/lib/emails/invoice";
-import { INVOICE_BUCKET } from "@/lib/constants";
-import type { AppUser, Order } from "@/lib/types";
+import { generateAndSendOrderInvoice } from "@/lib/actions/invoicing";
 
 export interface CheckoutState {
   error?: string;
@@ -95,56 +88,10 @@ export async function createOrder(
   // scheitern lassen – Fehler landen nur im Log, der Kunde bekommt seine
   // Bestellbestätigung auf dem Bildschirm in jedem Fall.
   try {
-    await generateAndSendInvoice(created.id, user);
+    await generateAndSendOrderInvoice(created.id, user);
   } catch (err) {
     console.error("[bestellung] Rechnung/Mailversand fehlgeschlagen:", err);
   }
 
   return { orderNumber: created.order_number };
-}
-
-async function generateAndSendInvoice(orderId: string, user: AppUser): Promise<void> {
-  const order = await getOrder(orderId);
-  if (!order) return;
-
-  const fullOrder: Order = { ...order, customer: user };
-
-  const confirmation = orderConfirmationEmail(fullOrder);
-  await sendEmail({ to: user.email, ...confirmation });
-
-  const supabase = await createClient();
-  const { data: invoiceData, error: invoiceError } = await supabase.rpc(
-    "create_invoice_for_order",
-    { p_order_id: orderId },
-  );
-
-  if (invoiceError || !invoiceData) {
-    console.error("[bestellung] create_invoice_for_order:", invoiceError?.message);
-    return;
-  }
-
-  const invoice = invoiceData as { id: string; invoice_number: string };
-  const pdfBytes = await generateInvoicePdf(fullOrder, invoice.invoice_number);
-  const filePath = `${orderId}/${invoice.invoice_number}.pdf`;
-
-  // Upload über den Service-Key: Kunden haben bewusst keine Schreibrechte auf
-  // den invoices-Bucket (siehe supabase/migrations/015_rechnungen.sql).
-  const admin = createAdminClient();
-  const { error: uploadError } = await admin.storage
-    .from(INVOICE_BUCKET)
-    .upload(filePath, pdfBytes, { contentType: "application/pdf", upsert: true });
-
-  if (uploadError) {
-    console.error("[bestellung] Rechnungs-Upload:", uploadError.message);
-    return;
-  }
-
-  await admin.from("invoices").update({ file_path: filePath }).eq("id", invoice.id);
-
-  const invoiceMail = invoiceEmail(fullOrder, invoice.invoice_number);
-  await sendEmail({
-    to: user.email,
-    ...invoiceMail,
-    attachments: [{ filename: `${invoice.invoice_number}.pdf`, content: pdfBytes }],
-  });
 }

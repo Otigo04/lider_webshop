@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Trash2 } from "lucide-react";
+import { ShoppingCart, Trash2 } from "lucide-react";
 import { useCart } from "@/lib/cart-context";
 import { formatPrice, formatQuantity } from "@/lib/format";
 import { lineTotal, minOrderQuantity, resolveTier } from "@/lib/pricing";
@@ -29,7 +29,11 @@ export function CartContents() {
   if (items.length === 0) {
     return (
       <div className="rounded-md border border-dashed border-border px-4 py-16 text-center">
-        <p className="text-sm text-muted-foreground">
+        <ShoppingCart
+          className="mx-auto size-8 text-muted-foreground/50"
+          aria-hidden
+        />
+        <p className="mt-3 text-sm text-muted-foreground">
           Ihr Warenkorb ist leer.
         </p>
         <Button asChild className="mt-4">
@@ -47,7 +51,10 @@ export function CartContents() {
           const min = minOrderQuantity(item.tiers);
 
           return (
-            <li key={item.productId} className="flex flex-wrap gap-4 p-4">
+            <li
+              key={item.productId}
+              className="flex flex-wrap gap-4 p-4 transition-colors hover:bg-muted/40"
+            >
               <div className="min-w-48 flex-1">
                 <p className="text-xs text-muted-foreground tabular">
                   {item.productSku}
@@ -73,8 +80,6 @@ export function CartContents() {
                 onChange={(next) => updateQuantity(item.productId, next)}
               />
 
-
-
               <div className="w-28 text-right">
                 <p className="font-semibold tabular">
                   {formatPrice(lineTotal(item.tiers, item.quantity))}
@@ -87,6 +92,7 @@ export function CartContents() {
                 size="icon"
                 aria-label={`${item.productName} entfernen`}
                 onClick={() => removeItem(item.productId)}
+                className="hover:bg-destructive/10 hover:text-destructive"
               >
                 <Trash2 className="size-4" />
               </Button>
@@ -95,7 +101,7 @@ export function CartContents() {
         })}
       </ul>
 
-      <aside className="h-fit rounded-md border border-border p-5">
+      <aside className="h-fit rounded-md border border-border p-5 lg:sticky lg:top-20">
         <h2 className="font-medium">Zusammenfassung</h2>
 
         <dl className="mt-4 space-y-2 text-sm">

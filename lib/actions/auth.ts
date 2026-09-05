@@ -80,6 +80,87 @@ export async function signIn(
   redirect(safeRedirect(redirectTo, fallback));
 }
 
+export interface SignUpState {
+  error?: string;
+  success?: string;
+}
+
+const signUpSchema = z
+  .object({
+    email: z.string().trim().toLowerCase().email("Keine gültige E-Mail-Adresse"),
+    password: z.string().min(10, "Das Passwort braucht mindestens 10 Zeichen").max(200),
+    confirm: z.string(),
+    full_name: z.string().trim().min(1, "Name fehlt").max(120),
+    company_name: z.string().trim().min(1, "Firma fehlt").max(120),
+  })
+  .refine((data) => data.password === data.confirm, {
+    message: "Die Passwörter stimmen nicht überein",
+    path: ["confirm"],
+  });
+
+/**
+ * Self-Signup für B2B-Kunden: sofort aktiv (users.is_active ist DEFAULT true,
+ * siehe supabase/schema.sql), keine Freischaltung durch den Admin nötig. Der
+ * Trigger handle_new_user() legt das public.users-Profil automatisch an –
+ * hier wird bewusst NIE eine "role" mitgegeben, damit niemand sich selbst zum
+ * Admin macht.
+ */
+export async function signUp(
+  _prevState: SignUpState,
+  formData: FormData,
+): Promise<SignUpState> {
+  // Lockvogelfeld gegen Formularroboter, gleiches Muster wie bei der
+  // Zugangsanfrage (components/forms/access-request-form.tsx).
+  if (formData.get("website")) {
+    return { success: "Konto angelegt." };
+  }
+
+  const parsed = signUpSchema.safeParse({
+    email: formData.get("email"),
+    password: formData.get("password"),
+    confirm: formData.get("confirm"),
+    full_name: formData.get("full_name"),
+    company_name: formData.get("company_name"),
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0].message };
+  }
+
+  const { email, password, full_name, company_name } = parsed.data;
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  const supabase = await createClient();
+
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: { full_name, company_name },
+      emailRedirectTo: `${siteUrl}/auth/confirm?type=signup`,
+    },
+  });
+
+  if (error || !data.user) {
+    return {
+      error: error?.message.includes("already")
+        ? "Zu dieser E-Mail-Adresse gibt es bereits ein Konto."
+        : "Die Registrierung ist fehlgeschlagen.",
+    };
+  }
+
+  if (data.session) {
+    // "Confirm email" ist im Supabase-Dashboard deaktiviert – die Session
+    // steht sofort, direkt weiter in den Shop.
+    revalidatePath("/", "layout");
+    redirect("/shop");
+  }
+
+  return {
+    success:
+      "Konto angelegt. Bitte bestätigen Sie Ihre E-Mail-Adresse über den Link, den wir Ihnen geschickt haben.",
+  };
+}
+
 export async function signOut() {
   const supabase = await createClient();
   await supabase.auth.signOut();

@@ -1,16 +1,30 @@
+import Image from "next/image";
 import Link from "next/link";
 import { CookieSettingsLink } from "@/components/cookie-settings-link";
+import { getLogoPath } from "@/lib/logo";
 
 export function Footer() {
+  const logoPath = getLogoPath();
+
   return (
-    <footer className="border-t border-surface-dark-border bg-surface-dark text-surface-dark-muted">
+    <footer className="border-t-2 border-gold bg-surface-dark text-surface-dark-muted">
       <div className="mx-auto max-w-6xl px-4 py-10">
         <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="text-sm font-semibold tracking-[0.14em] text-surface-dark-foreground">
-              LIDER
-            </p>
-            <p className="mt-1 text-sm">
+            {logoPath ? (
+              <Image
+                src={logoPath}
+                alt="LIDER Berlin"
+                width={124}
+                height={94}
+                className="h-auto w-24 object-contain"
+              />
+            ) : (
+              <p className="text-sm font-semibold tracking-[0.14em] text-surface-dark-foreground">
+                LIDER
+              </p>
+            )}
+            <p className="mt-3 text-sm">
               Groß- und Einzelhandel, Berlin. Seit 2007.
             </p>
           </div>

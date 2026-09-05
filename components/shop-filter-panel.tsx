@@ -3,6 +3,7 @@ import { SlidersHorizontal, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { accentIndex } from "@/lib/accent-colors";
 import {
   SORT_OPTIONS,
   activeFilterCount,
@@ -62,7 +63,7 @@ export function ShopFilterPanel({
             <SlidersHorizontal className="size-4" aria-hidden />
             Filter
             {gesetzt > 0 ? (
-              <span className="rounded-full bg-foreground px-2 py-0.5 text-xs text-background tabular">
+              <span className="rounded-full bg-brand px-2 py-0.5 text-xs text-brand-foreground tabular">
                 {gesetzt}
               </span>
             ) : null}
@@ -96,6 +97,7 @@ export function ShopFilterPanel({
                     active={category.slug === activeSlug}
                     count={category.productCount}
                     code={category.sku_prefix}
+                    dot={accentIndex(category.slug)}
                   >
                     {category.name}
                   </FilterLink>
@@ -294,12 +296,14 @@ function FilterLink({
   active,
   count,
   code,
+  dot,
   children,
 }: {
   href: string;
   active: boolean;
   count: number;
   code?: string | null;
+  dot?: number;
   children: React.ReactNode;
 }) {
   return (
@@ -313,6 +317,15 @@ function FilterLink({
           : "text-muted-foreground hover:bg-muted hover:text-foreground",
       )}
     >
+      {dot ? (
+        <span
+          aria-hidden
+          className={cn(
+            "size-1.5 shrink-0 rounded-full",
+            active ? "bg-background/70" : `tag-dot-${dot}`,
+          )}
+        />
+      ) : null}
       {code ? (
         <span
           className={cn(

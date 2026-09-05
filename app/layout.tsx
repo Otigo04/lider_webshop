@@ -3,6 +3,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { CookieBanner } from "@/components/cookie-banner";
 import { Footer } from "@/components/footer";
 import { Header } from "@/components/header";
+import { ScrollProgress } from "@/components/scroll-progress";
 import { CartProvider } from "@/lib/cart-context";
 import "./globals.css";
 
@@ -36,6 +37,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-dvh flex flex-col bg-background text-foreground">
         <CartProvider>
           <Header />
+          <ScrollProgress />
           <main className="flex-1">{children}</main>
           <Footer />
           <Toaster position="top-right" />

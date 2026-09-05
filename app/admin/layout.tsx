@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { AdminTabs, type AdminTab } from "@/components/admin/admin-tabs";
 import { requireAdmin } from "@/lib/auth";
 
 /**
@@ -8,13 +8,17 @@ import { requireAdmin } from "@/lib/auth";
  * anzeigen und erst danach umleiten.
  */
 
-const ADMIN_LINKS = [
-  { href: "/admin", label: "Übersicht" },
-  { href: "/admin/products", label: "Artikel" },
-  { href: "/admin/categories", label: "Kategorien" },
-  { href: "/admin/customers", label: "Kunden" },
-  { href: "/admin/orders", label: "Bestellungen" },
-  { href: "/admin/zugangsanfragen", label: "Zugangsanfragen" },
+const ADMIN_TABS: AdminTab[] = [
+  { href: "/admin", label: "Übersicht", icon: "dashboard" },
+  { href: "/admin/pos", label: "Kasse", icon: "kasse", hervorgehoben: true },
+  { href: "/admin/products", label: "Artikel", icon: "artikel" },
+  { href: "/admin/categories", label: "Kategorien", icon: "kategorien" },
+  { href: "/admin/customers", label: "Kunden", icon: "kunden" },
+  { href: "/admin/orders", label: "Bestellungen", icon: "bestellungen" },
+  { href: "/admin/sales", label: "Verkäufe", icon: "verkaeufe" },
+  { href: "/admin/invoices", label: "Rechnungen", icon: "rechnungen" },
+  { href: "/admin/zugangsanfragen", label: "Zugangsanfragen", icon: "anfragen" },
+  { href: "/admin/settings", label: "Einstellungen", icon: "einstellungen" },
 ];
 
 export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
@@ -22,17 +26,7 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
-      <nav className="mb-8 flex flex-wrap gap-x-6 gap-y-2 border-b border-border pb-3 text-sm">
-        {ADMIN_LINKS.map((link) => (
-          <Link
-            key={link.href}
-            href={link.href}
-            className="text-muted-foreground hover:text-foreground"
-          >
-            {link.label}
-          </Link>
-        ))}
-      </nav>
+      <AdminTabs tabs={ADMIN_TABS} />
       {children}
     </div>
   );

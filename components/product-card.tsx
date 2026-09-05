@@ -23,12 +23,12 @@ export function ProductCard({
     <Link
       href={`/shop/product/${product.id}`}
       className={cn(
-        "group flex flex-col overflow-hidden rounded-md border border-border bg-card transition-colors hover:border-foreground/25",
+        "card-hover group flex flex-col overflow-hidden rounded-md border border-border bg-card hover:border-foreground/25",
         className,
       )}
     >
       <div className="relative aspect-4/3 overflow-hidden border-b border-border bg-muted">
-        <ProductFlagBadges isNew={product.is_new} isTopseller={product.is_topseller} />
+        <ProductFlagBadges product={product} />
         {product.imageUrl ? (
           <Image
             src={product.imageUrl}
