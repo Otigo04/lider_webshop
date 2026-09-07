@@ -2,7 +2,12 @@ import type { Metadata } from "next";
 import { ShopView } from "@/components/shop-view";
 import { loadShopPage } from "@/lib/queries/shop-page";
 
-export const metadata: Metadata = { title: "Neuheiten" };
+export const metadata: Metadata = {
+  title: "Neuheiten",
+  description:
+    "Zuletzt ins Großhandelssortiment aufgenommene Artikel bei LIDER Berlin – Spielzeug, Multimedia und Handyzubehör.",
+  alternates: { canonical: "/shop/neuheiten" },
+};
 
 export default async function NeuheitenPage({
   searchParams,

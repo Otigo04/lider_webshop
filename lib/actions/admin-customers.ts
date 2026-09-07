@@ -27,10 +27,60 @@ function generatePassword(length = 14): string {
   return result;
 }
 
+/*
+ * Anschrift eines vom Admin angelegten Kunden. Optional, anders als bei der
+ * Selbstregistrierung: eine Telefonbestellung wird aufgenommen, während der
+ * Kunde am Apparat ist, und da fehlt schon mal die Hausnummer. Sie steht
+ * später auf der Rechnung, also gehört sie hierher und nicht nur ins
+ * Kundenkonto – der Kunde selbst kommt an diese Felder nur, wenn er sich
+ * anmeldet, und genau das tut ein Telefonbesteller nicht.
+ */
+const adressFelder = {
+  billing_street: z.string().trim().max(200).optional(),
+  billing_zip: z.string().trim().max(20).optional(),
+  billing_city: z.string().trim().max(120).optional(),
+  billing_country: z.string().trim().max(80).optional(),
+} as const;
+
+/** Adressfelder aus dem Formular lesen. */
+function leseAdresse(formData: FormData) {
+  return {
+    billing_street: formData.get("billing_street") || undefined,
+    billing_zip: formData.get("billing_zip") || undefined,
+    billing_city: formData.get("billing_city") || undefined,
+    billing_country: formData.get("billing_country") || undefined,
+  };
+}
+
+/**
+ * Adresse für das UPDATE aufbereiten. Die Versandadresse wird gespiegelt,
+ * solange keine eigene gepflegt ist – der Checkout schlägt sonst nichts vor.
+ */
+function adresseSchreiben(data: {
+  billing_street?: string;
+  billing_zip?: string;
+  billing_city?: string;
+  billing_country?: string;
+}) {
+  return {
+    billing_street: data.billing_street || null,
+    billing_zip: data.billing_zip || null,
+    billing_city: data.billing_city || null,
+    billing_country: data.billing_country || null,
+    shipping_street: data.billing_street || null,
+    shipping_zip: data.billing_zip || null,
+    shipping_city: data.billing_city || null,
+    shipping_country: data.billing_country || null,
+  };
+}
+
 const createSchema = z.object({
   email: z.string().trim().toLowerCase().email("Keine gültige E-Mail-Adresse"),
   full_name: z.string().trim().min(1, "Name fehlt").max(120),
   company_name: z.string().trim().max(120).optional(),
+  // Ohne Formatprüfung, siehe Migration 028.
+  vat_id: z.string().trim().max(40).optional(),
+  ...adressFelder,
 });
 
 /**
@@ -52,13 +102,15 @@ export async function createCustomer(
     email: formData.get("email"),
     full_name: formData.get("full_name"),
     company_name: formData.get("company_name") || undefined,
+    vat_id: formData.get("vat_id") || undefined,
+    ...leseAdresse(formData),
   });
 
   if (!parsed.success) {
     return { error: parsed.error.issues[0].message };
   }
 
-  const { email, full_name, company_name } = parsed.data;
+  const { email, full_name, company_name, vat_id } = parsed.data;
   const password = generatePassword();
   const supabaseAdmin = createAdminClient();
 
@@ -82,7 +134,12 @@ export async function createCustomer(
   // nur noch die Felder nachgezogen, falls die Metadaten nicht durchkamen.
   const { error: profileError } = await supabaseAdmin
     .from("users")
-    .update({ full_name, company_name: company_name || null })
+    .update({
+      full_name,
+      company_name: company_name || null,
+      vat_id: vat_id || null,
+      ...adresseSchreiben(parsed.data),
+    })
     .eq("id", data.user.id);
 
   if (profileError) {
@@ -100,6 +157,8 @@ const updateSchema = z.object({
   id: z.string().uuid(),
   full_name: z.string().trim().min(1, "Name fehlt").max(120),
   company_name: z.string().trim().max(120).optional(),
+  vat_id: z.string().trim().max(40).optional(),
+  ...adressFelder,
 });
 
 export async function updateCustomer(
@@ -112,6 +171,8 @@ export async function updateCustomer(
     id: formData.get("id"),
     full_name: formData.get("full_name"),
     company_name: formData.get("company_name") || undefined,
+    vat_id: formData.get("vat_id") || undefined,
+    ...leseAdresse(formData),
   });
 
   if (!parsed.success) {
@@ -124,6 +185,8 @@ export async function updateCustomer(
     .update({
       full_name: parsed.data.full_name,
       company_name: parsed.data.company_name || null,
+      vat_id: parsed.data.vat_id || null,
+      ...adresseSchreiben(parsed.data),
     })
     .eq("id", parsed.data.id);
 

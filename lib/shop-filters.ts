@@ -35,7 +35,12 @@ export interface ShopFilters {
   onlyTopseller: boolean;
   /** Nur Artikel mit freiem Bestand – nur für angemeldete Kunden sinnvoll */
   onlyAvailable: boolean;
+  /** Seite der Trefferliste, 1-basiert */
+  page: number;
 }
+
+/** Artikel je Seite im Sortiment. */
+export const PRO_SEITE = 24;
 
 export const EMPTY_FILTERS: ShopFilters = {
   search: "",
@@ -46,6 +51,7 @@ export const EMPTY_FILTERS: ShopFilters = {
   onlyNew: false,
   onlyTopseller: false,
   onlyAvailable: false,
+  page: 1,
 };
 
 type RawParams = Record<string, string | string[] | undefined>;
@@ -78,6 +84,50 @@ export function parseShopFilters(params: RawParams): ShopFilters {
     onlyNew: einzelwert(params.neu) === "1",
     onlyTopseller: einzelwert(params.top) === "1",
     onlyAvailable: einzelwert(params.lager) === "1",
+    page: seitenzahl(params.seite),
+  };
+}
+
+/** Seitenzahl aus der URL. Unsinn und Werte unter 1 landen auf Seite 1. */
+function seitenzahl(value: string | string[] | undefined): number {
+  const wert = Number(einzelwert(value));
+  return Number.isInteger(wert) && wert >= 1 ? wert : 1;
+}
+
+/** Ein Ausschnitt der Trefferliste plus die Angaben für die Blätterleiste. */
+export interface Seitenausschnitt<T> {
+  artikel: T[];
+  /** Treffer insgesamt, über alle Seiten */
+  gefunden: number;
+  seite: number;
+  seitenGesamt: number;
+}
+
+/**
+ * Schneidet die gefilterte Liste auf eine Seite zu.
+ *
+ * Die Blätterleiste sitzt bewusst hier und nicht in SQL: gefiltert und
+ * sortiert wird ohnehin erst nach der Abfrage (siehe Kopf dieser Datei), also
+ * wäre ein LIMIT in der Abfrage schlicht falsch. Was den Katalog bremst, ist
+ * nicht die Abfrage, sondern das Rendern von hunderten Karten samt Bildern –
+ * und genau das verhindert der Ausschnitt.
+ */
+export function seitenAusschnitt<T>(
+  items: T[],
+  seite: number,
+  proSeite: number = PRO_SEITE,
+): Seitenausschnitt<T> {
+  const seitenGesamt = Math.max(1, Math.ceil(items.length / proSeite));
+  // Eine zu hohe Seitenzahl aus der URL zeigt die letzte Seite statt einer
+  // leeren Liste.
+  const aktuell = Math.min(Math.max(1, seite), seitenGesamt);
+  const start = (aktuell - 1) * proSeite;
+
+  return {
+    artikel: items.slice(start, start + proSeite),
+    gefunden: items.length,
+    seite: aktuell,
+    seitenGesamt,
   };
 }
 

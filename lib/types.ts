@@ -9,6 +9,7 @@ export type OrderStatus =
   | "draft"
   | "submitted"
   | "confirmed"
+  | "ready"
   | "shipped"
   | "delivered";
 
@@ -16,11 +17,26 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   draft: "Entwurf",
   submitted: "Eingegangen",
   confirmed: "Bestätigt",
+  ready: "Abholbereit",
   shipped: "Versandt",
   delivered: "Geliefert",
 };
 
 export type DeliveryMethod = "pickup" | "shipping";
+
+/**
+ * Wie der Kunde bezahlt. "transfer" ist die Vorgabe und die einzige Zahlart
+ * beim Versand; bar und Karte gibt es nur am Tresen, deshalb erlaubt die
+ * Datenbank sie ausschließlich zusammen mit Selbstabholung
+ * (supabase/migrations/029_bestellablauf.sql).
+ */
+export type PaymentMethod = "transfer" | "cash" | "card";
+
+export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
+  transfer: "Überweisung",
+  cash: "Bar bei Abholung",
+  card: "Karte bei Abholung",
+};
 
 export interface Category {
   id: string;
@@ -113,6 +129,8 @@ export interface AppUser {
   email: string;
   full_name: string | null;
   company_name: string | null;
+  /** USt-IdNr. des Kunden – nötig für Rechnungen an EU-Abnehmer (Migration 028) */
+  vat_id: string | null;
   role: UserRole;
   is_active: boolean;
   created_at: string;
@@ -149,7 +167,20 @@ export interface Order {
   total_amount: number;
   notes: string | null;
   delivery_method: DeliveryMethod;
+  payment_method: PaymentMethod;
+  /** Steuersatz in Prozent, festgeschrieben beim Anlegen der Bestellung */
+  vat_rate: number;
+  /** Zusammengesetzte Lieferanschrift – Anzeige und Altbestand */
   delivery_address: string | null;
+  delivery_name: string | null;
+  delivery_street: string | null;
+  delivery_zip: string | null;
+  delivery_city: string | null;
+  delivery_country: string | null;
+  /** Wunschtermin des Kunden für die Selbstabholung */
+  pickup_at: string | null;
+  /** Wann die Ware als abholbereit gemeldet wurde */
+  ready_at: string | null;
   created_at: string;
   updated_at: string;
   items?: OrderItem[];
@@ -174,6 +205,13 @@ export interface CartItem {
   tiers: PriceTier[];
   /** Frei verfügbarer Bestand zum Zeitpunkt des Hinzufügens */
   maxStock: number;
+  /**
+   * Pfad des Titelbilds im Storage-Bucket `products`, nicht die fertige URL:
+   * die ist signiert und läuft nach Stunden ab, der Warenkorb steht womöglich
+   * tagelang im localStorage. Signiert wird beim Anzeigen
+   * (lib/actions/cart-images.ts).
+   */
+  imagePath?: string | null;
 }
 
 export type AccessRequestStatus = "new" | "contacted" | "done";
@@ -344,7 +382,12 @@ export interface CompanySettings {
   iban: string | null;
   bic: string | null;
   payment_terms_days: number;
-  /** Steuersatz der Ladenkasse – kein fester Wert im Code */
+  /**
+   * Umsatzsteuersatz des Betriebs in Prozent – kein fester Wert im Code.
+   * Der Name stammt aus Migration 018, gilt aber seit Migration 029 für die
+   * Ladenkasse **und** die Bestellungen aus dem Shop: es gibt einen Satz, und
+   * zwei Felder für dieselbe Zahl gingen früher oder später auseinander.
+   */
   pos_vat_rate: number;
   /** true = Kassenpreise sind Endpreise inkl. USt., false = netto */
   pos_prices_gross: boolean;

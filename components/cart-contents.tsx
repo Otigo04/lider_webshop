@@ -1,19 +1,23 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
-import { ShoppingCart, Trash2 } from "lucide-react";
+import { ImageOff, ShoppingCart, Trash2 } from "lucide-react";
 import { useCart } from "@/lib/cart-context";
+import { useCartImages } from "@/lib/use-cart-images";
 import { formatPrice, formatQuantity } from "@/lib/format";
 import { lineTotal, minOrderQuantity, resolveTier } from "@/lib/pricing";
 import { qualifiesForFreeShipping, shippingNote } from "@/lib/shipping";
+import { steuer } from "@/lib/vat";
 import { cn } from "@/lib/utils";
 import { QuantityInput } from "@/components/quantity-input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
-export function CartContents() {
+export function CartContents({ vatRate }: { vatRate: number }) {
   const { items, ready, total, itemCount, updateQuantity, removeItem, clear } =
     useCart();
+  const bilder = useCartImages(items);
 
   // Vor dem Lesen des localStorage würde ein leerer Warenkorb angezeigt und
   // gleich darauf ersetzt – das Flackern fängt der Skeleton ab.
@@ -43,20 +47,51 @@ export function CartContents() {
     );
   }
 
+  const betraege = steuer(total, vatRate);
+
   return (
     <div className="grid gap-8 lg:grid-cols-[1fr_20rem]">
       <ul className="divide-y divide-border rounded-md border border-border">
         {items.map((item) => {
           const tier = resolveTier(item.tiers, item.quantity);
           const min = minOrderQuantity(item.tiers);
+          const bild = item.imagePath ? bilder[item.imagePath] : null;
 
           return (
             <li
               key={item.productId}
-              className="flex flex-wrap gap-4 p-4 transition-colors hover:bg-muted/40"
+              className="flex flex-wrap items-center gap-4 p-4 transition-colors hover:bg-muted/40"
             >
+              {/*
+                Das Bild ist keine Zierde: im Großhandel unterscheiden sich
+                Artikel oft nur in einer Zahl im Namen. Wer den Warenkorb
+                prüft, erkennt am Foto schneller als am Text, ob das Richtige
+                drinliegt.
+              */}
+              <Link
+                href={`/shop/product/${item.productId}`}
+                className="relative size-20 shrink-0 overflow-hidden rounded-md border border-border bg-muted"
+                aria-hidden
+                tabIndex={-1}
+              >
+                {bild ? (
+                  <Image
+                    src={bild}
+                    alt=""
+                    fill
+                    sizes="80px"
+                    className="object-cover transition-transform duration-300 hover:scale-105"
+                  />
+                ) : (
+                  <ImageOff
+                    className="absolute inset-0 m-auto size-6 text-muted-foreground/40"
+                    aria-hidden
+                  />
+                )}
+              </Link>
+
               <div className="min-w-48 flex-1">
-                <p className="text-xs text-muted-foreground tabular">
+                <p className="code text-xs text-muted-foreground">
                   {item.productSku}
                 </p>
                 <Link
@@ -115,13 +150,26 @@ export function CartContents() {
           </div>
         </dl>
 
+        <dl className="mt-4 space-y-2 border-t border-border pt-4 text-sm">
+          <div className="flex justify-between">
+            <dt className="text-muted-foreground">Summe netto</dt>
+            <dd className="tabular">{formatPrice(betraege.netto)}</dd>
+          </div>
+          <div className="flex justify-between">
+            <dt className="text-muted-foreground">
+              zzgl. {betraege.satz.toFixed(0)} % USt.
+            </dt>
+            <dd className="tabular">{formatPrice(betraege.steuer)}</dd>
+          </div>
+        </dl>
+
         <div className="mt-4 flex items-end justify-between border-t border-border pt-4">
-          <span className="text-sm text-muted-foreground">Summe netto</span>
+          <span className="text-sm font-medium">Zu zahlen</span>
           <span className="text-2xl font-semibold tabular">
-            {formatPrice(total)}
+            {formatPrice(betraege.brutto)}
           </span>
         </div>
-        <p className="mt-1 text-xs text-muted-foreground">zzgl. USt.</p>
+
         <p
           className={cn(
             "mt-3 rounded-md border px-3 py-2 text-xs",

@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { InvoiceStatusSelect } from "@/components/admin/invoice-status-select";
 import { OrderStatusSelect } from "@/components/admin/order-status-select";
-import { formatDate, formatPrice } from "@/lib/format";
+import { formatDate, formatPrice, toNumber } from "@/lib/format";
+import { brutto } from "@/lib/vat";
 import { getAdminOrders, orderInvoice } from "@/lib/queries/admin";
 import { ORDER_STATUS_LABELS, type OrderStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -108,7 +109,7 @@ export default async function AdminOrdersPage({
                 <th className="py-2 pr-4 font-medium">Pos.</th>
                 <th className="py-2 pr-4 font-medium">Status</th>
                 <th className="py-2 pr-4 font-medium">Rechnung</th>
-                <th className="py-2 text-right font-medium">Summe netto</th>
+                <th className="py-2 text-right font-medium">Gesamtbetrag</th>
               </tr>
             </thead>
             <tbody>
@@ -163,7 +164,9 @@ export default async function AdminOrdersPage({
                     </td>
 
                     <td className="py-3 text-right font-medium tabular">
-                      {formatPrice(order.total_amount)}
+                      {formatPrice(
+                        brutto(toNumber(order.total_amount), toNumber(order.vat_rate)),
+                      )}
                     </td>
                   </tr>
                 );

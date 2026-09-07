@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import { CartContents } from "@/components/cart-contents";
 import { requireUser } from "@/lib/auth";
+import { getCompanySettings } from "@/lib/queries/settings";
 
 export const metadata: Metadata = { title: "Warenkorb" };
 
 export default async function CartPage() {
   await requireUser("/cart");
+  const company = await getCompanySettings();
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
@@ -16,7 +18,7 @@ export default async function CartPage() {
       </p>
 
       <div className="mt-8">
-        <CartContents />
+        <CartContents vatRate={company.pos_vat_rate} />
       </div>
     </div>
   );

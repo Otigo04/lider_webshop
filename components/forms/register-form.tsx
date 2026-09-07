@@ -1,9 +1,11 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { signUp, type SignUpState } from "@/lib/actions/auth";
+import { AddressFields } from "@/components/forms/address-fields";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -18,6 +20,7 @@ function SubmitButton() {
 
 export function RegisterForm() {
   const [state, formAction] = useActionState<SignUpState, FormData>(signUp, {});
+  const [abweichend, setAbweichend] = useState(false);
 
   if (state.success) {
     return (
@@ -64,7 +67,36 @@ export function RegisterForm() {
         />
       </div>
 
-      <div className="space-y-2">
+      {/*
+        Anschrift beim Anlegen und nicht erst im Konto: sie steht auf jeder
+        Rechnung. Ohne sie erzeugte die erste Bestellung eine Rechnung ohne
+        Empfängeranschrift.
+      */}
+      <fieldset className="space-y-4 border-t border-border pt-5">
+        <legend className="text-sm font-medium">Rechnungsadresse</legend>
+        <AddressFields prefix="billing" required />
+
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="different_shipping"
+            name="different_shipping"
+            checked={abweichend}
+            onCheckedChange={(checked) => setAbweichend(checked === true)}
+          />
+          <Label htmlFor="different_shipping" className="font-normal">
+            Abweichende Lieferadresse
+          </Label>
+        </div>
+
+        {abweichend ? (
+          <div className="rounded-md border border-border bg-muted/40 p-4">
+            <p className="mb-3 text-sm font-medium">Lieferadresse</p>
+            <AddressFields prefix="shipping" />
+          </div>
+        ) : null}
+      </fieldset>
+
+      <div className="space-y-2 border-t border-border pt-5">
         <Label htmlFor="password">Passwort</Label>
         <Input
           id="password"
@@ -87,6 +119,20 @@ export function RegisterForm() {
           minLength={10}
           required
         />
+      </div>
+
+      {/*
+        Der Shop zeigt Nettopreise – die gelten gegenüber Gewerbetreibenden.
+        Deshalb wird die Eigenschaft hier bestätigt und nicht nur nebenbei
+        behauptet. Pflichtfeld, geprüft wird sie serverseitig in
+        lib/actions/auth.ts.
+      */}
+      <div className="flex items-start gap-3">
+        <Checkbox id="gewerbe" name="gewerbe" className="mt-0.5" required />
+        <Label htmlFor="gewerbe" className="font-normal leading-relaxed">
+          Ich bestelle als Gewerbetreibender. Alle Preise im Portal verstehen
+          sich netto zzgl. gesetzlicher Umsatzsteuer.
+        </Label>
       </div>
 
       {state.error ? (

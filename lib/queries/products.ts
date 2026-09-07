@@ -611,7 +611,7 @@ function sortImages(images: ProductImage[]): ProductImage[] {
   return [...images].sort((a, b) => a.display_order - b.display_order);
 }
 
-function firstImagePath(images: ProductImage[] | null): string | null {
+export function firstImagePath(images: ProductImage[] | null): string | null {
   if (!images || images.length === 0) return null;
   return sortImages(images)[0].file_path;
 }

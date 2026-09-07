@@ -34,3 +34,19 @@ export function formatDate(value: string | Date | null | undefined): string {
   if (!value) return "–";
   return dateTime.format(typeof value === "string" ? new Date(value) : value);
 }
+
+const dateTimeLong = new Intl.DateTimeFormat("de-DE", {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+/** Datum mit Uhrzeit – für Abholtermine, wo die Stunde die Aussage ist. */
+export function formatDateTime(value: string | Date | null | undefined): string {
+  if (!value) return "–";
+  return `${dateTimeLong.format(
+    typeof value === "string" ? new Date(value) : value,
+  )} Uhr`;
+}

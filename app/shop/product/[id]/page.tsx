@@ -9,14 +9,46 @@ import { StockBadge } from "@/components/stock-badge";
 import { getCurrentUser } from "@/lib/auth";
 import { freeStock } from "@/lib/pricing";
 import { istNeu } from "@/lib/product-flags";
-import { getProduct, getPublicProduct } from "@/lib/queries/products";
+import { firstImagePath, getProduct, getPublicProduct } from "@/lib/queries/products";
+import { getCompanySettings } from "@/lib/queries/settings";
 
 export async function generateMetadata({
   params,
 }: PageProps<"/shop/product/[id]">): Promise<Metadata> {
   const { id } = await params;
   const product = await getPublicProduct(id);
-  return { title: product?.name ?? "Artikel" };
+
+  if (!product) return { title: "Artikel" };
+
+  /*
+   * Beschreibung aus dem Artikeltext, sonst aus den Eckdaten gebaut. Ein
+   * Suchergebnis ohne Beschreibung lässt Google sich selbst einen Satz aus
+   * der Seite suchen – meist den Brotkrumenpfad.
+   */
+  const beschreibung = product.description?.trim()
+    ? product.description.trim().replace(/\s+/g, " ").slice(0, 300)
+    : `${product.name} (Art.-Nr. ${product.sku}) im Großhandelssortiment von LIDER Berlin. Staffelpreise und Bestände im Kundenportal.`;
+
+  const pfad = `/shop/product/${product.id}`;
+
+  return {
+    title: product.name,
+    description: beschreibung,
+    alternates: { canonical: pfad },
+    openGraph: {
+      type: "website",
+      title: product.name,
+      description: beschreibung,
+      url: pfad,
+    },
+    // Ohne eigenen twitter-Block erbt die Karte Titel und Text der Startseite –
+    // geteilt würde dann bei jedem Artikel dasselbe stehen.
+    twitter: {
+      card: "summary_large_image",
+      title: product.name,
+      description: beschreibung,
+    },
+  };
 }
 
 export default async function ProductPage({
@@ -100,6 +132,7 @@ export default async function ProductPage({
   if (!product || !product.is_active || !product.has_image) notFound();
 
   const free = freeStock(product);
+  const company = await getCompanySettings();
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
@@ -162,6 +195,8 @@ export default async function ProductPage({
               tiers={product.variants}
               freeStock={free}
               listPrice={product.list_price}
+              imagePath={firstImagePath(product.images)}
+              vatRate={company.pos_vat_rate}
             />
           </div>
         </div>

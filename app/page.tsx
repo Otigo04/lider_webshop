@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -57,6 +58,10 @@ export default async function HomePage() {
     await getLandingData();
 
   const gelistet = categories.filter((category) => category.productCount > 0);
+  // Vier Fotos für den Kopfbereich. Reichen sie nicht, tritt die
+  // Warengruppenliste an ihre Stelle – ein halb gefülltes Raster sähe nach
+  // Fehler aus.
+  const heroBilder = sortiment.filter((product) => product.imageUrl).slice(0, 4);
 
   return (
     <>
@@ -97,33 +102,59 @@ export default async function HomePage() {
             </div>
           </div>
 
-          {/* Warengruppen als Einstieg. Ohne die Nummernkreise: die stehen in
-              der Artikelnummer, auf der Startseite sagen sie niemandem etwas. */}
-          <ul className="enter enter-2 divide-y divide-surface-dark-border overflow-hidden rounded-md border border-surface-dark-border">
-            {gelistet.map((category) => (
-              <li key={category.id}>
+          {/*
+            Ware statt Fließtext neben der Überschrift. Ein Händler entscheidet
+            am Bild, ob das Sortiment zu ihm passt – die Warengruppen stehen
+            eine Bildschirmhöhe tiefer noch einmal, samt Artikelzahl.
+          */}
+          {heroBilder.length === 4 ? (
+            <div className="enter enter-2 grid grid-cols-2 gap-3">
+              {heroBilder.map((product) => (
                 <Link
-                  href={`/shop/${category.slug}`}
-                  className="group flex items-center gap-4 p-5 transition-colors hover:bg-white/[0.06] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-gold"
+                  key={product.id}
+                  href={`/shop/product/${product.id}`}
+                  className="group relative aspect-square overflow-hidden rounded-md border border-surface-dark-border bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
                 >
-                  <span
-                    aria-hidden
-                    className={`size-2.5 shrink-0 rounded-full tag-dot-${accentIndex(category.slug)}`}
+                  <Image
+                    src={product.imageUrl!}
+                    alt={product.name}
+                    fill
+                    sizes="(min-width: 1024px) 240px, 45vw"
+                    className="object-contain p-5 transition-transform duration-500 group-hover:scale-[1.05]"
                   />
-                  <span className="min-w-0 flex-1">
-                    <span className="block font-medium">{category.name}</span>
-                    <span className="block text-sm text-surface-dark-muted tabular">
-                      {category.productCount} Artikel
-                    </span>
+                  <span className="absolute inset-x-0 bottom-0 truncate bg-surface-dark/85 px-3 py-1.5 text-xs font-medium text-surface-dark-foreground">
+                    {product.name}
                   </span>
-                  <ArrowRight
-                    className="size-4 shrink-0 text-surface-dark-muted transition-transform group-hover:translate-x-1 group-hover:text-gold"
-                    aria-hidden
-                  />
                 </Link>
-              </li>
-            ))}
-          </ul>
+              ))}
+            </div>
+          ) : (
+            <ul className="enter enter-2 divide-y divide-surface-dark-border overflow-hidden rounded-md border border-surface-dark-border">
+              {gelistet.map((category) => (
+                <li key={category.id}>
+                  <Link
+                    href={`/shop/${category.slug}`}
+                    className="group flex items-center gap-4 p-5 transition-colors hover:bg-white/[0.06] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-gold"
+                  >
+                    <span
+                      aria-hidden
+                      className={`size-2.5 shrink-0 rounded-full tag-dot-${accentIndex(category.slug)}`}
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="block font-medium">{category.name}</span>
+                      <span className="block text-sm text-surface-dark-muted tabular">
+                        {category.productCount} Artikel
+                      </span>
+                    </span>
+                    <ArrowRight
+                      className="size-4 shrink-0 text-surface-dark-muted transition-transform group-hover:translate-x-1 group-hover:text-gold"
+                      aria-hidden
+                    />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </section>
 

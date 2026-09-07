@@ -404,8 +404,11 @@ die Akzentfarbe auf dunklen Flächen, Rot bleibt Signalfarbe.
 - **Belege**: PDF über `lib/invoice.ts` (`buildPosReceiptPdfData`), abgelegt im
   Bucket `invoices` unter `pos/<sale_id>/<Belegnummer>.pdf`, erreichbar über
   `/kasse/verkaeufe/[id]/receipt`.
-- **Nummernkreise**: Bestellungen `LG-JJJJ-00001`, Rechnungen `LIxxxxxxx`
-  (Migration 017), Kassenbelege `LBxxxxxxx`.
+- **Nummernkreise**: Bestellungen `LG-JJJJ-00001`, Rechnungen `LDxxxxxxx`
+  (Migration 029, davor `LIxxxxxxx`), Kassenbelege `LBxxxxxxx`. Bereits
+  vergebene LI-Nummern bleiben stehen – eine gestellte Rechnung behält ihre
+  Nummer, sonst bricht die fortlaufende Nummerierung. Der Zähler läuft weiter,
+  LI und LD überschneiden sich deshalb nie.
 
 ---
 
@@ -548,3 +551,50 @@ die Rechnung über „Aus Katalog" an.
   sie legte `close_open_pos_days()` einen gerade gelöschten Tag beim nächsten
   Seitenaufruf sofort wieder an. Löschen schiebt die Grenze hinter den Tag,
   Zurücksetzen auf heute. Von Hand abschließen geht weiterhin für jeden Tag.
+
+---
+
+## 🛒 Bestellablauf des Kunden
+
+Grundlage: `supabase/migrations/029_bestellablauf.sql`.
+
+- **Ein Steuersatz für alles.** `company_settings.pos_vat_rate` gilt für die
+  Ladenkasse *und* den Shop – zwei Felder für dieselbe Zahl gingen früher oder
+  später auseinander. `create_order()` schreibt ihn als `orders.vat_rate` fest;
+  eine alte Bestellung darf sich nach einer Satzänderung nicht rückwirkend
+  anders rechnen. Gerechnet wird in `lib/vat.ts`, immer auf die Summe und nie
+  auf die einzelne Zeile: sonst weicht die Summe der gerundeten Zeilen von der
+  gerundeten Summe ab.
+- **Netto und brutto stehen nebeneinander**, in Warenkorb, Kasse, Bestellung
+  und Mail. Netto ist die Zahl, die ein Gewerbekunde vergleicht; brutto die,
+  die von seinem Konto geht.
+- **Lieferadresse strukturiert.** `orders.delivery_*` statt eines Textfelds –
+  eine Rechnung braucht Einzelfelder. `delivery_address` bleibt als lesbare
+  Zusammenfassung und für Altbestand. Im Checkout wählt der Kunde zwischen der
+  hinterlegten Anschrift und einer abweichenden; die abweichende gilt nur für
+  diese Bestellung und ändert sein Konto nicht.
+- **Zahlart** (`orders.payment_method`): Überweisung immer, bar und Karte
+  **nur** bei Selbstabholung. Das erzwingt ein CHECK, nicht nur das Formular –
+  eine versendete Bestellung auf "bar" wäre eine Forderung, die niemand je
+  einzieht.
+- **Nach dem Absenden** landet der Kunde auf `/orders/[id]?neu=1`, nicht in der
+  Liste: dort steht der Gesamtbetrag, die Bankverbindung, die Rechnungsnummer
+  als Verwendungszweck und das Zahlungsziel. Er will wissen, was zu tun ist,
+  und nicht seine eigene Bestellung aus einer Tabelle suchen.
+- **Abholung**: Der Kunde kann einen Wunschtermin angeben (`pickup_at`,
+  frühestens morgen 08:00 – kommissioniert wird nicht in der Minute der
+  Bestellung). Der Admin setzt den Status auf „Abholbereit"; das läuft über
+  `mark_order_ready()`, weil Status und Zeitpunkt (`ready_at`) zusammengehören,
+  und verschickt automatisch `lib/emails/order-ready.ts`. Der Knopf „Erneut
+  benachrichtigen" schickt dieselbe Mail noch einmal, ohne den Vorgang neu zu
+  datieren.
+- **Warenkorbbilder**: `CartItem.imagePath` hält den Storage-Pfad, nicht die
+  URL – die ist signiert und nach Stunden abgelaufen, ein Warenkorb steht gern
+  tagelang. Signiert wird beim Anzeigen (`lib/actions/cart-images.ts`,
+  `lib/use-cart-images.ts`).
+- **Adresse ist Pflicht bei der Registrierung.** Sie reist in
+  `raw_user_meta_data` mit und wird vom Trigger `handle_new_user()` ins Profil
+  geschrieben – ein `UPDATE` nach dem `signUp` ginge nicht, weil bei
+  aktivierter E-Mail-Bestätigung an der Stelle noch keine Session existiert.
+  Der Admin pflegt sie beim Anlegen eines Kunden im selben Formular mit: ein
+  Telefonbesteller meldet sich womöglich nie selbst an.

@@ -3,9 +3,18 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { CreateInvoiceButton } from "@/components/admin/create-invoice-button";
+import { NotifyReadyButton } from "@/components/admin/notify-ready-button";
 import { OrderStatusSelect } from "@/components/admin/order-status-select";
 import { InvoiceStatusSelect } from "@/components/admin/invoice-status-select";
-import { formatDate, formatPrice, formatQuantity } from "@/lib/format";
+import {
+  formatDate,
+  formatDateTime,
+  formatPrice,
+  formatQuantity,
+  toNumber,
+} from "@/lib/format";
+import { steuer } from "@/lib/vat";
+import { PAYMENT_METHOD_LABELS } from "@/lib/types";
 import { getAdminOrder } from "@/lib/queries/admin";
 import { getInvoiceForOrder } from "@/lib/queries/orders";
 import { getInvoiceUrl } from "@/lib/storage";
@@ -32,6 +41,8 @@ export default async function AdminOrderDetailPage({
   const items = order.items ?? [];
   const invoice = await getInvoiceForOrder(id);
   const invoiceUrl = await getInvoiceUrl(invoice?.file_path);
+  const betraege = steuer(toNumber(order.total_amount), toNumber(order.vat_rate));
+  const abholung = order.delivery_method === "pickup";
 
   return (
     <div>
@@ -66,10 +77,17 @@ export default async function AdminOrderDetailPage({
           <dd className="mt-1 break-all">{order.customer?.email ?? "–"}</dd>
         </div>
         <div>
-          <dt className="text-muted-foreground">Summe netto</dt>
+          <dt className="text-muted-foreground">Gesamtbetrag</dt>
           <dd className="mt-1 font-semibold tabular">
-            {formatPrice(order.total_amount)}
+            {formatPrice(betraege.brutto)}
           </dd>
+          <dd className="text-xs text-muted-foreground tabular">
+            {formatPrice(betraege.netto)} netto + {formatPrice(betraege.steuer)} USt.
+          </dd>
+        </div>
+        <div>
+          <dt className="text-muted-foreground">Zahlung</dt>
+          <dd className="mt-1">{PAYMENT_METHOD_LABELS[order.payment_method]}</dd>
         </div>
         <div>
           <dt className="text-muted-foreground">Lieferung</dt>
@@ -119,6 +137,35 @@ export default async function AdminOrderDetailPage({
           </tbody>
         </table>
       </div>
+
+      {abholung ? (
+        <section className="mt-8 rounded-md border border-border p-4">
+          <h2 className="font-medium">Selbstabholung</h2>
+          <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+            <p className="text-muted-foreground">
+              Wunschtermin:{" "}
+              <span className="font-medium text-foreground tabular">
+                {order.pickup_at ? formatDateTime(order.pickup_at) : "keiner angegeben"}
+              </span>
+            </p>
+            <p className="text-muted-foreground">
+              Bereit gemeldet:{" "}
+              <span className="font-medium text-foreground tabular">
+                {order.ready_at ? formatDateTime(order.ready_at) : "noch nicht"}
+              </span>
+            </p>
+            <NotifyReadyButton
+              orderId={order.id}
+              bereitsGemeldet={Boolean(order.ready_at)}
+            />
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Der Status &bdquo;Abholbereit&ldquo; verschickt die Benachrichtigung
+            automatisch. Dieser Knopf schickt sie noch einmal, ohne den Status
+            anzufassen.
+          </p>
+        </section>
+      ) : null}
 
       <section className="mt-8 rounded-md border border-border p-4">
         <h2 className="font-medium">Rechnung</h2>

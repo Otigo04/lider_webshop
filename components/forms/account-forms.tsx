@@ -8,6 +8,7 @@ import {
   updateProfile,
   type FormState,
 } from "@/lib/actions/account";
+import { AddressFields } from "@/components/forms/address-fields";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -76,63 +77,23 @@ export function ProfileForm({ user }: { user: AppUser }) {
         />
       </div>
 
+      <div className="space-y-2">
+        <Label htmlFor="vat_id">USt-IdNr.</Label>
+        <Input
+          id="vat_id"
+          name="vat_id"
+          defaultValue={user.vat_id ?? ""}
+          maxLength={40}
+          placeholder="DE123456789"
+        />
+        <p className="text-xs text-muted-foreground">
+          Nur nötig für Rechnungen ins EU-Ausland. Kann leer bleiben.
+        </p>
+      </div>
+
       <Feedback state={state} />
       <SaveButton label="Stammdaten speichern" />
     </form>
-  );
-}
-
-function AddressFieldGroup({
-  prefix,
-  defaults,
-}: {
-  prefix: "billing" | "shipping";
-  defaults: {
-    street: string | null;
-    zip: string | null;
-    city: string | null;
-    country: string | null;
-  };
-}) {
-  return (
-    <div className="grid gap-3 sm:grid-cols-[1fr_8rem]">
-      <div className="space-y-2 sm:col-span-2">
-        <Label htmlFor={`${prefix}_street`}>Straße und Hausnummer</Label>
-        <Input
-          id={`${prefix}_street`}
-          name={`${prefix}_street`}
-          defaultValue={defaults.street ?? ""}
-          maxLength={200}
-        />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor={`${prefix}_zip`}>PLZ</Label>
-        <Input
-          id={`${prefix}_zip`}
-          name={`${prefix}_zip`}
-          defaultValue={defaults.zip ?? ""}
-          maxLength={20}
-        />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor={`${prefix}_city`}>Ort</Label>
-        <Input
-          id={`${prefix}_city`}
-          name={`${prefix}_city`}
-          defaultValue={defaults.city ?? ""}
-          maxLength={120}
-        />
-      </div>
-      <div className="space-y-2 sm:col-span-2">
-        <Label htmlFor={`${prefix}_country`}>Land</Label>
-        <Input
-          id={`${prefix}_country`}
-          name={`${prefix}_country`}
-          defaultValue={defaults.country ?? "Deutschland"}
-          maxLength={80}
-        />
-      </div>
-    </div>
   );
 }
 
@@ -163,7 +124,7 @@ export function AddressForm({ user }: { user: AppUser }) {
     <form action={formAction} className="space-y-6">
       <div className="space-y-3">
         <p className="text-sm font-medium">Rechnungsadresse</p>
-        <AddressFieldGroup
+        <AddressFields
           prefix="billing"
           defaults={{
             street: user.billing_street,
@@ -189,7 +150,7 @@ export function AddressForm({ user }: { user: AppUser }) {
       {differentShipping ? (
         <div className="space-y-3">
           <p className="text-sm font-medium">Versandadresse</p>
-          <AddressFieldGroup
+          <AddressFields
             prefix="shipping"
             defaults={{
               street: user.shipping_street,

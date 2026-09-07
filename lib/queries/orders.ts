@@ -14,7 +14,10 @@ export interface OrderWithItems extends Order {
 
 const ORDER_COLUMNS = `
   id, customer_id, order_number, status, total_amount, notes,
-  delivery_address, created_at, updated_at,
+  delivery_method, payment_method, vat_rate,
+  delivery_address, delivery_name, delivery_street, delivery_zip,
+  delivery_city, delivery_country, pickup_at, ready_at,
+  created_at, updated_at,
   items:order_items (
     id, order_id, product_variant_id, product_name, product_sku,
     quantity, unit_price, subtotal, created_at

@@ -7,6 +7,9 @@ const supabaseHost = process.env.NEXT_PUBLIC_SUPABASE_URL
 
 const nextConfig: NextConfig = {
   images: {
+    // Passend zur Gültigkeit der Signed URLs (lib/storage.ts): länger
+    // vorzuhalten bringt nichts, weil die Bildadresse danach ohnehin wechselt.
+    minimumCacheTTL: 12 * 60 * 60,
     remotePatterns: supabaseHost
       ? [
           {

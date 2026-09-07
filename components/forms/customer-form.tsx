@@ -10,6 +10,7 @@ import {
   updateCustomer,
   type CustomerFormState,
 } from "@/lib/actions/admin-customers";
+import { AddressFields } from "@/components/forms/address-fields";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -87,6 +88,42 @@ export function CustomerForm({ customer }: { customer?: AppUser }) {
           maxLength={120}
         />
       </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="vat_id">USt-IdNr.</Label>
+        <Input
+          id="vat_id"
+          name="vat_id"
+          defaultValue={customer?.vat_id ?? ""}
+          maxLength={40}
+          placeholder="DE123456789"
+        />
+        <p className="text-xs text-muted-foreground">
+          Nur nötig für Rechnungen ins EU-Ausland. Kann leer bleiben.
+        </p>
+      </div>
+
+      {/*
+        Anschrift auch hier, nicht nur im Kundenkonto: ein telefonisch
+        angelegter Kunde meldet sich womöglich nie selbst an, und ohne Adresse
+        entstünde eine Rechnung ohne Empfängeranschrift.
+      */}
+      <fieldset className="space-y-3 border-t border-border pt-4">
+        <legend className="text-sm font-medium">Rechnungsadresse</legend>
+        <AddressFields
+          prefix="billing"
+          defaults={{
+            street: customer?.billing_street,
+            zip: customer?.billing_zip,
+            city: customer?.billing_city,
+            country: customer?.billing_country,
+          }}
+        />
+        <p className="text-xs text-muted-foreground">
+          Wird als Liefer- und Rechnungsadresse übernommen. Der Kunde kann sie
+          im eigenen Konto ändern.
+        </p>
+      </fieldset>
 
       {state.error ? (
         <p

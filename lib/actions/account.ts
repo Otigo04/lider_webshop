@@ -13,6 +13,9 @@ export interface FormState {
 const profileSchema = z.object({
   full_name: z.string().trim().min(1, "Name fehlt").max(120),
   company_name: z.string().trim().max(120).optional(),
+  // Ohne Formatprüfung, siehe Migration 028: die Formate der Mitgliedstaaten
+  // gehen zu weit auseinander, als dass eine Regex mehr nützte als schadete.
+  vat_id: z.string().trim().max(40).optional(),
 });
 
 /**
@@ -28,6 +31,7 @@ export async function updateProfile(
   const parsed = profileSchema.safeParse({
     full_name: formData.get("full_name"),
     company_name: formData.get("company_name") ?? undefined,
+    vat_id: formData.get("vat_id") ?? undefined,
   });
 
   if (!parsed.success) {
@@ -40,6 +44,7 @@ export async function updateProfile(
     .update({
       full_name: parsed.data.full_name,
       company_name: parsed.data.company_name || null,
+      vat_id: parsed.data.vat_id || null,
     })
     .eq("id", user.id);
 

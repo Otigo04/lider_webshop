@@ -2,7 +2,12 @@ import type { Metadata } from "next";
 import { ShopView } from "@/components/shop-view";
 import { loadShopPage } from "@/lib/queries/shop-page";
 
-export const metadata: Metadata = { title: "Topseller" };
+export const metadata: Metadata = {
+  title: "Topseller",
+  description:
+    "Artikel, die unsere Händler regelmäßig nachbestellen – mit bewusst hohem Bestand bei LIDER Berlin.",
+  alternates: { canonical: "/shop/topseller" },
+};
 
 export default async function TopsellerPage({
   searchParams,

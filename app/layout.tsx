@@ -5,15 +5,37 @@ import { Footer } from "@/components/footer";
 import { Header } from "@/components/header";
 import { ScrollProgress } from "@/components/scroll-progress";
 import { CartProvider } from "@/lib/cart-context";
+import { siteUrl } from "@/lib/site";
 import "./globals.css";
 
+const TITEL = "LIDER Berlin – Großhandel für Spielzeug, Multimedia, Handyzubehör";
+const BESCHREIBUNG =
+  "Großhandel aus Berlin seit 2007. Spielzeug, Multimedia und Handyzubehör mit Staffelpreisen und aktuellen Beständen im Kundenportal.";
+
 export const metadata: Metadata = {
-  title: {
-    default: "LIDER Berlin – Großhandel für Spielzeug, Multimedia, Handyzubehör",
-    template: "%s | LIDER Berlin",
+  /*
+   * metadataBase macht aus den relativen Bildpfaden der Unterseiten absolute
+   * URLs. Ohne diese Angabe liefert Next zwar Vorschau-Tags aus, aber mit
+   * relativem Pfad – und den kann kein Messenger auflösen, die Karte bleibt
+   * leer.
+   */
+  metadataBase: new URL(siteUrl()),
+  title: { default: TITEL, template: "%s | LIDER Berlin" },
+  description: BESCHREIBUNG,
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    locale: "de_DE",
+    siteName: "LIDER Berlin",
+    title: TITEL,
+    description: BESCHREIBUNG,
+    url: "/",
   },
-  description:
-    "Großhandel aus Berlin seit 2007. Spielzeug, Multimedia und Handyzubehör mit Staffelpreisen und aktuellen Beständen im Kundenportal.",
+  twitter: {
+    card: "summary_large_image",
+    title: TITEL,
+    description: BESCHREIBUNG,
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -36,9 +58,22 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       </head>
       <body className="min-h-dvh flex flex-col bg-background text-foreground">
         <CartProvider>
+          {/*
+            Sprungmarke für Tastatur und Screenreader: die Kopfleiste hat je
+            nach Anmeldestatus bis zu zehn Links, die sonst vor jedem Seiten-
+            inhalt erneut durchlaufen werden müssten. Sichtbar nur bei Fokus.
+          */}
+          <a
+            href="#inhalt"
+            className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-gold focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-gold-foreground"
+          >
+            Zum Inhalt springen
+          </a>
           <Header />
           <ScrollProgress />
-          <main className="flex-1">{children}</main>
+          <main id="inhalt" tabIndex={-1} className="flex-1">
+            {children}
+          </main>
           <Footer />
           <Toaster position="top-right" />
           <CookieBanner />

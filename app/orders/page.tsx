@@ -3,7 +3,8 @@ import Link from "next/link";
 import { OrderStatusBadge, orderStatusAccent } from "@/components/order-status-badge";
 import { Button } from "@/components/ui/button";
 import { requireUser } from "@/lib/auth";
-import { formatDate, formatPrice, formatQuantity } from "@/lib/format";
+import { formatDate, formatPrice, formatQuantity, toNumber } from "@/lib/format";
+import { brutto } from "@/lib/vat";
 import { getOrders } from "@/lib/queries/orders";
 import { ORDER_STATUS_LABELS, type OrderStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -14,6 +15,7 @@ const FILTERS: (OrderStatus | "alle")[] = [
   "alle",
   "submitted",
   "confirmed",
+  "ready",
   "shipped",
   "delivered",
 ];
@@ -30,20 +32,12 @@ export default async function OrdersPage({
 
   const statusParam = typeof params.status === "string" ? params.status : "";
   const status = isStatus(statusParam) ? statusParam : undefined;
-  const justOrdered = typeof params.neu === "string" ? params.neu : null;
 
   const orders = await getOrders({ status });
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
       <h1 className="text-2xl font-semibold tracking-tight">Bestellungen</h1>
-
-      {justOrdered ? (
-        <p className="mt-4 rounded-md border border-success/30 bg-success/10 px-4 py-3 text-sm text-success">
-          Bestellung <span className="font-semibold tabular">{justOrdered}</span>{" "}
-          ist eingegangen. Wir melden uns zur Bestätigung.
-        </p>
-      ) : null}
 
       <nav className="mt-6 flex flex-wrap gap-2 border-b border-border pb-4">
         {FILTERS.map((value) => {
@@ -104,7 +98,9 @@ export default async function OrdersPage({
                       {formatQuantity(order.items?.length ?? 0)} Positionen
                     </span>
                     <span className="font-semibold tabular text-foreground">
-                      {formatPrice(order.total_amount)}
+                      {formatPrice(
+                        brutto(toNumber(order.total_amount), toNumber(order.vat_rate)),
+                      )}
                     </span>
                   </div>
                 </Link>
@@ -121,7 +117,7 @@ export default async function OrdersPage({
                   <th className="py-2 pr-4 font-medium">Datum</th>
                   <th className="py-2 pr-4 font-medium">Positionen</th>
                   <th className="py-2 pr-4 font-medium">Status</th>
-                  <th className="py-2 text-right font-medium">Summe netto</th>
+                  <th className="py-2 text-right font-medium">Gesamtbetrag</th>
                 </tr>
               </thead>
               <tbody>
@@ -151,7 +147,9 @@ export default async function OrdersPage({
                       <OrderStatusBadge status={order.status} />
                     </td>
                     <td className="py-3 text-right font-medium tabular">
-                      {formatPrice(order.total_amount)}
+                      {formatPrice(
+                        brutto(toNumber(order.total_amount), toNumber(order.vat_rate)),
+                      )}
                     </td>
                   </tr>
                 ))}

@@ -10,6 +10,7 @@ import {
 } from "pdf-lib";
 import type { AppUser, CompanySettings, Invoice, InvoiceItem, Order } from "@/lib/types";
 import { formatDate, formatPrice, formatQuantity, toNumber } from "@/lib/format";
+import { steuer } from "@/lib/vat";
 import { getLogoPrintFile } from "@/lib/logo";
 
 /**
@@ -48,13 +49,25 @@ export interface InvoicePdfData {
   customerStreet?: string | null;
   customerZip?: string | null;
   customerCity?: string | null;
+  /**
+   * USt-IdNr. des Empfängers (Migration 028). Bei einer Lieferung an einen
+   * Abnehmer im EU-Ausland muss sie auf der Rechnung stehen (§ 14a UStG);
+   * fehlt sie, bleibt die Zeile einfach weg.
+   */
+  customerVatId?: string | null;
   items: InvoicePdfLineItem[];
   netTotal: number;
   /** 0 bei Katalog-Bestellungen – der Shop rechnet dort ausschließlich netto */
   vatTotal: number;
   grossTotal: number;
-  /** Nur bei freien Rechnungen: Aufschlüsselung je MwSt.-Satz */
+  /** Aufschlüsselung je MwSt.-Satz – Grundlage der Steuerzeilen im Summenblock */
   vatBreakdown?: InvoicePdfVatBreakdown[];
+  /**
+   * Abweichende Lieferanschrift, mehrzeilig. Steht unter dem Belegtitel, nicht
+   * im Anschriftenfeld: dort gehört der Rechnungsempfänger hin, und der
+   * bleibt derselbe, auch wenn die Ware woandershin geht.
+   */
+  deliveryAddress?: string | null;
   /**
    * Sind die Positionspreise Endpreise? Im Großhandel netto, an der Kasse in
    * der Regel brutto – die Spaltenüberschrift muss das sagen, sonst rechnet
@@ -141,7 +154,44 @@ export function buildOrderInvoicePdfData(
   company: CompanySettings,
 ): InvoicePdfData {
   const customer = order.customer;
-  const total = toNumber(order.total_amount);
+  const netto = toNumber(order.total_amount);
+  const satz = toNumber(order.vat_rate);
+  const betraege = steuer(netto, satz);
+
+  /*
+   * Bar und Karte werden bei der Abholung kassiert. Der Vermerk ersetzt das
+   * Zahlungsziel – ein Fälligkeitsdatum auf einer Rechnung, die am Tresen
+   * beglichen wird, läse sich wie eine offene Forderung.
+   */
+  const zahlvermerk =
+    order.payment_method === "cash"
+      ? "Zahlung bar bei Abholung."
+      : order.payment_method === "card"
+        ? "Zahlung per Karte bei Abholung."
+        : null;
+
+  // Nur eine wirklich abweichende Anschrift ist eine Angabe wert. Deckt sie
+  // sich mit der Rechnungsanschrift, stünde sie zweimal auf dem Blatt.
+  const lieferAbweichend =
+    order.delivery_method === "shipping" &&
+    Boolean(order.delivery_street) &&
+    (order.delivery_street !== customer?.billing_street ||
+      order.delivery_zip !== customer?.billing_zip ||
+      order.delivery_city !== customer?.billing_city);
+
+  const lieferanschrift = lieferAbweichend
+    ? [
+        order.delivery_name,
+        order.delivery_street,
+        [order.delivery_zip, order.delivery_city].filter(Boolean).join(" "),
+        order.delivery_country &&
+        order.delivery_country.toLowerCase() !== "deutschland"
+          ? order.delivery_country
+          : null,
+      ]
+        .filter(Boolean)
+        .join("\n")
+    : null;
 
   return {
     invoiceNumber,
@@ -151,6 +201,8 @@ export function buildOrderInvoicePdfData(
     customerStreet: customer?.billing_street,
     customerZip: customer?.billing_zip,
     customerCity: customer?.billing_city,
+    customerVatId: customer?.vat_id,
+    deliveryAddress: lieferanschrift,
     items: (order.items ?? []).map((item) => ({
       description: item.product_name,
       sku: item.product_sku,
@@ -158,9 +210,14 @@ export function buildOrderInvoicePdfData(
       unitPrice: toNumber(item.unit_price),
       subtotal: toNumber(item.subtotal),
     })),
-    netTotal: total,
-    vatTotal: 0,
-    grossTotal: total,
+    netTotal: betraege.netto,
+    vatTotal: betraege.steuer,
+    grossTotal: betraege.brutto,
+    vatBreakdown:
+      betraege.steuer > 0
+        ? [{ rate: betraege.satz, net: betraege.netto, vat: betraege.steuer }]
+        : undefined,
+    paymentNote: zahlvermerk,
     company,
   };
 }
@@ -190,6 +247,7 @@ export function buildManualInvoicePdfData(
     customerStreet: customer.billing_street,
     customerZip: customer.billing_zip,
     customerCity: customer.billing_city,
+    customerVatId: customer.vat_id,
     items: items.map((item) => ({
       description: item.description,
       quantity: toNumber(item.quantity),
@@ -698,6 +756,12 @@ export async function generateInvoicePdf(data: InvoicePdfData): Promise<Buffer> 
     y -= 14;
   });
 
+  if (data.customerVatId) {
+    y -= 2;
+    text(`USt-IdNr.: ${data.customerVatId}`, MARGIN, { size: 9, color: MUTED });
+    y -= 12;
+  }
+
   // ------------------------------------------------------------ Belegtitel
 
   y = 606;
@@ -711,6 +775,19 @@ export async function generateInvoicePdf(data: InvoicePdfData): Promise<Buffer> 
   if (data.reference) {
     for (const zeile of umbrechen(data.reference, CONTENT_R - MARGIN, 9.5, font)) {
       text(zeile, MARGIN, { size: 9.5, color: MUTED });
+      y -= 12;
+    }
+  }
+
+  // Abweichende Lieferanschrift. Sie steht hier und nicht im Anschriftenfeld:
+  // dort gehört der Rechnungsempfänger hin, und der bleibt derselbe, auch wenn
+  // die Ware an eine Baustelle oder Filiale geht.
+  if (data.deliveryAddress) {
+    y -= 4;
+    text("Lieferanschrift", MARGIN, { size: 8, useFont: bold, color: MUTED });
+    y -= 11;
+    for (const zeile of data.deliveryAddress.split("\n")) {
+      text(zeile, MARGIN, { size: 9.5, color: INK });
       y -= 12;
     }
   }

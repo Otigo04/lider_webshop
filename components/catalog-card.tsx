@@ -64,14 +64,16 @@ export function CatalogCard({
         <div className="mt-auto pt-3">
           {product.priceFrom !== null ? (
             rabatt ? (
-              <SalePrice reduktion={rabatt} groesse="kompakt" suffix="/ Stück" />
+              <SalePrice reduktion={rabatt} groesse="kompakt" suffix="/ Stück netto" />
             ) : (
               <p className="flex items-baseline gap-1">
                 <span className="text-xs text-muted-foreground">ab</span>
                 <span className="text-lg font-bold tabular">
                   {formatPrice(product.priceFrom)}
                 </span>
-                <span className="text-xs text-muted-foreground">/ Stück</span>
+                <span className="text-xs text-muted-foreground">
+                  / Stück netto
+                </span>
               </p>
             )
           ) : (

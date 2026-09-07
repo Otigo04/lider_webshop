@@ -31,13 +31,16 @@ export async function generateAndSendOrderInvoice(
   if (!order) return;
 
   const fullOrder: Order = { ...order, customer };
+  // Die Firmendaten stehen in beiden Mails (Bankverbindung, Anschrift) und im
+  // PDF – einmal laden reicht.
+  const company = await getCompanySettings();
 
   // Der Mailversand steht vor der Rechnung, darf sie aber nicht aufhalten:
   // wirft der Versand (Netzfehler beim Anbieter), entstünde sonst eine
   // Bestellung ganz ohne Rechnung.
   if (options.sendOrderConfirmation ?? true) {
     try {
-      const confirmation = orderConfirmationEmail(fullOrder);
+      const confirmation = orderConfirmationEmail(fullOrder, company);
       await sendEmail({ to: customer.email, ...confirmation });
     } catch (fehler) {
       console.error("[rechnung] Bestellbestätigung:", fehler);
@@ -56,7 +59,6 @@ export async function generateAndSendOrderInvoice(
   }
 
   const invoice = invoiceData as { id: string; invoice_number: string };
-  const company = await getCompanySettings();
   const pdfBytes = await generateInvoicePdf(
     buildOrderInvoicePdfData(fullOrder, invoice.invoice_number, company),
   );
@@ -77,7 +79,7 @@ export async function generateAndSendOrderInvoice(
   await admin.from("invoices").update({ file_path: filePath }).eq("id", invoice.id);
 
   try {
-    const invoiceMail = invoiceEmail(fullOrder, invoice.invoice_number);
+    const invoiceMail = invoiceEmail(fullOrder, invoice.invoice_number, company);
     await sendEmail({
       to: customer.email,
       ...invoiceMail,

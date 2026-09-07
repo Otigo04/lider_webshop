@@ -5,12 +5,13 @@ import { cn } from "@/lib/utils";
  * Farbe je Status. „Eingegangen" und „Bestätigt" waren bisher nicht zu
  * unterscheiden – beide Markenblau. Jetzt trägt jeder Status seine eigene
  * Farbe, damit sich eine Bestellliste überfliegen lässt: grau liegend, blau
- * eingegangen, gold in Arbeit, orange unterwegs, grün zugestellt.
+ * eingegangen, gold in Arbeit, grün abholbereit, orange unterwegs, grün zugestellt.
  */
 export const ORDER_STATUS_STYLES: Record<OrderStatus, string> = {
   draft: "border-border bg-muted text-muted-foreground",
   submitted: "border-brand/40 bg-brand/10 text-brand",
   confirmed: "border-gold/50 bg-gold-soft text-gold",
+  ready: "border-success/40 bg-success/10 text-success",
   shipped: "border-warning/40 bg-warning/10 text-warning",
   delivered: "border-success/40 bg-success/10 text-success",
 };
@@ -23,6 +24,7 @@ export function orderStatusAccent(status: OrderStatus): string {
     draft: "border-l-muted-foreground/40",
     submitted: "border-l-brand",
     confirmed: "border-l-gold",
+    ready: "border-l-success",
     shipped: "border-l-warning",
     delivered: "border-l-success",
   };

@@ -74,18 +74,20 @@ export function PublicProductCard({
           {product.priceFrom !== null ? (
             <>
               {rabatt ? (
-                <SalePrice reduktion={rabatt} suffix="/ Stück" />
+                <SalePrice reduktion={rabatt} suffix="/ Stück netto" />
               ) : (
                 <p className="flex items-baseline gap-1">
                   <span className="text-xs text-muted-foreground">ab</span>
                   <span className="text-xl font-bold tabular">
                     {formatPrice(product.priceFrom)}
                   </span>
-                  <span className="text-xs text-muted-foreground">/ Stück</span>
+                  <span className="text-xs text-muted-foreground">
+                    / Stück netto
+                  </span>
                 </p>
               )}
               <p className="mt-0.5 text-xs text-muted-foreground">
-                Staffelpreise nach Anmeldung
+                zzgl. USt. · Staffelpreise nach Anmeldung
               </p>
             </>
           ) : (

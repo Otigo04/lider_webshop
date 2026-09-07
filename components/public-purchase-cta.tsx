@@ -29,16 +29,22 @@ export function PublicPurchaseCta({
             {rabatt ? "Reduziert" : "Großhandelspreis"}
           </p>
           {rabatt ? (
-            <SalePrice reduktion={rabatt} suffix="/ Stück" groesse="gross" className="mt-2" />
+            <SalePrice reduktion={rabatt} suffix="/ Stück netto" groesse="gross" className="mt-2" />
           ) : (
             <p className="mt-2 flex items-baseline gap-1.5">
               <span className="text-sm text-muted-foreground">ab</span>
               <span className="text-3xl font-bold tabular">
                 {formatPrice(priceFrom)}
               </span>
-              <span className="text-sm text-muted-foreground">/ Stück</span>
+              <span className="text-sm text-muted-foreground">
+                / Stück netto
+              </span>
             </p>
           )}
+          {/* Der Zusatz gehört an jeden öffentlich sichtbaren Preis: das
+              Portal richtet sich an Gewerbekunden, Nettopreise sind nur mit
+              diesem Hinweis eindeutig. */}
+          <p className="mt-1 text-sm text-muted-foreground">zzgl. USt.</p>
           {minOrderQuantity ? (
             <p className="mt-1 text-sm text-muted-foreground tabular">
               Mindestabnahme {minOrderQuantity} Stück
@@ -52,14 +58,15 @@ export function PublicPurchaseCta({
         <p className="mt-2 text-sm text-muted-foreground">
           Welcher Preis ab welcher Menge gilt, der verfügbare Bestand und die
           Bestellung selbst stehen nach der Anmeldung bereit. Noch kein Konto?
-          Zugang lässt sich über das Formular auf der Startseite anfragen.
+          Das Anlegen dauert zwei Minuten, eine Freischaltung ist nicht nötig.
         </p>
         <div className="mt-4 flex flex-wrap gap-3">
+          {/* Konto anlegen steht vorn: wer hier landet, hat meist noch keins. */}
           <Button asChild>
-            <Link href="/login">Anmelden</Link>
+            <Link href="/register">Konto anlegen</Link>
           </Button>
           <Button asChild variant="outline">
-            <Link href="/#kontakt">Zugang anfragen</Link>
+            <Link href="/login">Anmelden</Link>
           </Button>
         </div>
       </div>

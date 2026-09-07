@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useCart } from "@/lib/cart-context";
 import { formatPrice, formatQuantity } from "@/lib/format";
+import { steuer } from "@/lib/vat";
 import {
   baseUnitPrice,
   lineTotal,
@@ -28,6 +29,13 @@ interface ProductPurchaseProps {
   freeStock: number;
   /** Vorher-Preis für die Rabattanzeige (Migration 023) */
   listPrice: number | null;
+  /**
+   * Storage-Pfad des Titelbilds. Wandert in den Warenkorb, damit dort ein Foto
+   * neben der Position steht – die fertige URL wäre nach Stunden abgelaufen.
+   */
+  imagePath: string | null;
+  /** Steuersatz für den Bruttohinweis unter dem Preis */
+  vatRate: number;
 }
 
 /**
@@ -41,6 +49,8 @@ export function ProductPurchase({
   tiers,
   freeStock,
   listPrice,
+  imagePath,
+  vatRate,
 }: ProductPurchaseProps) {
   const min = minOrderQuantity(tiers);
   const [quantity, setQuantity] = useState<number>(min);
@@ -59,6 +69,8 @@ export function ProductPurchase({
     activeTier ? Number(activeTier.unit_price) : baseUnitPrice(tiers),
   );
 
+  const betraege = steuer(lineTotal(tiers, quantity), vatRate);
+
   const belowMin = quantity < min;
   const aboveStock = quantity > freeStock;
   const error = belowMin
@@ -76,6 +88,7 @@ export function ProductPurchase({
       quantity,
       tiers,
       maxStock: freeStock,
+      imagePath,
     });
     toast.success(`${formatQuantity(quantity)} × ${productName} im Warenkorb`, {
       action: { label: "Warenkorb", onClick: () => router.push("/cart") },
@@ -120,6 +133,15 @@ export function ProductPurchase({
               </p>
               <p className="text-2xl font-semibold tabular">
                 {formatPrice(lineTotal(tiers, quantity))}
+              </p>
+              {/*
+                Netto ist der Preis, den ein Gewerbekunde vergleicht; brutto ist
+                der Betrag, der vom Konto geht. Beide stehen da, damit niemand
+                an der Kasse überrascht wird.
+              */}
+              <p className="text-xs text-muted-foreground tabular">
+                {formatPrice(betraege.brutto)} brutto (
+                {betraege.satz.toFixed(0)} % USt.)
               </p>
             </div>
 

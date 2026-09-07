@@ -21,6 +21,10 @@ export async function getCurrentAuthUser() {
  * Profil aus public.users inkl. Rolle und Aktiv-Status.
  * null, wenn nicht eingeloggt oder kein Profil existiert.
  */
+const PROFIL_SPALTEN = `id, email, full_name, company_name, role, is_active, created_at,
+   billing_street, billing_zip, billing_city, billing_country,
+   shipping_street, shipping_zip, shipping_city, shipping_country`;
+
 export async function getCurrentUser(): Promise<AppUser | null> {
   const supabase = await createClient();
   const {
@@ -30,19 +34,44 @@ export async function getCurrentUser(): Promise<AppUser | null> {
 
   const { data, error } = await supabase
     .from("users")
-    .select(
-      `id, email, full_name, company_name, role, is_active, created_at,
-       billing_street, billing_zip, billing_city, billing_country,
-       shipping_street, shipping_zip, shipping_city, shipping_country`,
-    )
+    .select(`${PROFIL_SPALTEN}, vat_id`)
     .eq("id", user.id)
     .single();
 
-  if (error) {
-    console.error("[auth] Profil konnte nicht geladen werden:", error.message);
+  if (!error) return data as AppUser;
+
+  /*
+   * 42703 = "column does not exist". Tritt genau dann auf, wenn
+   * supabase/migrations/028_kunden_ust_id.sql noch nicht eingespielt ist.
+   *
+   * Ohne diesen Rückfall bräche an dieser Stelle nicht ein Feld, sondern die
+   * gesamte Anmeldung: ein Profil, das nicht lädt, gilt überall als "nicht
+   * eingeloggt". Ein Nachrüsten der Spalte ist Betriebssache und darf keinen
+   * Kunden aussperren. Der Zweig kann weg, sobald die Migration überall läuft.
+   */
+  if (error.code === "42703") {
+    console.warn(
+      "[auth] Spalte users.vat_id fehlt – Migration 028 noch nicht eingespielt. " +
+        "Profil wird ohne USt-IdNr. geladen.",
+    );
+    const { data: ohneUstId, error: zweiterFehler } = await supabase
+      .from("users")
+      .select(PROFIL_SPALTEN)
+      .eq("id", user.id)
+      .single();
+
+    if (!zweiterFehler) {
+      return { ...(ohneUstId as Omit<AppUser, "vat_id">), vat_id: null };
+    }
+    console.error(
+      "[auth] Profil konnte nicht geladen werden:",
+      zweiterFehler.message,
+    );
     return null;
   }
-  return data as AppUser;
+
+  console.error("[auth] Profil konnte nicht geladen werden:", error.message);
+  return null;
 }
 
 /**

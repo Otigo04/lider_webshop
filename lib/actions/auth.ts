@@ -92,11 +92,44 @@ const signUpSchema = z
     confirm: z.string(),
     full_name: z.string().trim().min(1, "Name fehlt").max(120),
     company_name: z.string().trim().min(1, "Firma fehlt").max(120),
+    /*
+     * Die Anschrift ist Pflicht, nicht Kür: sie steht später auf jeder
+     * Rechnung. Sie erst im Konto nachpflegen zu lassen hieße, dass die erste
+     * Bestellung eine Rechnung ohne Empfängeranschrift erzeugt.
+     */
+    billing_street: z.string().trim().min(1, "Straße und Hausnummer fehlen").max(200),
+    billing_zip: z.string().trim().min(1, "PLZ fehlt").max(20),
+    billing_city: z.string().trim().min(1, "Ort fehlt").max(120),
+    billing_country: z.string().trim().min(1, "Land fehlt").max(80),
+    different_shipping: z.boolean(),
+    shipping_street: z.string().trim().max(200).optional(),
+    shipping_zip: z.string().trim().max(20).optional(),
+    shipping_city: z.string().trim().max(120).optional(),
+    shipping_country: z.string().trim().max(80).optional(),
+    /*
+     * Bestätigung der Gewerbeeigenschaft. Der Shop zeigt Nettopreise; die
+     * sind nur gegenüber Gewerbetreibenden zulässig. Die Erklärung steht
+     * damit nicht nur als Satz auf der Seite, sondern wird abgefragt.
+     */
+    gewerbe: z.boolean(),
   })
   .refine((data) => data.password === data.confirm, {
     message: "Die Passwörter stimmen nicht überein",
     path: ["confirm"],
-  });
+  })
+  .refine((data) => data.gewerbe, {
+    message: "Bitte bestätigen Sie, dass Sie als Gewerbetreibender bestellen",
+    path: ["gewerbe"],
+  })
+  .refine(
+    (data) =>
+      !data.different_shipping ||
+      Boolean(data.shipping_street && data.shipping_zip && data.shipping_city),
+    {
+      message: "Bitte die abweichende Lieferadresse vollständig angeben",
+      path: ["shipping_street"],
+    },
+  );
 
 /**
  * Self-Signup für B2B-Kunden: sofort aktiv (users.is_active ist DEFAULT true,
@@ -121,6 +154,16 @@ export async function signUp(
     confirm: formData.get("confirm"),
     full_name: formData.get("full_name"),
     company_name: formData.get("company_name"),
+    billing_street: formData.get("billing_street"),
+    billing_zip: formData.get("billing_zip"),
+    billing_city: formData.get("billing_city"),
+    billing_country: formData.get("billing_country") || "Deutschland",
+    different_shipping: formData.get("different_shipping") === "on",
+    shipping_street: formData.get("shipping_street") ?? undefined,
+    shipping_zip: formData.get("shipping_zip") ?? undefined,
+    shipping_city: formData.get("shipping_city") ?? undefined,
+    shipping_country: formData.get("shipping_country") ?? undefined,
+    gewerbe: formData.get("gewerbe") === "on",
   });
 
   if (!parsed.success) {
@@ -129,13 +172,54 @@ export async function signUp(
 
   const { email, password, full_name, company_name } = parsed.data;
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+
+  /*
+   * Die Adresse reist als Metadatum mit und wird vom Trigger handle_new_user()
+   * ins Profil geschrieben (Migration 029). Sie hier nach dem signUp per
+   * UPDATE nachzutragen ginge nicht: bei aktivierter E-Mail-Bestätigung gibt
+   * es an dieser Stelle noch keine Session, mit der man schreiben dürfte.
+   */
+  const abweichend = parsed.data.different_shipping;
+  const adresse = {
+    billing_street: parsed.data.billing_street,
+    billing_zip: parsed.data.billing_zip,
+    billing_city: parsed.data.billing_city,
+    billing_country: parsed.data.billing_country,
+    shipping_street: abweichend
+      ? parsed.data.shipping_street
+      : parsed.data.billing_street,
+    shipping_zip: abweichend ? parsed.data.shipping_zip : parsed.data.billing_zip,
+    shipping_city: abweichend ? parsed.data.shipping_city : parsed.data.billing_city,
+    shipping_country:
+      (abweichend ? parsed.data.shipping_country : parsed.data.billing_country) ||
+      parsed.data.billing_country,
+  };
   const supabase = await createClient();
+
+  /*
+   * Bremse gegen massenhaft angelegte Konten (Migration 027). Jedes Konto ist
+   * sofort aktiv und sieht damit Staffelpreise und Bestände – ohne Grenze
+   * könnte ein Skript sich beliebig viele davon holen.
+   *
+   * Ein Fehler beim Aufruf blockiert die Registrierung nicht: eine Bremse, die
+   * bei einer Störung den ganzen Zugang zusperrt, richtet mehr Schaden an als
+   * sie verhindert.
+   */
+  const { data: erlaubt, error: bremseFehler } = await supabase.rpc("signup_zulaessig");
+  if (bremseFehler) {
+    console.error("[auth] Registrierungsbremse:", bremseFehler.message);
+  } else if (erlaubt === false) {
+    return {
+      error:
+        "Derzeit gehen sehr viele Registrierungen ein. Bitte versuchen Sie es später erneut.",
+    };
+  }
 
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
-      data: { full_name, company_name },
+      data: { full_name, company_name, ...adresse },
       emailRedirectTo: `${siteUrl}/auth/confirm?type=signup`,
     },
   });
@@ -150,9 +234,9 @@ export async function signUp(
 
   if (data.session) {
     // "Confirm email" ist im Supabase-Dashboard deaktiviert – die Session
-    // steht sofort, direkt weiter in den Shop.
+    // steht sofort, direkt weiter auf die Begrüßungsseite.
     revalidatePath("/", "layout");
-    redirect("/shop");
+    redirect("/willkommen");
   }
 
   return {

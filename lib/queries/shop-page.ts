@@ -14,6 +14,7 @@ import {
 import {
   applyShopFilters,
   parseShopFilters,
+  seitenAusschnitt,
   type FilterAdapter,
   type ShopFilters,
 } from "@/lib/shop-filters";
@@ -59,6 +60,11 @@ export interface ShopPageData {
   filters: ShopFilters;
   categories: FilterCategory[];
   totalCount: number;
+  /** Treffer nach Filtern und Suche, über alle Seiten */
+  gefunden: number;
+  seite: number;
+  seitenGesamt: number;
+  /** Nur die Artikel der aktuellen Seite */
   kundenArtikel: ProductListItem[];
   besucherArtikel: PublicProductListItem[];
 }
@@ -96,13 +102,20 @@ export async function loadShopPage({
       search: filters.search,
       orderBy,
     });
+    const seite = seitenAusschnitt(
+      applyShopFilters(artikel, filters, BESUCHER),
+      filters.page,
+    );
     return {
       istKunde,
       filters,
       categories: mitZahlen,
       totalCount,
+      gefunden: seite.gefunden,
+      seite: seite.seite,
+      seitenGesamt: seite.seitenGesamt,
       kundenArtikel: [],
-      besucherArtikel: applyShopFilters(artikel, filters, BESUCHER),
+      besucherArtikel: seite.artikel,
     };
   }
 
@@ -113,12 +126,20 @@ export async function loadShopPage({
     orderBy,
   });
 
+  const seite = seitenAusschnitt(
+    applyShopFilters(artikel, filters, KUNDE),
+    filters.page,
+  );
+
   return {
     istKunde,
     filters,
     categories: mitZahlen,
     totalCount,
-    kundenArtikel: applyShopFilters(artikel, filters, KUNDE),
+    gefunden: seite.gefunden,
+    seite: seite.seite,
+    seitenGesamt: seite.seitenGesamt,
+    kundenArtikel: seite.artikel,
     besucherArtikel: [],
   };
 }

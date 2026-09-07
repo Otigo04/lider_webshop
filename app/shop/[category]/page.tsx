@@ -9,7 +9,15 @@ export async function generateMetadata({
 }: PageProps<"/shop/[category]">): Promise<Metadata> {
   const { category: slug } = await params;
   const category = await getCategoryBySlug(slug);
-  return { title: category?.name ?? "Kategorie" };
+  if (!category) return { title: "Kategorie" };
+
+  return {
+    title: category.name,
+    description:
+      category.description?.trim() ||
+      `${category.name} im Großhandelssortiment von LIDER Berlin. Staffelpreise und Bestände im Kundenportal.`,
+    alternates: { canonical: `/shop/${category.slug}` },
+  };
 }
 
 export default async function CategoryPage({

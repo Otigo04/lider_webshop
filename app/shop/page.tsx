@@ -4,7 +4,9 @@ import { loadShopPage } from "@/lib/queries/shop-page";
 
 export const metadata: Metadata = {
   title: "Sortiment",
-  description: "Artikel, Staffelpreise und Bestände im Kundenportal.",
+  description:
+    "Das komplette Großhandelssortiment von LIDER Berlin: Spielzeug, Multimedia und Handyzubehör mit Staffelpreisen und Beständen im Kundenportal.",
+  alternates: { canonical: "/shop" },
 };
 
 export default async function ShopPage({ searchParams }: PageProps<"/shop">) {
