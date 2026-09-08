@@ -21,6 +21,11 @@ export function PublicProductCard({
 }) {
   const rabatt = reduzierung(product.list_price, product.priceFrom);
 
+  // Wie in der Kundenkarte: bei einem Bündel trägt die Kachel den Namen des
+  // Angebots, nicht den der Ausführung, die zufällig als Vertreter dasteht.
+  const ausfuehrungen = product.ausfuehrungen ?? 1;
+  const titel = ausfuehrungen > 1 ? (product.groupName ?? product.name) : product.name;
+
   return (
     <Link
       href={`/shop/product/${product.id}`}
@@ -57,8 +62,14 @@ export function PublicProductCard({
         <p className="code text-xs text-muted-foreground">{product.sku}</p>
 
         <h3 className="mt-2 font-semibold leading-snug group-hover:underline">
-          {product.name}
+          {titel}
         </h3>
+
+        {ausfuehrungen > 1 ? (
+          <p className="mt-1 text-xs font-medium text-brand">
+            {ausfuehrungen} Ausführungen zur Auswahl
+          </p>
+        ) : null}
 
         {product.description ? (
           <p className="mt-1.5 line-clamp-2 text-sm text-muted-foreground">

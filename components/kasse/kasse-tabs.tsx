@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   Receipt,
   ScanBarcode,
+  TrendingUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -23,6 +24,7 @@ const ICONS = {
   uebersicht: LayoutDashboard,
   kasse: ScanBarcode,
   verkaeufe: Receipt,
+  umsaetze: TrendingUp,
   tagesabschluss: CalendarCheck,
   rechnungen: FileText,
 } satisfies Record<string, LucideIcon>;

@@ -7,9 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { buildShopHref, type ShopFilters } from "@/lib/shop-filters";
 import type { ProductListItem, PublicProductListItem } from "@/lib/queries/products";
+import type { ProductAttributeGroup } from "@/lib/types";
 
 interface ShopViewProps {
   categories: FilterCategory[];
+  /** Gepflegte Merkmale für die Filterspalte (Migration 032) */
+  attributes: ProductAttributeGroup[];
   /** Artikel mit Staffelpreisen und Bestand – nur für angemeldete Kunden */
   products?: ProductListItem[];
   /** Schaufenster-Artikel mit "ab"-Preis, für alle anderen */
@@ -29,6 +32,8 @@ interface ShopViewProps {
   description?: string | null;
   /** Auf /shop/neuheiten und /shop/topseller wären die Haken sinnlos */
   showFlagFilters?: boolean;
+  /** Führt überhaupt ein Artikel eine Mindestabnahme über 1 Stück? */
+  mengenstaffeln?: boolean;
 }
 
 /**
@@ -41,6 +46,7 @@ interface ShopViewProps {
  */
 export function ShopView({
   categories,
+  attributes,
   products = [],
   publicProducts = [],
   istKunde,
@@ -54,6 +60,7 @@ export function ShopView({
   heading,
   description,
   showFlagFilters = true,
+  mengenstaffeln = false,
 }: ShopViewProps) {
   const aufSeite = istKunde ? products.length : publicProducts.length;
   const eingeschraenkt = gefunden !== totalCount;
@@ -114,11 +121,13 @@ export function ShopView({
       <div className="mt-8 flex flex-col gap-8 lg:flex-row lg:gap-10">
         <ShopFilterPanel
           categories={categories}
+          attributes={attributes}
           activeSlug={activeSlug}
           filters={filters}
           action={action}
           showStockFilter={istKunde}
           showFlagFilters={showFlagFilters}
+          showMinQuantityFilter={mengenstaffeln}
           totalCount={totalCount}
         />
 

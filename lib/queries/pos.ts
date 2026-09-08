@@ -268,14 +268,27 @@ export async function getPosTopProducts(
   limit = 5,
   tage = 30,
 ): Promise<PosTopProduct[]> {
-  const supabase = await createClient();
   const seit = new Date();
   seit.setDate(seit.getDate() - tage);
+  return getPosTopProductsRange(seit, new Date(), limit);
+}
+
+/**
+ * Dasselbe für einen ausgewählten Zeitraum – die Umsatzübersicht filtert nach
+ * Datum, nicht nach „letzten n Tagen".
+ */
+export async function getPosTopProductsRange(
+  von: Date,
+  bis: Date,
+  limit = 5,
+): Promise<PosTopProduct[]> {
+  const supabase = await createClient();
 
   const { data, error } = await supabase
     .from("pos_sale_items")
     .select("product_sku, product_name, quantity, subtotal, sale:pos_sales!inner (created_at)")
-    .gte("sale.created_at", seit.toISOString());
+    .gte("sale.created_at", von.toISOString())
+    .lt("sale.created_at", bis.toISOString());
 
   if (error) {
     console.error("[kasse] Meistverkauft:", error.message);

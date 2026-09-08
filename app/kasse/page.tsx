@@ -158,21 +158,31 @@ export default async function KassePage() {
       </section>
 
       <section className="mt-8">
-        <h2 className="eyebrow text-muted-foreground">
-          Laufender Monat und Forderungen
-        </h2>
+        <div className="flex items-center justify-between">
+          <h2 className="eyebrow text-muted-foreground">
+            Laufender Monat und Forderungen
+          </h2>
+          <Link
+            href="/kasse/umsaetze"
+            className="text-sm text-brand hover:underline"
+          >
+            Umsätze nach Zeitraum
+          </Link>
+        </div>
         <div className="mt-3 grid gap-4 sm:grid-cols-3">
           <Kennzahl
             icon={Euro}
             label="Kasse im Monat brutto"
             wert={formatPrice(monat.grossTotal)}
             ton="brand"
+            href="/kasse/umsaetze?zeitraum=monat&gruppe=tag"
           />
           <Kennzahl
             icon={Receipt}
             label="Belege im Monat"
             wert={formatQuantity(monat.salesCount)}
             ton="neutral"
+            href="/kasse/umsaetze?zeitraum=monat&gruppe=tag"
           />
           <Kennzahl
             icon={FileText}

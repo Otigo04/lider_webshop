@@ -79,7 +79,9 @@ export function CatalogCard({
           ) : (
             <p className="text-xs text-muted-foreground">Preis nach Anmeldung</p>
           )}
-          {product.minOrderQuantity ? (
+          {/* „Abnahme ab 1 Stück" sagt nichts – der Hinweis erscheint erst,
+              wenn er eine Bedingung ist. */}
+          {product.minOrderQuantity && product.minOrderQuantity > 1 ? (
             <p className="mt-0.5 text-xs text-muted-foreground tabular">
               Abnahme ab {product.minOrderQuantity} Stück
             </p>

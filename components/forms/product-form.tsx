@@ -17,12 +17,17 @@ import {
 import { formatPrice } from "@/lib/format";
 import { reduzierung } from "@/lib/pricing";
 import { createClient } from "@/lib/supabase/client";
+import { MerkmalAuswahl } from "@/components/admin/merkmal-auswahl";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import type { Category, ProductVariant } from "@/lib/types";
+import type {
+  Category,
+  ProductAttributeGroup,
+  ProductVariant,
+} from "@/lib/types";
 
 interface TierRow {
   key: string;
@@ -38,10 +43,23 @@ interface ImageRow {
 
 interface ProductFormProps {
   categories: Category[];
+  /** Gepflegte Merkmale samt Werten (Migration 032) – leer, solange keine da sind */
+  attributes: ProductAttributeGroup[];
+  /** IDs der am Artikel gesetzten Merkmalswerte */
+  attributeValueIds?: string[];
+  /** Vorhandene Angebote (Migration 033) für die Zuordnung */
+  groupOptions?: { id: string; name: string }[];
+  /**
+   * Warengruppe, die vorausgewählt wird, wenn ein neuer Artikel entsteht: die
+   * des zuletzt angelegten Artikels. Eine Lieferung kommt selten quer durch
+   * das Sortiment, und die alphabetisch erste Gruppe ist nie die richtige.
+   */
+  zuletztKategorieId?: string | null;
   /** undefined = neuer Artikel */
   product?: {
     id: string;
     category_id: string;
+    group_id: string | null;
     sku: string;
     barcode: string | null;
     name: string;
@@ -68,6 +86,10 @@ function SubmitButton() {
 
 export function ProductForm({
   categories,
+  attributes,
+  attributeValueIds = [],
+  groupOptions = [],
+  zuletztKategorieId = null,
   product,
   imageUrls = [],
 }: ProductFormProps) {
@@ -82,7 +104,11 @@ export function ProductForm({
   // nach dem ersten Upload befüllen kann (siehe handleUpload).
   const [name, setName] = useState(product?.name ?? "");
   const [description, setDescription] = useState(product?.description ?? "");
-  const [categoryId, setCategoryId] = useState(product?.category_id ?? "");
+  const [categoryId, setCategoryId] = useState(
+    product?.category_id ?? zuletztKategorieId ?? "",
+  );
+  const [merkmale, setMerkmale] = useState<string[]>(attributeValueIds);
+  const [groupId, setGroupId] = useState(product?.group_id ?? "");
   const [barcode, setBarcode] = useState(product?.barcode ?? "");
   const [retailPrice, setRetailPrice] = useState(
     product?.retail_price !== null && product?.retail_price !== undefined
@@ -205,6 +231,8 @@ export function ProductForm({
       file_path: image.file_path,
       display_order: index,
     })),
+    attribute_value_ids: merkmale,
+    group_id: groupId,
   };
 
   return (
@@ -258,6 +286,35 @@ export function ProductForm({
             ))}
           </select>
         </div>
+
+        {/* Zuordnung zu einem Angebot mit Ausführungen. Der zweite Weg neben
+            dem Generator: Ware, die schon im Regal steht, war beim Anlegen
+            noch kein Bündel. Welche Farbe oder Wattzahl diese Ausführung
+            ausmacht, steht weiter unten unter „Merkmale" – ohne sie erschiene
+            sie im Shop in keinem Auswahlfeld. */}
+        {groupOptions.length > 0 ? (
+          <div className="space-y-2 sm:col-span-2">
+            <Label htmlFor="group_id">Gehört zum Angebot</Label>
+            <select
+              id="group_id"
+              value={groupId}
+              onChange={(event) => setGroupId(event.target.value)}
+              className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+            >
+              <option value="">Einzelner Artikel</option>
+              {groupOptions.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.name}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-muted-foreground">
+              Artikel eines Angebots stehen im Shop als eine Kachel mit
+              Auswahl. Welche Ausführung dieser ist, entscheiden seine
+              Merkmale weiter unten.
+            </p>
+          </div>
+        ) : null}
 
         <div className="space-y-2 sm:col-span-2">
           <Label htmlFor="barcode">Barcode (EAN/UPC)</Label>
@@ -322,6 +379,15 @@ export function ProductForm({
           </Label>
         </div>
       </section>
+
+      {/* Zugeklappt: die meisten Artikel haben keine Merkmale, und ein
+          aufgeklappter Block mit Farbreihen schöbe Preise und Bestand aus dem
+          Bild. Gesetzte Merkmale zeigt der Aufklapper als Zahl an. */}
+      <MerkmalAuswahl
+        attributes={attributes}
+        selected={merkmale}
+        onChange={setMerkmale}
+      />
 
       <section className="rounded-lg border-2 border-gold/40 bg-gold-soft/50 p-5">
         <h2 className="font-medium">Einzelhandel · Ladenverkauf</h2>

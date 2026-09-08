@@ -22,6 +22,8 @@ import { requireAdmin } from "@/lib/auth";
 const ADMIN_TABS: AdminTab[] = [
   { href: "/admin", label: "Übersicht", icon: "dashboard" },
   { href: "/admin/products", label: "Artikel", icon: "artikel" },
+  { href: "/admin/gruppen", label: "Ausführungen", icon: "ausfuehrungen" },
+  { href: "/admin/bestand", label: "Bestand", icon: "bestand" },
   { href: "/admin/categories", label: "Kategorien", icon: "kategorien" },
   { href: "/admin/customers", label: "Kunden", icon: "kunden" },
   { href: "/admin/orders", label: "Bestellungen", icon: "bestellungen" },

@@ -11,7 +11,7 @@ import { getPublicProduct } from "@/lib/queries/products";
  * eine stabile Adresse und holt das Foto beim Erzeugen selbst.
  */
 
-export const alt = "Artikel bei LIDER Berlin";
+export const alt = "Artikel bei LIDER";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -56,7 +56,7 @@ export default async function Image({ params }: { params: Promise<{ id: string }
             />
           ) : (
             <div style={{ display: "flex", fontSize: 40, color: "#64748b" }}>
-              LIDER Berlin
+              LIDER
             </div>
           )}
         </div>
@@ -71,7 +71,7 @@ export default async function Image({ params }: { params: Promise<{ id: string }
           }}
         >
           <div style={{ display: "flex", fontSize: 22, color: "#e2a13f", letterSpacing: 3 }}>
-            {product?.sku ?? "LIDER BERLIN"}
+            {product?.sku ?? "LIDER"}
           </div>
           <div
             style={{
@@ -85,7 +85,7 @@ export default async function Image({ params }: { params: Promise<{ id: string }
             {(product?.name ?? "Artikel").slice(0, 70)}
           </div>
           <div style={{ display: "flex", marginTop: 12, fontSize: 24, color: "#b3bdd2" }}>
-            Großhandel Berlin · Staffelpreise im Kundenportal
+            Groß- und Einzelhandel · Staffelpreise im Kundenportal
           </div>
         </div>
       </div>

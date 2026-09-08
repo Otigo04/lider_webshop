@@ -45,7 +45,8 @@ export function PublicPurchaseCta({
               Portal richtet sich an Gewerbekunden, Nettopreise sind nur mit
               diesem Hinweis eindeutig. */}
           <p className="mt-1 text-sm text-muted-foreground">zzgl. USt.</p>
-          {minOrderQuantity ? (
+          {/* Erst ab zwei Stück ist die Mindestabnahme eine Auflage. */}
+          {minOrderQuantity && minOrderQuantity > 1 ? (
             <p className="mt-1 text-sm text-muted-foreground tabular">
               Mindestabnahme {minOrderQuantity} Stück
             </p>

@@ -7,7 +7,7 @@ import { getCurrentUser } from "@/lib/auth";
 
 export const metadata: Metadata = {
   title: "Anmelden",
-  description: "Zugang zum Kundenportal von Lider Großhandel.",
+  description: "Zugang zum Kundenportal von LIDER.",
 };
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -49,8 +49,8 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
     >
       <h1 className="text-2xl font-semibold tracking-tight">Anmelden</h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        Der Zugang ist Gewerbekunden vorbehalten. Zugangsdaten erhalten Sie von
-        uns.
+        Der Zugang ist Gewerbekunden vorbehalten. Noch kein Konto? Das Anlegen
+        dauert zwei Minuten.
       </p>
 
       {notice ? (

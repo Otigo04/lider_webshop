@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, UserRound } from "lucide-react";
 import { signOut } from "@/lib/actions/auth";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,9 +27,14 @@ export function UserMenu({ label, email, isAdmin }: UserMenuProps) {
         <Button
           variant="ghost"
           size="sm"
-          className="gap-1 text-surface-dark-muted hover:bg-white/10 hover:text-surface-dark-foreground"
+          className="min-w-0 gap-1 text-surface-dark-muted hover:bg-white/10 hover:text-surface-dark-foreground"
         >
-          <span className="max-w-40 truncate">{label}</span>
+          {/* Das Zeichen steht immer, die Beschriftung erst ab xl: ein langer
+              Firmenname oder eine lange E-Mail schob die Kopfleiste sonst über
+              den Fensterrand hinaus. Wer der Angemeldete ist, steht im Menü. */}
+          <UserRound className="size-4 shrink-0" aria-hidden />
+          <span className="hidden max-w-40 truncate xl:inline">{label}</span>
+          <span className="sr-only xl:hidden">Angemeldet als {label}</span>
           <ChevronDown className="size-4" />
         </Button>
       </DropdownMenuTrigger>

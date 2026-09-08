@@ -20,8 +20,10 @@ import type {
  * gelöscht werden (lib/actions/admin-customers.ts).
  */
 
-export interface AdminProductRow extends Omit<Product, "category"> {
+export interface AdminProductRow extends Omit<Product, "category" | "group"> {
   category: { id: string; name: string } | null;
+  /** Angebot, zu dem der Artikel als Ausführung gehört (Migration 033) */
+  group: { id: string; name: string } | null;
   variants: ProductVariant[];
   flags: ProductFlagDef[];
 }
@@ -172,6 +174,30 @@ export interface AdminProductFilter {
    * und UUIDs frei definierter Flags (Migration 021).
    */
   flagIds?: string[];
+  /**
+   * Reihenfolge der Liste. "name" ist die Vorgabe – wer einen bestimmten
+   * Artikel sucht, sucht ihn alphabetisch. "neu" dreht das um: was zuletzt
+   * angelegt wurde, steht oben. Genau das braucht man nach einer Lieferung,
+   * um zu prüfen, was gerade hereingekommen ist.
+   */
+  sort?: AdminProductSort;
+}
+
+/** Sortierungen der Artikelliste; die Werte stehen so in der Adresszeile. */
+export const ADMIN_PRODUCT_SORT = ["name", "neu", "alt"] as const;
+export type AdminProductSort = (typeof ADMIN_PRODUCT_SORT)[number];
+
+export const ADMIN_PRODUCT_SORT_LABELS: Record<AdminProductSort, string> = {
+  name: "Name A–Z",
+  neu: "Neueste zuerst",
+  alt: "Älteste zuerst",
+};
+
+export function istAdminProductSort(wert: unknown): wert is AdminProductSort {
+  return (
+    typeof wert === "string" &&
+    (ADMIN_PRODUCT_SORT as readonly string[]).includes(wert)
+  );
 }
 
 export async function getAdminProducts(
@@ -183,10 +209,20 @@ export async function getAdminProducts(
     .from("products")
     .select(
       `*, category:categories (id, name),
+       group:product_groups (id, name),
        variants:product_variants (id, product_id, min_quantity, max_quantity, unit_price, created_at),
        flag_links:product_flag_links (flag:product_flags (id, name, color, created_at))`,
-    )
-    .order("name");
+    );
+
+  // Sortiert wird in der Abfrage und nicht nachträglich: anders als die
+  // Schnellfilter (lib/admin-product-filter.ts) braucht die Reihenfolge kein
+  // Feld, das erst gerechnet werden müsste – created_at steht in der Zeile.
+  query =
+    filter?.sort === "neu"
+      ? query.order("created_at", { ascending: false })
+      : filter?.sort === "alt"
+        ? query.order("created_at", { ascending: true })
+        : query.order("name");
 
   const term = filter?.search?.replace(/[,()*\\%]/g, " ").trim();
   if (term) {

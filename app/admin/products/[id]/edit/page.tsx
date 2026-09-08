@@ -3,6 +3,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { ProductForm } from "@/components/forms/product-form";
+import {
+  getProductAttributeValueIds,
+  getProductAttributes,
+} from "@/lib/queries/attributes";
+import { getGroupOptions } from "@/lib/queries/groups";
 import { getCategories, getProduct } from "@/lib/queries/products";
 
 export async function generateMetadata({
@@ -18,10 +23,14 @@ export default async function EditProductPage({
 }: PageProps<"/admin/products/[id]/edit">) {
   const { id } = await params;
 
-  const [product, categories] = await Promise.all([
-    getProduct(id),
-    getCategories(),
-  ]);
+  const [product, categories, attributes, attributeValueIds, groupOptions] =
+    await Promise.all([
+      getProduct(id),
+      getCategories(),
+      getProductAttributes(),
+      getProductAttributeValueIds(id),
+      getGroupOptions(),
+    ]);
   if (!product) notFound();
 
   return (
@@ -42,9 +51,13 @@ export default async function EditProductPage({
       <div className="mt-8 max-w-3xl">
         <ProductForm
           categories={categories}
+          attributes={attributes}
+          attributeValueIds={attributeValueIds}
+          groupOptions={groupOptions}
           product={{
             id: product.id,
             category_id: product.category_id,
+            group_id: product.group_id,
             sku: product.sku,
             barcode: product.barcode,
             name: product.name,

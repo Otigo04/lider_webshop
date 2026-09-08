@@ -22,7 +22,10 @@ export function MainNav({ links }: { links: NavLink[] }) {
   const pfad = usePathname();
 
   return (
-    <nav className="hidden items-center gap-0.5 md:flex">
+    /* Erst ab lg: zwischen 768 und 1024 px passen Logo, sechs Reiter und
+       Benutzermenü nicht nebeneinander – die Leiste lief seitlich aus dem
+       Fenster und zog die ganze Seite mit. Dort greift das Klappmenü. */
+    <nav className="hidden min-w-0 items-center gap-0.5 lg:flex">
       {links.map((link) => {
         const aktiv =
           link.href === "/"

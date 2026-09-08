@@ -4,7 +4,7 @@ import { ForgotPasswordForm } from "@/components/forms/forgot-password-form";
 
 export const metadata: Metadata = {
   title: "Passwort vergessen",
-  description: "Passwort zurücksetzen für das Kundenportal von Lider Großhandel.",
+  description: "Passwort zurücksetzen für das Kundenportal von LIDER.",
 };
 
 const ERROR_MESSAGES: Record<string, string> = {

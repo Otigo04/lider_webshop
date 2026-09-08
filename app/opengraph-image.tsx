@@ -11,7 +11,7 @@ import { ImageResponse } from "next/og";
  * Artikelseiten haben ihr eigenes Vorschaubild.
  */
 
-export const alt = "LIDER Berlin – Großhandel für Spielzeug, Multimedia und Handyzubehör";
+export const alt = "LIDER Groß- und Einzelhandel – Spielzeug, Multimedia und Handyzubehör";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -56,13 +56,13 @@ export default async function Image() {
               color: "#f8fafc",
             }}
           >
-            LIDER BERLIN
+            LIDER
           </div>
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", padding: "0 80px 64px" }}>
           <div style={{ display: "flex", fontSize: 24, color: "#e2a13f", letterSpacing: 3 }}>
-            GROSSHANDEL FÜR GEWERBEKUNDEN
+            GROSS- UND EINZELHANDEL
           </div>
           <div
             style={{
@@ -77,7 +77,7 @@ export default async function Image() {
             Spielzeug, Multimedia und Handyzubehör
           </div>
           <div style={{ display: "flex", marginTop: 22, fontSize: 28, color: "#b3bdd2" }}>
-            Staffelpreise und Bestände im Kundenportal · seit 2007 in Berlin
+            Staffelpreise und Bestände im Kundenportal · seit 2007
           </div>
         </div>
 

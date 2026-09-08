@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { toast } from "sonner";
 import { createQuickProduct } from "@/lib/actions/pos";
 import type { PosProduct } from "@/lib/queries/pos";
+import { MerkmalAuswahl } from "@/components/admin/merkmal-auswahl";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { Category } from "@/lib/types";
+import type { Category, ProductAttributeGroup } from "@/lib/types";
 
 /**
  * Barcode unbekannt – Artikel direkt an der Kasse anlegen.
@@ -33,12 +33,18 @@ export function PosNewProductDialog({
   onOpenChange,
   barcode,
   categories,
+  attributes,
+  zuletztKategorieId,
   onCreated,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   barcode: string;
   categories: Category[];
+  /** Gepflegte Merkmale – der Block bleibt zugeklappt, bis jemand ihn aufzieht */
+  attributes: ProductAttributeGroup[];
+  /** Warengruppe des zuletzt angelegten Artikels, nicht die alphabetisch erste */
+  zuletztKategorieId: string | null;
   onCreated: (product: PosProduct) => void;
 }) {
   const [pending, startTransition] = useTransition();
@@ -46,11 +52,18 @@ export function PosNewProductDialog({
   const [felder, setFelder] = useState({
     name: "",
     barcode,
-    category_id: categories[0]?.id ?? "",
+    /*
+     * Am Tresen wird meist Nachschub derselben Ware angelegt, nicht quer durch
+     * das Sortiment. Die zuletzt benutzte Warengruppe trifft es deshalb öfter
+     * als die alphabetisch erste – die stand hier vorher und war praktisch
+     * immer falsch.
+     */
+    category_id: zuletztKategorieId ?? categories[0]?.id ?? "",
     unit_price: "",
     retail_price: "",
     stock_available: "1",
   });
+  const [merkmale, setMerkmale] = useState<string[]>([]);
 
   function speichern() {
     setFehler(null);
@@ -62,6 +75,7 @@ export function PosNewProductDialog({
         unit_price: felder.unit_price,
         retail_price: felder.retail_price.trim(),
         stock_available: felder.stock_available,
+        attribute_value_ids: merkmale,
       });
 
       if (ergebnis.error || !ergebnis.product) {
@@ -69,7 +83,9 @@ export function PosNewProductDialog({
         return;
       }
 
-      toast.success(`${ergebnis.product.name} angelegt (${ergebnis.product.sku}).`);
+      // Keine eigene Meldung: die Statusleiste der Kasse meldet „angelegt und
+      // gebucht" in einem Zug – zwei Hinweise für einen Vorgang wären einer
+      // zu viel.
       onCreated(ergebnis.product);
       onOpenChange(false);
     });
@@ -181,6 +197,13 @@ export function PosNewProductDialog({
             />
           </div>
         </div>
+
+        <MerkmalAuswahl
+          attributes={attributes}
+          selected={merkmale}
+          onChange={setMerkmale}
+          idPrefix="pos-merkmal"
+        />
 
         {fehler ? (
           <p

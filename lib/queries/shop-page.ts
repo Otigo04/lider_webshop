@@ -3,6 +3,11 @@ import type { ProductFlag } from "@/lib/actions/admin-products";
 import { getCurrentUser } from "@/lib/auth";
 import { lowestUnitPrice, minOrderQuantity, freeStock } from "@/lib/pricing";
 import { istNeu } from "@/lib/product-flags";
+import { gruppiere } from "@/lib/product-groups";
+import {
+  getProductAttributes,
+  getProductIdsByValues,
+} from "@/lib/queries/attributes";
 import {
   getCategories,
   getCategoryCounts,
@@ -19,6 +24,7 @@ import {
   type ShopFilters,
 } from "@/lib/shop-filters";
 import type { FilterCategory } from "@/components/shop-filter-panel";
+import type { ProductAttributeGroup } from "@/lib/types";
 
 /**
  * Gemeinsamer Unterbau der drei Sortiments-Routen (/shop, /shop/[category],
@@ -59,11 +65,19 @@ export interface ShopPageData {
   istKunde: boolean;
   filters: ShopFilters;
   categories: FilterCategory[];
+  /** Gepflegte Merkmale für die Filterspalte; leer, solange keine da sind */
+  attributes: ProductAttributeGroup[];
   totalCount: number;
   /** Treffer nach Filtern und Suche, über alle Seiten */
   gefunden: number;
   seite: number;
   seitenGesamt: number;
+  /**
+   * Gibt es überhaupt Artikel mit einer Mindestabnahme über 1 Stück? Ist die
+   * Antwort nein, sind Mengenfilter und Mengensortierung im Sortiment nur
+   * Kästchen ohne Wirkung.
+   */
+  mengenstaffeln: boolean;
   /** Nur die Artikel der aktuellen Seite */
   kundenArtikel: ProductListItem[];
   besucherArtikel: PublicProductListItem[];
@@ -84,10 +98,30 @@ export async function loadShopPage({
   // steht in den Listen nicht zur Verfügung.
   const orderBy = filters.sort === "neu" ? "created_at" : undefined;
 
-  const [categories, counts] = await Promise.all([
+  const [categories, counts, attributes] = await Promise.all([
     getCategories(),
     getCategoryCounts({ flag }),
+    getProductAttributes(),
   ]);
+
+  /*
+   * Merkmalsfilter. Die angehakten Werte werden nach ihrem Merkmal gruppiert,
+   * damit „rot" und „blau" als Oder gelten und „rot" und „XL" als Und – zwei
+   * Farben anzuhaken soll die Liste verlängern, eine Größe dazu sie kürzen
+   * (siehe getProductIdsByValues).
+   *
+   * null heißt „kein Merkmalsfilter gesetzt" und ist nicht dasselbe wie eine
+   * leere Menge: die hieße „nichts trifft zu" und räumte das Sortiment leer.
+   */
+  const gewaehlt = new Set(filters.attributeValues);
+  const nachMerkmal = attributes
+    .map((attribut) =>
+      attribut.values.filter((wert) => gewaehlt.has(wert.id)).map((w) => w.id),
+    )
+    .filter((werte) => werte.length > 0);
+  const erlaubteIds = await getProductIdsByValues(nachMerkmal);
+  const nachMerkmalen = <T extends { id: string }>(items: T[]): T[] =>
+    erlaubteIds === null ? items : items.filter((item) => erlaubteIds.has(item.id));
 
   const mitZahlen: FilterCategory[] = categories.map((category) => ({
     ...category,
@@ -103,14 +137,19 @@ export async function loadShopPage({
       orderBy,
     });
     const seite = seitenAusschnitt(
-      applyShopFilters(artikel, filters, BESUCHER),
+      // Erst filtern und sortieren, dann falten: so vertritt die Kachel eine
+      // Ausführung, die zum Filter passt (wer „rot" anhakt, sieht die rote),
+      // und die Reihenfolge bleibt die gewählte.
+      gruppiere(applyShopFilters(nachMerkmalen(artikel), filters, BESUCHER)),
       filters.page,
     );
     return {
       istKunde,
       filters,
       categories: mitZahlen,
+      attributes,
       totalCount,
+      mengenstaffeln: artikel.some((p) => (BESUCHER.minQuantity(p) ?? 1) > 1),
       gefunden: seite.gefunden,
       seite: seite.seite,
       seitenGesamt: seite.seitenGesamt,
@@ -127,7 +166,7 @@ export async function loadShopPage({
   });
 
   const seite = seitenAusschnitt(
-    applyShopFilters(artikel, filters, KUNDE),
+    gruppiere(applyShopFilters(nachMerkmalen(artikel), filters, KUNDE)),
     filters.page,
   );
 
@@ -135,7 +174,9 @@ export async function loadShopPage({
     istKunde,
     filters,
     categories: mitZahlen,
+    attributes,
     totalCount,
+    mengenstaffeln: artikel.some((p) => (KUNDE.minQuantity(p) ?? 1) > 1),
     gefunden: seite.gefunden,
     seite: seite.seite,
     seitenGesamt: seite.seitenGesamt,

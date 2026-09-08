@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import Link from "next/link";
 import { useFormStatus } from "react-dom";
 import { signUp, type SignUpState } from "@/lib/actions/auth";
 import { AddressFields } from "@/components/forms/address-fields";
@@ -145,6 +146,16 @@ export function RegisterForm() {
       ) : null}
 
       <SubmitButton />
+
+      {/* Transparenzhinweis statt zweiter Pflichthaken: eine Einwilligung
+          braucht es für die Vertragsanbahnung nicht, der Verweis schon. */}
+      <p className="text-xs text-muted-foreground">
+        Wie wir Ihre Daten verarbeiten, steht in der{" "}
+        <Link href="/datenschutz" className="underline hover:text-foreground">
+          Datenschutzerklärung
+        </Link>
+        .
+      </p>
     </form>
   );
 }

@@ -15,7 +15,7 @@ export async function generateMetadata({
     title: category.name,
     description:
       category.description?.trim() ||
-      `${category.name} im Großhandelssortiment von LIDER Berlin. Staffelpreise und Bestände im Kundenportal.`,
+      `${category.name} im Großhandelssortiment von LIDER. Staffelpreise und Bestände im Kundenportal.`,
     alternates: { canonical: `/shop/${category.slug}` },
   };
 }

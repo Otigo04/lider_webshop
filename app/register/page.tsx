@@ -7,7 +7,7 @@ import { getCurrentUser } from "@/lib/auth";
 
 export const metadata: Metadata = {
   title: "Registrieren",
-  description: "Konto für Gewerbekunden im Kundenportal von Lider Großhandel anlegen.",
+  description: "Konto für Gewerbekunden im Kundenportal von LIDER anlegen.",
 };
 
 export default async function RegisterPage() {

@@ -35,7 +35,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<void> {
     return;
   }
 
-  const from = process.env.EMAIL_FROM || "Lider Großhandel <onboarding@resend.dev>";
+  const from = process.env.EMAIL_FROM || "LIDER <onboarding@resend.dev>";
 
   const { error } = await resend.emails.send({
     from,

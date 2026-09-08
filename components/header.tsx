@@ -39,7 +39,7 @@ export async function Header() {
             <span className="relative block size-10 shrink-0 transition-transform duration-300 group-hover:scale-105">
               <Image
                 src={logoPath}
-                alt="LIDER Großhandel"
+                alt="LIDER Groß- und Einzelhandel"
                 fill
                 sizes="40px"
                 priority
@@ -70,7 +70,7 @@ export async function Header() {
 
         <MainNav links={links} />
 
-        <div className="flex items-center gap-1">
+        <div className="flex min-w-0 items-center gap-1">
           {user ? <CartLink /> : null}
           {user ? (
             <UserMenu
@@ -79,7 +79,7 @@ export async function Header() {
               isAdmin={isAdmin}
             />
           ) : (
-            <div className="hidden items-center gap-2 md:flex">
+            <div className="hidden items-center gap-2 lg:flex">
               <Link
                 href="/register"
                 className="rounded-md border border-surface-dark-border px-3 py-1.5 text-sm font-medium text-surface-dark-foreground transition-colors duration-200 hover:border-gold/60 hover:bg-white/10"
@@ -94,7 +94,7 @@ export async function Header() {
               </Link>
             </div>
           )}
-          <div className="md:hidden">
+          <div className="lg:hidden">
             <MobileNav links={links} angemeldet={Boolean(user)} logoSrc={logoPath} />
           </div>
         </div>

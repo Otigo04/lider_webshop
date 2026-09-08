@@ -1,5 +1,5 @@
 /**
- * Domain-Typen für den Lider Großhandel Shop.
+ * Domain-Typen für den LIDER Shop.
  * Spiegelt supabase/schema.sql. Änderungen bitte in beiden Dateien nachziehen.
  */
 
@@ -46,6 +46,8 @@ export interface Category {
   order_index: number;
   /** Zweistelliger Nummernkreis für Artikelnummern, z. B. "12" → 12-0001 */
   sku_prefix: string | null;
+  /** Storage-Pfad des Kachelbilds (Migration 031), null = noch keins */
+  image_path: string | null;
   created_at: string;
 }
 
@@ -81,6 +83,13 @@ export interface ProductImage {
 export interface Product {
   id: string;
   category_id: string;
+  /**
+   * Artikelgruppe (Migration 033) – null bei einem Artikel ohne Ausführungen.
+   * Die Gruppe bündelt, was im Shop **ein** Angebot ist: dieselbe Lampe in
+   * 60 W und 100 W. Am Artikel selbst ändert sie nichts; Kasse, Wareneingang
+   * und Bestellung sehen weiterhin einen ganz normalen Artikel.
+   */
+  group_id: string | null;
   sku: string;
   /** EAN/UPC vom Etikett – was der Kassenscanner liest. null, solange keiner erfasst ist */
   barcode: string | null;
@@ -110,6 +119,25 @@ export interface Product {
   variants?: ProductVariant[];
   images?: ProductImage[];
   category?: Category;
+  group?: ProductGroup | null;
+}
+
+/**
+ * Artikelgruppe (Migration 033): der gemeinsame Titel über mehreren
+ * Ausführungen desselben Angebots.
+ *
+ * Sie trägt nur, was allen gemeinsam ist. Preis, Bestand, Barcode und Fotos
+ * bleiben am einzelnen Artikel – dort unterscheiden sie sich ja gerade. Die
+ * Auswahlfelder im Shop entstehen aus den Merkmalswerten der Mitglieder
+ * (Migration 032).
+ */
+export interface ProductGroup {
+  id: string;
+  name: string;
+  description: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 /**
@@ -419,4 +447,67 @@ export interface AccessRequest {
   message: string | null;
   status: AccessRequestStatus;
   created_at: string;
+}
+
+/**
+ * Zeile im Wareneingangsjournal (Migration 030).
+ *
+ * Der Bestand am Artikel ist eine Zahl ohne Gedächtnis. Hier steht, wann
+ * welche Menge dazukam und was dabei am Preis geändert wurde – Name und
+ * Artikelnummer als Schnappschuss, damit ein später gelöschter Artikel die
+ * Historie nicht unlesbar macht.
+ */
+export interface StockEntry {
+  id: string;
+  product_id: string | null;
+  product_name: string;
+  product_sku: string;
+  barcode: string | null;
+  /** Zugang positiv, Korrektur nach unten negativ */
+  quantity: number;
+  stock_before: number;
+  stock_after: number;
+  /** Was diese Aufnahme gesetzt hat; null = Preis unverändert gelassen */
+  unit_price: number | null;
+  retail_price: number | null;
+  /** Der Artikel entstand mit dieser Buchung */
+  is_new_product: boolean;
+  note: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+/**
+ * Merkmal eines Artikels (Migration 032) – „Farbe", „Größe", „Material".
+ *
+ * Anders als die Artikel-Flags aus Migration 021, die rein intern sortieren,
+ * sind Merkmale nach außen gerichtet: sie stehen auf der Artikelseite und in
+ * der Filterspalte des Sortiments.
+ */
+export type ProductAttributeKind = "color" | "text";
+
+export interface ProductAttribute {
+  id: string;
+  name: string;
+  /** "color" zeichnet die Werte als Farbkreise, "text" als Schildchen */
+  kind: ProductAttributeKind;
+  order_index: number;
+  created_at: string;
+  /** Nur befüllt, wenn per Join mitgeladen */
+  values?: ProductAttributeValue[];
+}
+
+export interface ProductAttributeValue {
+  id: string;
+  attribute_id: string;
+  label: string;
+  /** #RRGGBB für den Farbkreis; null bei Textmerkmalen */
+  hex: string | null;
+  order_index: number;
+  created_at: string;
+}
+
+/** Ein Merkmal mit seinen Werten – die Form, in der die Oberfläche es braucht. */
+export interface ProductAttributeGroup extends ProductAttribute {
+  values: ProductAttributeValue[];
 }

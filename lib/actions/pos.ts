@@ -79,6 +79,8 @@ const quickProductSchema = z.object({
     .int("Bestand muss eine ganze Zahl sein")
     .min(0, "Bestand darf nicht negativ sein")
     .max(10_000_000),
+  /** Merkmalswerte (Migration 032) – am Tresen optional, wie Foto und Text. */
+  attribute_value_ids: z.array(z.string().uuid()).max(100).optional(),
 });
 
 export interface QuickProductResult {
@@ -163,6 +165,25 @@ export async function createQuickProduct(
   if (tierError) {
     console.error("[kasse] Preis anlegen:", tierError.message);
     return { error: "Der Artikel wurde angelegt, aber ohne Preis." };
+  }
+
+  // Merkmale nach dem Anlegen setzen, nicht davor: vorher gibt es keine
+  // Artikel-ID, an die sie hängen könnten. Scheitern sie, ist der Artikel
+  // trotzdem angelegt und verkaufsfähig – die Farbe lässt sich nachtragen,
+  // der Kunde am Tresen wartet nicht darauf.
+  const merkmale = daten.attribute_value_ids ?? [];
+  if (merkmale.length > 0) {
+    const { error: merkmalFehler } = await supabase
+      .from("product_attribute_links")
+      .insert(
+        [...new Set(merkmale)].map((valueId) => ({
+          product_id: angelegt.id as string,
+          value_id: valueId,
+        })),
+      );
+    if (merkmalFehler) {
+      console.error("[kasse] Merkmale speichern:", merkmalFehler.message);
+    }
   }
 
   revalidatePath("/admin/products");

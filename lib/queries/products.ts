@@ -1,9 +1,25 @@
 import "server-only";
 import type { ProductFlag } from "@/lib/actions/admin-products";
 import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/public";
 import { getImageUrls } from "@/lib/storage";
 import { NEU_TAGE, istNeu } from "@/lib/product-flags";
-import type { Category, Product, ProductImage, ProductVariant } from "@/lib/types";
+import { reduzierung } from "@/lib/pricing";
+import { gruppiere } from "@/lib/product-groups";
+import type {
+  Category,
+  Product,
+  ProductImage,
+  ProductVariant,
+} from "@/lib/types";
+
+/**
+ * Client, mit dem Katalogabfragen laufen können: der Sitzungsclient für alles
+ * hinter der Anmeldung, der sitzungslose für den öffentlichen Katalog.
+ */
+type KatalogClient =
+  | Awaited<ReturnType<typeof createClient>>
+  | ReturnType<typeof createPublicClient>;
 
 /**
  * Lesezugriffe auf den Katalog. Alles läuft über den Session-Client, damit RLS
@@ -14,6 +30,11 @@ export interface ProductListItem extends Product {
   variants: ProductVariant[];
   /** Signierte URL des ersten Fotos, null wenn keins hinterlegt ist */
   imageUrl: string | null;
+  /**
+   * Wie viele Ausführungen dieses Angebots die Kachel vertritt (Migration
+   * 033). Gesetzt von gruppiere(); 1 oder fehlend heißt: einzelner Artikel.
+   */
+  ausfuehrungen?: number;
 }
 
 /**
@@ -46,6 +67,35 @@ export interface PublicProductListItem {
    * Werbeaussage und gehört nach außen.
    */
   list_price: number | null;
+  /** Artikelgruppe (Migration 033), null bei einem Artikel ohne Ausführungen */
+  group_id: string | null;
+  /**
+   * Name der Gruppe. Die Karte zeigt ihn statt der Bezeichnung der einzelnen
+   * Ausführung: im Sortiment steht „LED-Lampe E27" und nicht „LED-Lampe E27
+   * 60 W warmweiß", sonst stünde dort viermal fast dasselbe.
+   */
+  groupName: string | null;
+  /** Vertretene Ausführungen; 1 oder fehlend = einzelner Artikel */
+  ausfuehrungen?: number;
+}
+
+/**
+ * Rohzeile aus `products_public`. Ausgeschrieben statt durchgereichter
+ * PostgREST-Typen: die Landingpage rechnet mit diesen Feldern (Neu-Regel,
+ * Schaufenster, Querschnitt), und `Record<string, unknown>` macht daraus
+ * lauter Zwischencasts.
+ */
+interface PublicRow {
+  id: string;
+  category_id: string;
+  group_id: string | null;
+  sku: string;
+  name: string;
+  description: string | null;
+  is_new: boolean;
+  is_topseller: boolean;
+  created_at: string;
+  list_price: number | null;
 }
 
 let viewFehltGemeldet = false;
@@ -61,7 +111,7 @@ interface PriceRangeRow {
  * das ganze Schaufenster scheitern zu lassen.
  */
 async function priceRangesFor(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: KatalogClient,
   ids: string[],
 ): Promise<Map<string, PriceRangeRow>> {
   if (ids.length === 0) return new Map();
@@ -106,8 +156,9 @@ export interface ProductDetail extends Omit<Product, "category"> {
 }
 
 const LIST_COLUMNS = `
-  id, category_id, sku, barcode, name, description, is_active, is_new, is_topseller, has_image,
+  id, category_id, group_id, sku, barcode, name, description, is_active, is_new, is_topseller, has_image,
   retail_price, list_price, stock_available, stock_reserved, created_by, created_at, updated_at,
+  group:product_groups (id, name, description, created_by, created_at, updated_at),
   variants:product_variants (id, product_id, min_quantity, max_quantity, unit_price, created_at),
   images:product_images (id, product_id, file_path, display_order, created_at)
 `;
@@ -136,8 +187,12 @@ function neuAb(): Date {
   return new Date(Date.now() - NEU_TAGE * 24 * 60 * 60 * 1000);
 }
 
-export async function getCategories(): Promise<Category[]> {
-  const supabase = await createClient();
+/**
+ * Warengruppen. Der Client ist überschreibbar, weil die Landingpage sie ohne
+ * Sitzung liest (siehe lib/supabase/public.ts).
+ */
+export async function getCategories(client?: KatalogClient): Promise<Category[]> {
+  const supabase = client ?? (await createClient());
   const { data, error } = await supabase
     .from("categories")
     .select("*")
@@ -161,7 +216,7 @@ export async function getCategoryCounts(options?: {
 }): Promise<Map<string, number>> {
   const supabase = await createClient();
 
-  let query = supabase.from("products_public").select("category_id");
+  let query = supabase.from("products_public").select("id, category_id, group_id");
   if (options?.flag === "is_new") {
     query = query.or(neuheitenFilter(neuAb()));
   } else if (options?.flag) {
@@ -174,9 +229,17 @@ export async function getCategoryCounts(options?: {
     return new Map();
   }
 
+  /*
+   * Gezählt werden **Angebote**, nicht Artikel: eine Lampe in vier
+   * Ausführungen ist im Sortiment eine Kachel und muss in der Filterspalte
+   * auch als eine zählen. Stünde dort „12" und die Liste zeigte 6 Kacheln,
+   * sähe das nach einem Fehler aus (siehe gruppiere() in lib/product-groups.ts).
+   */
   const zaehler = new Map<string, number>();
-  for (const row of data ?? []) {
-    const id = row.category_id as string;
+  for (const row of gruppiere(
+    (data ?? []) as unknown as { id: string; group_id: string | null }[],
+  )) {
+    const id = (row as unknown as { category_id: string }).category_id;
     zaehler.set(id, (zaehler.get(id) ?? 0) + 1);
   }
   return zaehler;
@@ -305,7 +368,7 @@ export async function getPublicProducts(options?: {
   let query = supabase
     .from("products_public")
     .select(
-      "id, category_id, sku, name, description, is_new, is_topseller, created_at, list_price",
+      "id, category_id, group_id, sku, name, description, is_new, is_topseller, created_at, list_price",
     );
 
   query =
@@ -335,17 +398,24 @@ export async function getPublicProducts(options?: {
   }
 
   const ids = (products ?? []).map((p) => p.id as string);
-  const [coverPaths, preise] = await Promise.all([
+  const [coverPaths, preise, gruppen] = await Promise.all([
     firstImagePathsFor(supabase, ids),
     priceRangesFor(supabase, ids),
+    groupNamesFor(
+      supabase,
+      (products ?? []).map((p) => (p.group_id as string | null) ?? null),
+    ),
   ]);
   const urls = await getImageUrls(ids.map((id) => coverPaths.get(id) ?? null));
 
   return (products ?? []).map((row, index) => {
     const preis = preise.get(row.id as string);
+    const groupId = (row.group_id as string | null) ?? null;
     return {
       id: row.id as string,
       category_id: row.category_id as string,
+      group_id: groupId,
+      groupName: groupId ? (gruppen.get(groupId) ?? null) : null,
       sku: row.sku as string,
       name: row.name as string,
       description: row.description as string | null,
@@ -363,6 +433,8 @@ export async function getPublicProducts(options?: {
 /** Warengruppe mit der Zahl der darin gelisteten Artikel. */
 export interface LandingCategory extends Category {
   productCount: number;
+  /** Signierte URL des Kachelbilds (Migration 031), null = keins hinterlegt */
+  imageUrl: string | null;
 }
 
 export interface LandingData {
@@ -379,6 +451,29 @@ export interface LandingData {
    * nicht aus einer einzigen Gruppe besteht.
    */
   sortiment: PublicProductListItem[];
+  /**
+   * Vier Bilder im Kopfbereich: reduzierte Artikel, Topseller und Neuheiten,
+   * bei jedem Aufruf neu gemischt. Der Kopf ist das Schaufenster – dort
+   * gehört hin, was gerade beworben werden soll, und nicht bei jedem Besuch
+   * dieselbe Auslage.
+   */
+  schaufenster: PublicProductListItem[];
+}
+
+/**
+ * Zufällige Reihenfolge (Fisher-Yates).
+ *
+ * `sort(() => Math.random() - 0.5)` sieht kürzer aus, mischt aber nachweislich
+ * schlecht: die Vergleichsfunktion ist nicht konsistent, und je nach
+ * Sortierverfahren bleiben die ersten Einträge auffällig oft vorn.
+ */
+function mische<T>(liste: T[]): T[] {
+  const kopie = [...liste];
+  for (let i = kopie.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [kopie[i], kopie[j]] = [kopie[j], kopie[i]];
+  }
+  return kopie;
 }
 
 /**
@@ -389,7 +484,9 @@ export interface LandingData {
  * pro Artikel genau eine URL signiert, egal in wie vielen Sektionen er steht.
  */
 export async function getLandingData(perSection = 8): Promise<LandingData> {
-  const supabase = await createClient();
+  // Ohne Sitzung: die Startseite ist öffentlich und darf nicht davon abhängen,
+  // ob das Token des angemeldeten Besuchers gerade angenommen wird.
+  const supabase = createPublicClient();
 
   const leer: LandingData = {
     neuheiten: [],
@@ -398,23 +495,32 @@ export async function getLandingData(perSection = 8): Promise<LandingData> {
     productCount: 0,
     ticker: [],
     sortiment: [],
+    schaufenster: [],
   };
 
-  const [{ data: rows, error }, categories] = await Promise.all([
+  const [{ data: alleZeilen, error }, categories] = await Promise.all([
     supabase
       .from("products_public")
       .select(
-        "id, category_id, sku, name, description, is_new, is_topseller, created_at, list_price",
+        "id, category_id, group_id, sku, name, description, is_new, is_topseller, created_at, list_price",
       )
       .order("created_at", { ascending: false }),
-    getCategories(),
+    getCategories(supabase),
   ]);
 
   if (error) {
     console.error("[katalog] Landingpage:", error.message);
     return leer;
   }
-  if (!rows?.length) return { ...leer, categories: categories.map(ohneArtikel) };
+  if (!alleZeilen?.length) return { ...leer, categories: categories.map(ohneArtikel) };
+
+  /*
+   * Ausführungen zusammenfalten, bevor irgendeine Sektion daraus schöpft:
+   * sonst stünden im Schaufenster vier Bilder derselben Lampe und im Laufband
+   * viermal derselbe Name. Behalten wird die zuletzt aufgenommene – die
+   * Abfrage sortiert danach (siehe gruppiere() in lib/product-groups.ts).
+   */
+  const rows = gruppiere(alleZeilen as unknown as PublicRow[]);
 
   // Bilder und Preise nur für die Artikel holen, die tatsächlich auf der Seite
   // landen – hervorgehobene plus die des Laufbands. Der restliche Katalog
@@ -423,16 +529,41 @@ export async function getLandingData(perSection = 8): Promise<LandingData> {
   // lib/product-flags.ts. Deshalb hier über istNeu() filtern, nicht über
   // row.is_new.
   const hervorgehoben = rows
-    .filter((row) => istNeu(row as { is_new: boolean; created_at: string }) || row.is_topseller)
+    .filter((row) => istNeu(row) || row.is_topseller)
     .slice(0, perSection * 2);
   const bandZeilen = rows.slice(0, 10);
+
+  /*
+   * Schaufenster für den Kopfbereich.
+   *
+   * Vorrang haben die beworbenen Artikel: reduziert, Topseller, neu. Ein
+   * gepflegter Vorher-Preis ist dabei nur der Verdacht auf eine Reduzierung –
+   * ob eine übrig bleibt, entscheidet reduzierung() weiter unten mit den
+   * Staffelpreisen.
+   *
+   * Aufgefüllt wird aus dem **gemischten** restlichen Katalog, und das ist
+   * der Punkt: solange kaum etwas als Topseller oder Neuheit markiert ist,
+   * gäbe eine feste Auffüllung bei jedem Aufruf dieselben vier Bilder. Der
+   * Kopf soll sich aber ändern – auch dann.
+   *
+   * Beide Teile werden vor dem Abschneiden gemischt, damit über die Zeit das
+   * ganze Feld drankommt. Die Obergrenze begrenzt, wie viele Bild-URLs
+   * signiert werden müssen – der teure Teil der Abfrage.
+   */
+  const beworben = (row: (typeof rows)[number]) =>
+    istNeu(row) || row.is_topseller || row.list_price !== null;
+
+  const schaufensterZeilen = [
+    ...mische(rows.filter(beworben)),
+    ...mische(rows.filter((row) => !beworben(row))),
+  ].slice(0, 16);
 
   // Querschnitt: reihum eine Warengruppe nach der anderen, damit das
   // Schaufenster die Breite des Sortiments zeigt und nicht nur die Gruppe,
   // in der zuletzt eingepflegt wurde.
   const nachGruppe = new Map<string, typeof rows>();
   for (const row of rows) {
-    const gruppe = row.category_id as string;
+    const gruppe = row.category_id;
     const liste = nachGruppe.get(gruppe) ?? [];
     liste.push(row);
     nachGruppe.set(gruppe, liste);
@@ -451,14 +582,18 @@ export async function getLandingData(perSection = 8): Promise<LandingData> {
 
   const ids = [
     ...new Set(
-      [...hervorgehoben, ...bandZeilen, ...sortimentZeilen].map(
+      [...hervorgehoben, ...bandZeilen, ...sortimentZeilen, ...schaufensterZeilen].map(
         (row) => row.id as string,
       ),
     ),
   ];
-  const [coverPaths, preise] = await Promise.all([
+  const [coverPaths, preise, gruppenNamen] = await Promise.all([
     firstImagePathsFor(supabase, ids),
     priceRangesFor(supabase, ids),
+    groupNamesFor(
+      supabase,
+      rows.map((row) => (row.group_id as string | null) ?? null),
+    ),
   ]);
   const urls = await getImageUrls(ids.map((id) => coverPaths.get(id) ?? null));
   const bilder = new Map(ids.map((id, index) => [id, urls[index]]));
@@ -466,9 +601,13 @@ export async function getLandingData(perSection = 8): Promise<LandingData> {
   const zuArtikel = (row: (typeof rows)[number]): PublicProductListItem => {
     const id = row.id as string;
     const preis = preise.get(id);
+    const groupId = (row.group_id as string | null) ?? null;
     return {
       id,
       category_id: row.category_id as string,
+      group_id: groupId,
+      groupName: groupId ? (gruppenNamen.get(groupId) ?? null) : null,
+      ausfuehrungen: row.ausfuehrungen,
       sku: row.sku as string,
       name: row.name as string,
       description: row.description as string | null,
@@ -484,27 +623,53 @@ export async function getLandingData(perSection = 8): Promise<LandingData> {
 
   const items = hervorgehoben.map(zuArtikel);
 
+  /*
+   * Ohne Foto taugt ein Artikel nicht fürs Schaufenster. Danach in zwei Töpfe:
+   * vorn, was beworben wird, dahinter der gemischte Rest. Der Vorrang fällt
+   * weg, wenn aus dem Vorher-Preis keine Ersparnis wird – dann ist der Artikel
+   * eben Auffüllung.
+   */
+  const schaufensterArtikel = schaufensterZeilen
+    .map(zuArtikel)
+    .filter((product) => product.imageUrl !== null);
+  const hatVorrang = (product: PublicProductListItem) =>
+    istNeu(product) ||
+    product.is_topseller ||
+    reduzierung(product.list_price, product.priceFrom) !== null;
+  const schaufenster = [
+    ...schaufensterArtikel.filter(hatVorrang),
+    ...schaufensterArtikel.filter((product) => !hatVorrang(product)),
+  ];
+
   const proKategorie = new Map<string, number>();
   for (const row of rows) {
     const id = row.category_id as string;
     proKategorie.set(id, (proKategorie.get(id) ?? 0) + 1);
   }
 
+  // Kachelbilder der Warengruppen in einem Rutsch signieren – wie die
+  // Artikelfotos, nur aus einer anderen Spalte.
+  const kategorieBilder = await getImageUrls(
+    categories.map((category) => category.image_path),
+  );
+
   return {
     neuheiten: items.filter((p) => istNeu(p)).slice(0, perSection),
     topseller: items.filter((p) => p.is_topseller).slice(0, perSection),
-    categories: categories.map((category) => ({
+    categories: categories.map((category, index) => ({
       ...category,
       productCount: proKategorie.get(category.id) ?? 0,
+      imageUrl: kategorieBilder[index] ?? null,
     })),
     productCount: rows.length,
     ticker: bandZeilen.map(zuArtikel),
     sortiment: sortimentZeilen.map(zuArtikel),
+    schaufenster,
   };
 }
 
 function ohneArtikel(category: Category): LandingCategory {
-  return { ...category, productCount: 0 };
+  return { ...category, productCount: 0, imageUrl: null };
 }
 
 export async function getPublicProduct(id: string): Promise<PublicProductDetail | null> {
@@ -512,7 +677,7 @@ export async function getPublicProduct(id: string): Promise<PublicProductDetail 
   const { data, error } = await supabase
     .from("products_public")
     .select(
-      "id, category_id, sku, name, description, is_new, is_topseller, created_at, list_price, category:categories (*)",
+      "id, category_id, group_id, sku, name, description, is_new, is_topseller, created_at, list_price, category:categories (*)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -538,6 +703,7 @@ export async function getPublicProduct(id: string): Promise<PublicProductDetail 
   const row = data as unknown as {
     id: string;
     category_id: string;
+    group_id: string | null;
     sku: string;
     name: string;
     description: string | null;
@@ -548,9 +714,13 @@ export async function getPublicProduct(id: string): Promise<PublicProductDetail 
     category: Category | null;
   };
 
+  const gruppen = await groupNamesFor(supabase, [row.group_id]);
+
   return {
     id: row.id,
     category_id: row.category_id,
+    group_id: row.group_id,
+    groupName: row.group_id ? (gruppen.get(row.group_id) ?? null) : null,
     sku: row.sku,
     name: row.name,
     description: row.description,
@@ -566,9 +736,39 @@ export async function getPublicProduct(id: string): Promise<PublicProductDetail 
   };
 }
 
+/**
+ * Gruppennamen zu den vorkommenden group_ids.
+ *
+ * Eigene Abfrage statt eines eingebetteten Joins: `products_public` ist eine
+ * View, und PostgREST leitet Beziehungen dorthin nur über die Spalten der
+ * Basistabelle ab. Eine kleine Nachfrage ist verlässlicher als eine
+ * Einbettung, die bei der nächsten Schemaänderung stillschweigend die ganze
+ * Katalogabfrage scheitern ließe.
+ */
+async function groupNamesFor(
+  supabase: KatalogClient,
+  ids: (string | null)[],
+): Promise<Map<string, string>> {
+  const gefragt = [...new Set(ids.filter((id): id is string => Boolean(id)))];
+  if (gefragt.length === 0) return new Map();
+
+  const { data, error } = await supabase
+    .from("product_groups")
+    .select("id, name")
+    .in("id", gefragt);
+
+  if (error) {
+    console.error("[katalog] Gruppennamen:", error.message);
+    return new Map();
+  }
+  return new Map(
+    (data ?? []).map((row) => [row.id as string, row.name as string]),
+  );
+}
+
 /** Erstes Foto je Artikel-ID, für die Titelbilder im öffentlichen Grid. */
 async function firstImagePathsFor(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: KatalogClient,
   productIds: string[],
 ): Promise<Map<string, string | null>> {
   const result = new Map<string, string | null>();
@@ -614,4 +814,36 @@ function sortImages(images: ProductImage[]): ProductImage[] {
 export function firstImagePath(images: ProductImage[] | null): string | null {
   if (!images || images.length === 0) return null;
   return sortImages(images)[0].file_path;
+}
+
+/**
+ * Warengruppe des zuletzt angelegten Artikels.
+ *
+ * Vorher stand überall, wo ein Artikel entsteht, die alphabetisch erste
+ * Gruppe voreingestellt – im Laden also immer „Spielwaren", auch wenn seit
+ * einer Stunde Haushaltswaren ausgepackt werden. Wer eine Lieferung annimmt,
+ * bleibt fast immer in derselben Gruppe; die zuletzt benutzte ist deshalb die
+ * bessere Vorgabe als jede feste.
+ *
+ * Abgeleitet aus dem Artikelbestand statt aus einer gemerkten Einstellung: so
+ * gilt sie an jedem Gerät und nach jedem Neustart, und es gibt kein zweites
+ * Feld, das mit der Wirklichkeit auseinanderlaufen kann.
+ *
+ * null nur, wenn es noch gar keine Artikel gibt – dann fällt der Aufrufer auf
+ * die erste Warengruppe zurück.
+ */
+export async function getLastUsedCategoryId(): Promise<string | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("products")
+    .select("category_id")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[katalog] Zuletzt benutzte Warengruppe:", error.message);
+    return null;
+  }
+  return (data?.category_id as string | undefined) ?? null;
 }

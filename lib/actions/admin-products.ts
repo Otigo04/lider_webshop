@@ -47,6 +47,16 @@ const productSchema = z.object({
   ),
   tiers: z.array(tierSchema).min(1, "Mindestens eine Preisstaffel angeben"),
   images: z.array(imageSchema),
+  /** Merkmalswerte (Migration 032). Fehlt das Feld, bleiben sie unangetastet. */
+  attribute_value_ids: z.array(z.string().uuid()).max(100).optional(),
+  /**
+   * Artikelgruppe (Migration 033). Leerstring aus dem Auswahlfeld heißt
+   * „gehört zu keinem Angebot" – als null, nicht als leere UUID.
+   */
+  group_id: z.preprocess(
+    (wert) => (wert === "" || wert === undefined ? null : wert),
+    z.string().uuid("Ungültige Gruppe").nullable(),
+  ),
 });
 
 /**
@@ -119,6 +129,7 @@ export async function saveProduct(
   const { error: upsertError } = await supabase.from("products").upsert({
     id: data.id,
     category_id: data.category_id,
+    group_id: data.group_id,
     sku,
     barcode: data.barcode || null,
     name: data.name,
@@ -168,6 +179,32 @@ export async function saveProduct(
     if (imageError) {
       console.error("[admin] Bilder speichern:", imageError.message);
       return { error: "Die Bildzuordnung konnte nicht gespeichert werden." };
+    }
+  }
+
+  // Merkmale wie Staffeln und Bilder: ersetzen statt abgleichen – das
+  // Formular ist der vollständige Sollzustand. Ein fehlendes Feld heißt
+  // dagegen „nicht angefasst"; das Kassenformular schickt keine Merkmale mit
+  // und darf die vorhandenen nicht leer räumen.
+  if (data.attribute_value_ids) {
+    await supabase
+      .from("product_attribute_links")
+      .delete()
+      .eq("product_id", data.id);
+
+    if (data.attribute_value_ids.length > 0) {
+      const { error: merkmalFehler } = await supabase
+        .from("product_attribute_links")
+        .insert(
+          [...new Set(data.attribute_value_ids)].map((valueId) => ({
+            product_id: data.id,
+            value_id: valueId,
+          })),
+        );
+      if (merkmalFehler) {
+        console.error("[admin] Merkmale speichern:", merkmalFehler.message);
+        return { error: "Die Merkmale konnten nicht gespeichert werden." };
+      }
     }
   }
 

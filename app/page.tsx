@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { CatalogCard } from "@/components/catalog-card";
 import { CatalogTicker } from "@/components/catalog-ticker";
+import { CategoryCarousel } from "@/components/category-carousel";
 import { ProductRail } from "@/components/product-rail";
 import { Reveal } from "@/components/reveal";
 import { StatCounter } from "@/components/stat-counter";
@@ -54,14 +55,26 @@ const LEISTUNGEN = [
 ];
 
 export default async function HomePage() {
-  const { neuheiten, topseller, categories, productCount, ticker, sortiment } =
-    await getLandingData();
+  const {
+    neuheiten,
+    topseller,
+    categories,
+    productCount,
+    ticker,
+    sortiment,
+    schaufenster,
+  } = await getLandingData();
 
   const gelistet = categories.filter((category) => category.productCount > 0);
-  // Vier Fotos für den Kopfbereich. Reichen sie nicht, tritt die
-  // Warengruppenliste an ihre Stelle – ein halb gefülltes Raster sähe nach
-  // Fehler aus.
-  const heroBilder = sortiment.filter((product) => product.imageUrl).slice(0, 4);
+  /*
+   * Vier Fotos für den Kopfbereich, bei jedem Aufruf andere. Das Mischen und
+   * die Reihenfolge – erst Reduziertes, Topseller und Neuheiten, dann der
+   * übrige Katalog – macht getLandingData; hier wird nur abgeschnitten.
+   *
+   * Reicht es nicht für vier, tritt die Warengruppenliste an die Stelle: ein
+   * halb gefülltes Raster sähe nach Fehler aus.
+   */
+  const heroBilder = schaufenster.slice(0, 4);
 
   return (
     <>
@@ -70,16 +83,16 @@ export default async function HomePage() {
         <div className="mx-auto grid max-w-6xl gap-12 px-4 py-20 lg:grid-cols-[1.1fr_1fr] lg:items-center lg:gap-16 lg:py-24">
           <div>
             <p className="eyebrow enter text-gold-bright">
-              Großhandel für Gewerbekunden
+              Groß- und Einzelhandel
             </p>
             <h1 className="headline enter enter-1 mt-4 text-4xl font-bold leading-[1.08] sm:text-6xl">
               Spielzeug, Multimedia und Handyzubehör
-              <span className="block text-gold">aus Berlin</span>
+              <span className="block text-gold">im Großhandel</span>
             </h1>
             <p className="enter enter-2 mt-6 max-w-xl text-lg leading-relaxed text-surface-dark-muted">
-              LIDER Berlin beliefert Händler seit 2007. Sehen Sie sich das
-              Sortiment an – Staffelpreise, Bestände und Bestellung stehen im
-              Kundenportal.
+              LIDER beliefert Händler seit 2007. Sehen Sie sich das Sortiment
+              an – Staffelpreise, Bestände und Bestellung stehen im Kundenportal
+              für Gewerbekunden.
             </p>
 
             <div className="enter enter-3 mt-9 flex flex-wrap items-center gap-x-6 gap-y-3">
@@ -161,15 +174,45 @@ export default async function HomePage() {
       {/* ------------------------------------------------------- Katalogband */}
       <CatalogTicker items={ticker} />
 
+      {/* ------------------------------------------------------ Warengruppen */}
+      {gelistet.length > 0 ? (
+        <section className="mx-auto max-w-6xl px-4 pt-20">
+          <Reveal>
+            <div className="flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <p className="eyebrow text-gold">Nach Warengruppe</p>
+                <h2 className="headline mt-3 text-3xl font-bold sm:text-4xl">
+                  Unsere Warengruppen
+                </h2>
+              </div>
+              <Link
+                href="/shop"
+                className="group inline-flex items-center gap-1.5 text-sm font-medium text-brand hover:text-brand-hover"
+              >
+                Alle Warengruppen
+                <ArrowUpRight
+                  className="size-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+                  aria-hidden
+                />
+              </Link>
+            </div>
+          </Reveal>
+
+          <Reveal delay={80} className="mt-8">
+            <CategoryCarousel categories={gelistet} />
+          </Reveal>
+        </section>
+      ) : null}
+
       {/* ---------------------------------------------------------- Sortiment */}
       {sortiment.length > 0 ? (
         <section className="mx-auto max-w-6xl px-4 py-20">
           <Reveal>
             <div className="flex flex-wrap items-end justify-between gap-4">
               <div>
-                <p className="eyebrow text-gold">Warengruppen und Artikel</p>
+                <p className="eyebrow text-gold">Querschnitt</p>
                 <h2 className="headline mt-3 text-3xl font-bold sm:text-4xl">
-                  Das Sortiment
+                  Aus dem Sortiment
                 </h2>
               </div>
               <Link
@@ -185,31 +228,14 @@ export default async function HomePage() {
             </div>
           </Reveal>
 
-          <div className="mt-10 grid gap-8 lg:grid-cols-[16rem_1fr] lg:gap-10">
-            {/* Warengruppen untereinander, Artikel daneben – das ist die
-                Gliederung, die ein Katalog auf Papier auch hätte. */}
-            <Reveal>
-              <div className="lg:sticky lg:top-24">
-                <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                  Warengruppen
-                </h3>
-                <ul className="mt-4 space-y-2">
-                  {gelistet.map((category) => (
-                    <li key={category.id}>
-                      <WarengruppenKachel category={category} />
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </Reveal>
-
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-              {sortiment.slice(0, 12).map((product, index) => (
-                <Reveal key={product.id} delay={index * 40} className="flex">
-                  <CatalogCard product={product} className="card-hover w-full" />
-                </Reveal>
-              ))}
-            </div>
+          {/* Die Warengruppen stehen jetzt als Bildreihe darüber – hier bleibt
+              die Ware selbst, über die volle Breite. */}
+          <div className="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            {sortiment.slice(0, 12).map((product, index) => (
+              <Reveal key={product.id} delay={index * 40} className="flex">
+                <CatalogCard product={product} className="card-hover w-full" />
+              </Reveal>
+            ))}
           </div>
 
           <p className="mt-8 text-center text-xs text-muted-foreground">
@@ -231,9 +257,8 @@ export default async function HomePage() {
                     Neuheiten
                   </h2>
                   <p className="mt-3 max-w-lg text-muted-foreground">
-                    Frisch aufgenommene Ware trägt drei Tage lang das
-                    Neu-Zeichen. Wer regelmäßig hereinschaut, sieht sofort, was
-                    dazugekommen ist.
+                    Zuletzt ins Sortiment aufgenommen. Wer regelmäßig
+                    hereinschaut, sieht sofort, was dazugekommen ist.
                   </p>
                 </div>
                 <Link
@@ -336,7 +361,7 @@ export default async function HomePage() {
               Seit 2007 am selben Ort
             </h2>
             <p className="mt-4 text-muted-foreground">
-              LIDER Berlin ist ein Groß- und Einzelhandel und besteht seit 2007.
+              LIDER ist ein Groß- und Einzelhandel und besteht seit 2007.
               Wir führen Spielzeug, Multimedia und Handyzubehör und bauen das
               Sortiment laufend aus.
             </p>
@@ -403,26 +428,6 @@ export default async function HomePage() {
         </div>
       </section>
     </>
-  );
-}
-
-/**
- * Warengruppe als farbige Kachel. Die Farbe kommt aus dem Namen der Gruppe
- * (lib/accent-colors.ts) und bleibt dadurch über alle Seiten hinweg dieselbe.
- */
-function WarengruppenKachel({ category }: { category: LandingCategory }) {
-  const farbe = accentIndex(category.slug);
-
-  return (
-    <Link
-      href={`/shop/${category.slug}`}
-      className={`group flex items-center justify-between gap-3 rounded-md border border-transparent px-3 py-2.5 text-sm font-medium transition-colors tag-${farbe} hover:border-current`}
-    >
-      <span className="min-w-0 truncate">{category.name}</span>
-      <span className="shrink-0 text-xs opacity-80 tabular">
-        {category.productCount}
-      </span>
-    </Link>
   );
 }
 

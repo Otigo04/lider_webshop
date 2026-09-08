@@ -190,11 +190,13 @@ CREATE TABLE product_images (
 - `/admin` – Admin Dashboard (Stats, Übersicht, Tagesumsatz der Kasse)
 - `/admin/customers` – Kundenverwaltung
 - `/admin/products` – Produktverwaltung
+- `/admin/gruppen` – Angebote mit Ausführungen (Farbe, Größe, Wattzahl)
+- `/admin/bestand` – Wareneingang (Schnellerfassung) und sein Journal
 - `/admin/products/new` – Produkt erstellen
 - `/admin/products/[id]/edit` – Produkt bearbeiten
 - `/admin/orders` – Bestellverwaltung
 - `/admin/categories` – Kategorien verwalten
-- `/admin/settings` – Firmendaten und Kassenvorgaben
+- `/admin/settings` – Firmendaten, Kassenvorgaben, Merkmale und Artikel-Flags
 
 ### **Kassenportal (Protected, nur für Admins):**
 
@@ -206,6 +208,7 @@ steht „Kasse" als goldener Knopf.
 - `/kasse` – Buchhaltungsübersicht (Tag, Monat, Zahlarten, offene Forderungen)
 - `/kasse/terminal` – Ladenkasse (Barcodescanner, Bon, Beleg)
 - `/kasse/verkaeufe` – Verkaufshistorie der Kasse
+- `/kasse/umsaetze` – Umsätze nach Zeitraum, je Tag oder je Monat
 - `/kasse/tagesabschluss` – Z-Abschlüsse, ein Monat je Seite
 - `/kasse/rechnungen` – Rechnungen (auch freie Rechnungen ohne Bestellbezug)
 
@@ -359,6 +362,12 @@ Artikel: "Kunststoff-Widget"
 
 ## 🏷️ Marke und Logo
 
+Der Betrieb heißt **LIDER**, die Unterzeile lautet **„Groß- und Einzelhandel"**.
+Nicht „LIDER Berlin" – der Ort gehört nicht in den Namen. Berlin steht nur
+dort, wo es eine Ortsangabe ist (Abholung, Kennzahl „Standort", Fußzeile), nie
+im Kopfbereich der Startseite und nie neben dem Namen.
+
+
 Die Logodateien liegen unter `public/logo/`, der Zugriff läuft über
 `lib/logo.ts` – nie direkt über den Pfad:
 
@@ -390,8 +399,15 @@ die Akzentfarbe auf dunklen Flächen, Rot bleibt Signalfarbe.
   kleinste Staffel zurück.
 
 - **Scanner**: USB-Handscanner melden sich als Tastatur an und schließen jeden
-  Code mit Enter ab. `components/pos/pos-terminal.tsx` hält den Fokus im
-  Scannerfeld; getippte Zeichen außerhalb eines Eingabefelds springen dorthin.
+  Code mit Enter ab. Der Tastatur-Wächter steht in `lib/use-scan-focus.ts` und
+  wird von Kasse *und* Wareneingang benutzt: getippte Zeichen außerhalb eines
+  Eingabefelds springen ins Scannerfeld. Pausiert, solange ein Dialog offen
+  ist – dort tippt jemand von Hand.
+- **Sofort scannen**: Der Kundenschritt (`pos-customer-step.tsx`) hat oben ein
+  Scannerfeld mit Autofokus. Ein Scan dort öffnet den Bon als Barverkauf zu
+  Ladenpreisen und legt den Artikel gleich auf – der häufigste Vorgang am
+  Tresen darf nicht mit zwei Mausklicks beginnen. Ein Händlerkonto bleibt eine
+  bewusste Auswahl.
 - **Suche**: `products.barcode` zuerst, danach `products.sku` als Notnagel
   (`lib/queries/pos.ts`). Kein Treffer öffnet den Anlegedialog mit dem
   gescannten Code.
@@ -401,6 +417,8 @@ die Akzentfarbe auf dunklen Flächen, Rot bleibt Signalfarbe.
 - **Steuersatz und Preislesart** stehen in `company_settings`
   (`pos_vat_rate`, `pos_prices_gross`) und werden unter `/admin/settings`
   gepflegt – nichts davon ist im Code festverdrahtet.
+- **Freie Position**: Zeile ohne Artikelstamm für Dienstleistungen und Ware,
+  die nicht im Bestand geführt wird – siehe „Freie Position an der Kasse".
 - **Belege**: PDF über `lib/invoice.ts` (`buildPosReceiptPdfData`), abgelegt im
   Bucket `invoices` unter `pos/<sale_id>/<Belegnummer>.pdf`, erreichbar über
   `/kasse/verkaeufe/[id]/receipt`.
@@ -509,6 +527,7 @@ Wer den Bestand anfasst und wie:
 | Checkout des Kunden (`create_order`) | `stock_reserved` +Menge – Ware ist noch da, aber vergeben |
 | Admin legt Bestellung an (`create_admin_order`) | `stock_available` −Menge (Migration 023) – die Bestellung ist sofort `confirmed`, die Ware geht raus |
 | Kassenverkauf (`create_pos_sale`) | `stock_available` −Menge |
+| Wareneingang (`record_stock_entries`) | `stock_available` ±Menge, Journalzeile in `stock_entries` |
 
 Freie Rechnungen (`create_manual_invoice`) rühren den Bestand **nicht** an:
 ihre Positionen sind Freitext ohne Artikelbezug. Wer Ware abbuchen will, legt
@@ -598,3 +617,376 @@ Grundlage: `supabase/migrations/029_bestellablauf.sql`.
   aktivierter E-Mail-Bestätigung an der Stelle noch keine Session existiert.
   Der Admin pflegt sie beim Anlegen eines Kunden im selben Formular mit: ein
   Telefonbesteller meldet sich womöglich nie selbst an.
+
+---
+
+## 📥 Wareneingang (Bestandsaufnahme)
+
+`/admin/bestand`, Grundlage `supabase/migrations/030_wareneingang.sql`.
+
+Beim Auspacken einer Lieferung zählt nur eins: Etikett unter den Scanner,
+Stückzahl tippen, nächster Karton. Deshalb kein Formular je Artikel, sondern
+eine Liste, die beim Scannen wächst, und eine Sammelbuchung am Ende.
+
+- **Ein Weg für alles.** Bekannte und unbekannte Ware landen in derselben
+  Liste – ob ein Artikel neu ist, merkt man beim Auspacken nicht. Ein
+  unbekannter Code wird zur Neuanlage-Zeile (Bezeichnung, Warengruppe,
+  Großhandels- und Ladenpreis Pflicht bzw. optional), ein bekannter kommt mit
+  seinen Daten. Zweimal derselbe Code heißt „zwei Stück", nicht „zwei Zeilen".
+- **`record_stock_entries()`** macht alles in einer Transaktion: Bestand unter
+  Zeilensperre lesen und schreiben, neue Artikel samt Staffel ab 1 Stück
+  anlegen, Journalzeilen setzen. Eine halb gebuchte Lieferung wäre schlimmer
+  als eine gar nicht gebuchte, weil niemand wüsste, wo sie abbrach.
+- **`stock_entries`** ist das Journal: der Bestand am Artikel ist eine Zahl
+  ohne Gedächtnis. Hier steht, wann welche Menge dazukam, was dabei am Preis
+  gesetzt wurde und wer gebucht hat. Name und Artikelnummer als Schnappschuss
+  wie bei `pos_sale_items`.
+- **Leeres Preisfeld heißt „unverändert"**, nicht „0". Der bisherige Preis
+  steht als Platzhalter im Feld. Nur was eingetragen wird, landet am Artikel
+  *und* in der Journalzeile – sonst stünde in der Historie bei jedem Zugang
+  ein Preis, der nie geändert wurde.
+- **Der Barcode-Notausgang**: Nach dem Scan springt der Cursor ins Mengenfeld,
+  damit die Stückzahl ohne Mausgriff eingegeben werden kann. Wer dort den
+  nächsten Artikel scannt, schriebe den Barcode als Menge hinein. Ab acht
+  Ziffern (`BARCODE_AB_STELLEN`) wird die Eingabe deshalb als Scan behandelt
+  und die alte Menge wiederhergestellt: kein Zugang hat 10.000.000 Stück,
+  keine EAN ist kürzer.
+- Das ausführliche Artikelformular (`/admin/products/new`) bleibt daneben für
+  Fotos, Beschreibung und Staffeln und verweist oben hierher.
+
+---
+
+## 📈 Umsatzübersicht
+
+`/kasse/umsaetze`. Was am Tagesabschluss fehlt: dort steht ein Monat je Seite,
+weil die Z-Nummern in Monatsblöcken geführt werden. Hier steht der Zeitraum
+vorn und die Auflösung daneben.
+
+- **Zeitraum** über Presets (heute, gestern, Woche, Monat, Vormonat, Jahr,
+  alles) oder zwei Datumsfelder; aufgelöst in `lib/kassen-zeitraum.ts`, immer
+  auf Kassentagen in Ladenzeit und nie auf selbstgerechneten UTC-Fenstern.
+  Eigene Daten schlagen das Preset.
+- **Auflösung** je Tag oder je Monat. Die Monatszeilen sind die Summe der
+  Tageszeilen aus `pos_day_totals` – zwei Wege zu derselben Zahl wären zwei
+  Wege, sie unterschiedlich zu bekommen.
+- **Z-Bon je Tag** direkt in der Liste; ein Tag ohne Abschluss zeigt
+  stattdessen den Abschlussknopf. Der Z-Bon selbst liegt unverändert unter
+  `/kasse/tagesabschluss/[datum]/bon`.
+
+---
+
+## 🔢 Zahlenfelder
+
+`components/numeric-input.tsx` (Tabellen) und `components/quantity-input.tsx`
+(Warenkorb, mit Plus/Minus) lösen dasselbe Problem: ein `value={zahl}` mit
+`Number(...) || 0` im `onChange` lässt sich nicht leeren. Die Rücktaste macht
+aus dem Feld sofort eine `0`, und aus einer danach getippten 20 wird `020`.
+Beide halten deshalb den Eingabetext als eigenen Entwurf; leer ist erlaubt,
+gerundet wird beim Verlassen des Feldes. Neue Zahlenfelder nehmen eine der
+beiden Komponenten – nicht `<Input type="number">` mit Zahl im State.
+
+---
+
+## 🔎 Schnellfilter der Artikelliste
+
+`lib/admin-product-filter.ts`. Sechs Fragen, die im Laden täglich anfallen –
+ausverkauft, Bestand knapp, ohne Barcode, ohne Ladenpreis, ohne Staffelpreis,
+reduziert – als Kachelreihe über der Tabelle.
+
+- **Gefiltert wird in der Anwendung**, nicht in der Abfrage. Zwei der Fragen
+  ließen sich über PostgREST gar nicht stellen: der freie Bestand rechnet über
+  zwei Spalten, die Reduzierung über die Preisstaffeln. Und die Kachel soll
+  ihre Zahl auch dann zeigen, wenn nicht nach ihr gefiltert wird – ein Filter
+  in der Abfrage hätte die Grundmenge schon weggeworfen.
+- **UND-verknüpft**: zwei Kacheln zusammen meinen die Schnittmenge. Ein ODER
+  brächte eine längere Liste statt einer kürzeren und wäre das Gegenteil eines
+  Filters. (Die Flag-Auswahl darüber bleibt ODER – dort sucht man „neu *oder*
+  Topseller".)
+- Die Kacheln sind Links, keine Kästchen im Suchformular: eine Frage wie „was
+  ist alle?" soll ein Klick beantworten. Das Formular führt sie als versteckte
+  Felder mit, damit eine Suche die Auswahl nicht verwirft.
+- **Sortierung** daneben im Suchformular (`ADMIN_PRODUCT_SORT` in
+  `lib/queries/admin.ts`): Name A–Z als Vorgabe, „Neueste zuerst" und
+  „Älteste zuerst" über `created_at`. Anders als die Kacheln läuft sie in der
+  Abfrage – das Datum steht in der Zeile und muss nicht erst gerechnet werden.
+  Bei Datumssortierung blendet die Zeile das Aufnahmedatum ein; immer sichtbar
+  wäre es eine Spalte Rauschen.
+
+---
+
+## 🔔 Signale der Kasse
+
+`components/pos/use-kassen-ton.ts` und `components/pos/kassen-status.tsx`.
+Kasse *und* Wareneingang benutzen beides.
+
+An der Kasse liegt der Blick auf der Ware, nicht auf dem Bildschirm. Ein
+einziger Piep für jeden Ausgang hieße, doch wieder hinzusehen. Es gibt deshalb
+sechs Signale, hörbar und sichtbar:
+
+| Signal | Wann | Ton |
+|--------|------|-----|
+| `treffer` | Artikel steht auf Bon/Liste | vertrauter Ladenpiep (`public/sounds/scanner-beep.mp3`) |
+| `unbekannt` | Code ohne Treffer → Anlegen | zwei Töne abwärts |
+| `neu` | Artikel angelegt (und gebucht) | drei Töne aufwärts |
+| `warnung` | Bestand reicht nicht, Pflichtfeld fehlt | tiefer Doppelton |
+| `fehler` | Buchung oder Abfrage gescheitert | zwei tiefe lange Töne |
+| `abschluss` | Verkauf bzw. Lieferung gebucht | Dreiklang aufwärts |
+
+- **Ton und Anzeige aus einer Hand**: `useKassenMeldung()` liefert `melden()`,
+  das beides setzt. Getrennt geführt klänge irgendwann ein Fehler wie eine
+  Buchung.
+- **Der Ladenpiep bleibt eine Datei**, alles andere wird im Browser erzeugt
+  (WebAudio). Sonst bräuchte jedes Signal eine gepflegte Tondatei, und die
+  Töne wären nur so verschieden wie die Aufnahmen.
+- **Statusleiste statt Toast**: sie steht fest über dem Scannerfeld, in
+  Blickrichtung, und bleibt acht Sekunden. Eine Meldung am Bildschirmrand ist
+  weg, bevor jemand hinsieht. Ohne Vorgang steht dort „Bereit" – eine Leiste,
+  die kommt und geht, verschöbe bei jedem Scan den Bon.
+
+---
+
+## 🖼️ Warengruppen auf der Startseite
+
+`components/category-carousel.tsx`, Bilder aus `categories.image_path`
+(Migration 031).
+
+- **Bild an der Warengruppe, nicht im Quelltext**: gepflegt wird es unter
+  `/admin/categories` (`components/admin/category-image.tsx`). Hochgeladen
+  wird direkt aus dem Browser in den Bucket `products` unter
+  `kategorien/<id>/…`; die Server Action bekommt nur den Pfad. Eigene
+  Storage-Policies braucht das nicht – „admin write" gilt für den ganzen
+  Bucket, gelesen wird über Signed URLs.
+- **Reihe statt Raster**: native Scroll-Snap-Bahn, die Pfeile schieben nur um
+  eine Kachelbreite. Ein Karussell mit eigenem Zustand zeigte ohne JavaScript
+  nichts und würgte auf dem Telefon das Wischen ab.
+- **Farbbalken unten** trägt die Warengruppenfarbe aus `lib/accent-colors.ts`
+  – dieselbe wie in Filterspalte und Kachelliste. Er verbindet die Ansichten,
+  er schmückt nicht.
+- Ohne Bild bleibt die Kachel eine Kachel (Farbfläche der Gruppe). Ein Loch
+  im Raster sähe nach Fehler aus.
+- Die Warengruppenspalte neben dem Sortiment-Querschnitt ist dafür entfallen:
+  zweimal dieselbe Liste auf einer Seite ist eine zu viel.
+
+---
+
+## 🧾 Bonfrage nach dem Kassieren
+
+Der Abschlussdialog der Kasse fragt bei **Einzelhandelspreisen** in der
+Überschrift „Bon drucken?" und trägt den Druckknopf über die volle Breite;
+„Ohne Bon weiter" steht daneben. Bei **Großhandelspreisen** entfällt die
+Frage – ein Händler mit Konto bekommt ohnehin eine Rechnung, ihn danach zu
+fragen wäre eine Frage zu viel. Dort ist „Nächster Verkauf" der Hauptweg, Bon
+und PDF stehen kleiner darunter.
+
+Der Dialog benutzt eine eigene Fußzeile statt `DialogFooter`: der reiht die
+Knöpfe in einer Zeile, und drei davon liefen im Kassenfenster rechts aus dem
+Rahmen.
+
+---
+
+## 🪟 Schaufenster der Startseite
+
+Die vier Bilder im Kopfbereich kommen aus `LandingData.schaufenster`:
+reduzierte Artikel, Topseller und Neuheiten zuerst, bei **jedem Aufruf neu
+gemischt** (Fisher-Yates in `lib/queries/products.ts`, nicht
+`sort(() => Math.random() - 0.5)` – das mischt nachweislich schlecht).
+
+- **Aufgefüllt wird aus dem gemischten übrigen Katalog**, nicht aus einer
+  festen Liste. Das ist kein Randfall: solange kaum ein Artikel als Topseller
+  oder Neuheit markiert ist, stünden sonst bei jedem Aufruf dieselben vier
+  Bilder da, obwohl gemischt wird. Erst wenn genug markiert ist, füllt der
+  Rest gar nicht mehr auf.
+- Gemischt wird **vor** dem Abschneiden auf 16 Kandidaten, damit über die Zeit
+  das ganze Feld drankommt. Die Zahl begrenzt, wie viele Bild-URLs signiert
+  werden müssen – der teure Teil der Abfrage.
+- Ein gepflegter `list_price` ist nur der Verdacht auf eine Reduzierung; ob
+  eine übrig bleibt, entscheidet `reduzierung()` mit den Staffelpreisen. Wird
+  keine daraus, verliert der Artikel seinen Vorrang und rutscht in den
+  Auffüllteil.
+- Ohne Foto taugt ein Artikel nicht fürs Schaufenster.
+
+---
+
+## 🎨 Merkmale von Artikeln
+
+`supabase/migrations/032_merkmale.sql`. Drei Ebenen, weil die Werte gepflegt
+und nicht getippt werden:
+
+| Tabelle | Inhalt |
+|---------|--------|
+| `product_attributes` | „Farbe", „Größe", „Material" – `kind` ist `color` oder `text` |
+| `product_attribute_values` | „Rot" `#c0392b`, „XL" – der Hex-Wert hängt am Wert, nicht am Merkmal |
+| `product_attribute_links` | Artikel ↔ Wert |
+
+- **Kein Freitextfeld am Artikel.** Nach zwei Wochen stünden „rot", „Rot",
+  „ROT" und „rot/orange" nebeneinander und keine Filterleiste ließe sich
+  daraus bauen. Aus einer gepflegten Werteliste wird sie von allein.
+- **Kein Bestand je Wert.** `products` führt eine Bestandszahl, auf die Kasse,
+  Wareneingang und Bestellungen buchen. Ein Merkmal ist eine Angabe, keine
+  Lagerposition. Soll der Kunde zwischen rot und blau *wählen*, sind das zwei
+  Artikel – gebündelt über eine Artikelgruppe (Migration 033, eigener
+  Abschnitt weiter unten). Die Merkmale sind dort die Grundlage: aus den
+  Werten der Mitglieder entstehen die Auswahlfelder.
+- **Gepflegt** unter `/admin/settings`
+  (`components/forms/product-attributes-settings.tsx`): Merkmal anlegen, Werte
+  darunter. Farbwerte über den Systemwähler (`<input type="color">`) statt
+  einer eigenen Palette – er kennt die Farbe der Ware besser als jede
+  Vorauswahl.
+- **Angehakt** über `components/admin/merkmal-auswahl.tsx`, überall gleich:
+  Artikelformular, Kassen-Anlegedialog, Wareneingang. **Zugeklappt** als
+  Vorgabe – die meisten Artikel haben keine Merkmale, und vier aufgeklappte
+  Farbreihen schöben Preise und Bestand aus dem Bild. Gesetzte Merkmale zeigt
+  der Aufklapper als Zahl; ein zugeklappter Block darf nichts verstecken.
+- **RLS**: lesen darf jeder (`anon` eingeschlossen), schreiben nur der Admin.
+  Anders als die Artikel-Flags aus Migration 021 sind Merkmale nach außen
+  gerichtet – sie stehen auf der Artikelseite und in der Filterspalte, auch
+  ohne Konto. Preise, Bestände und Kundendaten hängen an keiner der Tabellen.
+- **Im Shop**: `components/merkmal-liste.tsx` auf der Artikelseite (Kreis
+  **und** Wort – ein Kreis allein ist für Farbfehlsichtige keine Angabe, das
+  Wort allein sagt nichts über den Ton), Kästchen je Wert in der
+  Filterspalte. Innerhalb eines Merkmals gilt **ODER** („rot oder blau"),
+  zwischen zwei Merkmalen **UND** („rot, und zwar in XL"): zwei Farben
+  anzuhaken soll die Liste verlängern, eine Größe dazu sie kürzen. Aufgelöst
+  in `getProductIdsByValues()`; `null` heißt „kein Filter gesetzt" und ist
+  nicht dasselbe wie eine leere Menge.
+- Der Abschnitt „Merkmale" der Filterspalte hieß vorher so und meinte die
+  festen Kennzeichen (neu, Topseller, verfügbar) – der heißt jetzt
+  **Kennzeichen**.
+
+---
+
+## 🧩 Artikelgruppen (Ausführungen)
+
+`supabase/migrations/033_artikelgruppen.sql`. Eine LED-Lampe in 60 W und
+100 W, warmweiß und kaltweiß, sind **vier Artikel** – vier Etiketten, vier
+Barcodes, vier Bestände – und **ein Angebot**, in dem der Kunde auswählt.
+
+| Was | Wo |
+|-----|-----|
+| `product_groups` | gemeinsamer Titel und Beschreibungstext |
+| `products.group_id` | Zugehörigkeit, `ON DELETE SET NULL` |
+| `create_group_products()` | alle Kombinationen in einer Transaktion |
+
+- **Keine `parent_id` auf products.** Bei einem Kopfartikel wäre eine
+  Ausführung privilegiert; wer sie löscht, weil die 60-W-Variante ausläuft,
+  ließe die übrigen ohne Titel zurück. Die Gruppe trägt den Namen, die
+  Mitglieder sind gleichberechtigt.
+- **Eine Ausführung ist ein ganz normaler Artikel.** Kasse, Wareneingang,
+  Bestand, Bestellung und Rechnung sehen keinen Unterschied und mussten nicht
+  angefasst werden. Genau deshalb diese Lösung und keine Untervarianten-Tabelle.
+- **Auflösen der Gruppe löscht nichts**: die Artikel stehen danach wieder
+  einzeln im Sortiment. Ein CASCADE hier nähme das Löschen einer Überschrift
+  zum Anlass, vier verkäufliche Artikel samt Historie mitzunehmen.
+- **Generator** unter `/admin/gruppen/new`
+  (`components/admin/gruppen-generator.tsx`): Merkmalswerte ankreuzen – Farbe
+  rot und blau, Watt 60 und 100 –, das Kreuzprodukt erscheint als
+  **bearbeitbare** Tabelle mit Bezeichnung, Barcode, drei Preisen und Bestand.
+  Was es nicht gibt (rot in 100 W), wird gestrichen. Die Vorschau ist
+  bearbeitbar, weil ausgerechnet Preis und Bestand das sind, was die
+  Ausführungen unterscheidet – sie hinterher einzeln nachzupflegen wäre der
+  Aufwand, den der Generator gerade spart.
+  Bearbeitete Zeilen hängen an der Wertkombination und nicht an einem
+  Listenindex: kreuzt jemand danach eine weitere Farbe an, wird die Vorschau
+  neu gerechnet und die getippten Preise finden ihre Zeile wieder.
+- **Zweiter Weg**: bestehende Artikel lassen sich im Artikelformular über
+  „Gehört zum Angebot" zuordnen und an der Gruppe wieder lösen. Ware, die
+  schon im Regal steht, war beim Anlegen noch kein Bündel.
+- **Angelegt wird in der Datenbank**, nicht in einer Schleife der Anwendung:
+  jede Ausführung braucht eine Nummer aus dem Nummernkreis (`next_sku` sperrt
+  die Kategoriezeile), eine Preisstaffel und ihre Merkmalsverknüpfungen. Ein
+  Abbruch nach der zweiten Zeile ließe zwei halbe Ausführungen und einen
+  weitergezählten Nummernkreis zurück.
+
+### Im Shop
+
+- **Eine Kachel je Angebot**: `gruppiere()` in `lib/product-groups.ts` faltet
+  die Liste **nach** Filter und Sortierung. Behalten wird die *erste* – damit
+  folgt der Vertreter der gewählten Sortierung (Preis aufsteigend → die
+  günstigste) und passt zum Filter (wer „rot" anhakt, sieht die rote). Eine
+  eigene Regel („immer die billigste") würde die Sortierung zerreißen.
+  Gezählt wird ebenfalls nur, was den Filter überstand.
+- **Gezählt werden Angebote, nicht Artikel** – in `getCategoryCounts()` und
+  auf der Startseite. Stünde in der Filterspalte „12" und die Liste zeigte
+  6 Kacheln, sähe das nach einem Fehler aus.
+- **Auswahl auf der Artikelseite**: `components/product-variant-picker.tsx`,
+  gespeist von `baueAuswahlfelder()`. **Links, keine Schaltflächen mit
+  Zustand**: jede Ausführung hat eine eigene Adresse, also wechselt die Auswahl
+  die Seite. Das kostet einen Seitenaufruf und bringt drei Dinge, die eine
+  Client-Auswahl nicht hätte – die Adresse lässt sich verschicken, der
+  Zurück-Knopf funktioniert, und Preis, Staffeln, Bestand und Fotos kommen
+  frisch vom Server statt vorab für alle Ausführungen mitgeladen zu werden.
+- **Wohin der Klick führt**: zur Ausführung, die den geklickten Wert trägt und
+  in allen anderen Merkmalen so bleibt wie eingestellt. Gibt es die Kombination
+  nicht, ersatzweise irgendeine mit dem Wert – ein toter Knopf verschwiege,
+  dass es 100 W überhaupt gibt. Nur wenn der Wert im ganzen Bündel fehlt,
+  bleibt die Schaltfläche stumm stehen; weggelassen sähe die Auswahl je nach
+  Standpunkt anders aus.
+- **Überschrift** ist der Gruppenname, die Zeile darunter die gewählte
+  Ausführung: die Überschrift muss beim Wechsel stehen bleiben, sonst springt
+  sie unter der Auswahl weg, die man gerade bedient.
+- **Merkmale, in denen sich nichts unterscheidet**, werden kein Auswahlfeld –
+  sind alle vier Lampen E27, ist eine Auswahl mit einer Schaltfläche keine.
+  Die Angabe steht dann in der Merkmalsliste darunter.
+- **Ohne Foto keine Ausführung**: `has_image` gilt hier wie überall
+  (Migration 020). Bei einem Bündel fiele das sonst nicht auf – die Kachel ist
+  ja da, nur eine Option fehlt still. `/admin/gruppen` und die Gruppenseite
+  weisen deshalb ausdrücklich auf Ausführungen ohne Foto hin.
+
+---
+
+## 🧾 Freie Position an der Kasse
+
+Nicht alles, was über den Tresen geht, ist ein Artikel im Lager: eine
+Reparatur, eine Anlieferung, eine Schachtel, die bewusst nie erfasst wurde.
+`create_pos_sale()` kann Zeilen ohne `product_id` seit Migration 018 – sie
+werden abgerechnet, aber nicht vom Bestand abgezogen. Es fehlte nur der Weg
+dorthin: `components/pos/pos-free-line-dialog.tsx`, Knopf neben der
+Namenssuche.
+
+- **Getrennt vom Anlegedialog** daneben: dort entsteht ein Artikel, der
+  bleibt, hier eine Zeile, die mit dem Bon endet. Beides in einem Dialog mit
+  einem Schalter hieße, am Tresen eine Frage zu stellen, die niemand im
+  Vorbeigehen richtig beantwortet.
+- **Keine Zusammenlegung** gleichlautender Zeilen und keine
+  Bestandsprüfung: zwei Reparaturen sind zwei Vorgänge, und eine
+  Dienstleistung ist durch nichts im Lager begrenzt.
+- Auf dem Bon steht „freie Position · nicht im Bestand" statt einer leeren
+  Artikelnummer – sonst sähe die Zeile aus wie ein Artikel, dem die Nummer
+  fehlt. Die Datenbank setzt in `pos_sale_items.product_sku` den Strich.
+
+---
+
+## 🕒 Zuletzt benutzte Warengruppe
+
+`getLastUsedCategoryId()` in `lib/queries/products.ts` – die Warengruppe des
+zuletzt angelegten Artikels. Vorgabe in **allen** Anlegewegen: Artikelformular,
+Kassen-Schnellanlage, Wareneingang.
+
+Vorher stand überall `categories[0]`, also die alphabetisch erste – im Laden
+immer „Spielwaren", auch wenn seit einer Stunde Haushaltswaren ausgepackt
+werden. Wer eine Lieferung annimmt, bleibt fast immer in derselben Gruppe.
+
+Abgeleitet aus dem Artikelbestand statt aus einer gemerkten Einstellung: so
+gilt sie an jedem Gerät und nach jedem Neustart, und es gibt kein zweites Feld,
+das mit der Wirklichkeit auseinanderlaufen kann. Im Wareneingang schlägt die
+vorige Zeile der laufenden Aufnahme sie noch – innerhalb einer Lieferung ist
+die zuletzt getippte Gruppe die bessere Auskunft.
+
+---
+
+## 🌐 Öffentlicher Katalog ohne Sitzung
+
+`lib/supabase/public.ts` – Client mit dem öffentlichen Schlüssel, ohne Cookies
+und ohne Token. `getLandingData()` liest damit; `getCategories()` nimmt ihn
+optional entgegen.
+
+Der Grund ist keine Optimierung, sondern eine Kopplung, die es nicht geben
+darf: die Startseite las den öffentlichen Katalog über den Cookie-Client, also
+entschied das Sitzungstoken des Besuchers darüber, ob die *öffentliche* Seite
+Warengruppen zeigt. Ein Token, das die Datenbank gerade nicht annimmt
+(`JWT issued at future` – Uhrenversatz zwischen Auth und REST auf
+Supabase-Seite), machte aus einem Anmeldeproblem eine leere Startseite.
+
+RLS bleibt unverändert: der öffentliche Schlüssel kann nichts, was ein anonymer
+Besucher nicht auch könnte. Alles, was von der Anmeldung abhängt – Shop, Konto,
+Verwaltung, Kasse –, läuft weiter über `lib/supabase/server.ts`.

@@ -9,6 +9,7 @@ import {
   CreditCard,
   Loader2,
   Minus,
+  PencilLine,
   Plus,
   Printer,
   Receipt,
@@ -16,14 +17,16 @@ import {
   Trash2,
   UserRound,
 } from "lucide-react";
-import { toast } from "sonner";
 import { completePosSale, lookupPosProduct } from "@/lib/actions/pos";
 import type { PosProduct } from "@/lib/queries/pos";
+import { NumericInput } from "@/components/numeric-input";
 import { PosCustomerStep, type PosCustomerChoice } from "@/components/pos/pos-customer-step";
 import { PosCameraScanner } from "@/components/pos/pos-camera-scanner";
+import { PosFreeLineDialog } from "@/components/pos/pos-free-line-dialog";
 import { PosNewProductDialog } from "@/components/pos/pos-new-product-dialog";
 import { PosProductSearch } from "@/components/pos/pos-product-search";
-import { useScannerBeep } from "@/components/pos/use-scanner-beep";
+import { KassenStatus, useKassenMeldung } from "@/components/pos/kassen-status";
+import { useScanFocus } from "@/lib/use-scan-focus";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -45,6 +48,7 @@ import {
   type Category,
   type PosCartItem,
   type PosPaymentMethod,
+  type ProductAttributeGroup,
 } from "@/lib/types";
 
 interface AbschlussInfo {
@@ -70,20 +74,38 @@ interface AbschlussInfo {
 export function PosTerminal({
   customers,
   categories,
+  attributes,
+  zuletztKategorieId,
   vatRate,
   pricesGross,
 }: {
   customers: AppUser[];
   categories: Category[];
+  /** Merkmale für die Schnellanlage – zugeklappt, bis jemand sie aufzieht */
+  attributes: ProductAttributeGroup[];
+  /** Warengruppe des zuletzt angelegten Artikels als Vorgabe der Schnellanlage */
+  zuletztKategorieId: string | null;
   /** Steuersatz aus den Firmendaten – kein fester Wert im Code */
   vatRate: number;
   /** true = eingegebene Preise sind Endpreise inkl. USt. */
   pricesGross: boolean;
 }) {
   const router = useRouter();
-  const piepen = useScannerBeep();
+  // Ton und Statusleiste in einem: jeder Vorgang meldet sich hörbar und
+  // sichtbar (components/pos/kassen-status.tsx).
+  const { meldung, melden } = useKassenMeldung();
 
   const [kunde, setKunde] = useState<PosCustomerChoice | null>(null);
+  /*
+   * Wer den Laden aufschließt und sofort scannt, hat noch keinen Kunden
+   * gewählt. Der Kundenschritt entscheidet dann selbst auf Barverkauf und
+   * reicht den Code hier durch – gebucht wird er, sobald der Bon steht.
+   *
+   * Als Ref und nicht als Zustand: der Code ist eine Übergabe, kein Zustand,
+   * der die Oberfläche beschreibt. Ihn nach dem Buchen zurückzusetzen wäre
+   * sonst ein setState im Effekt und damit ein zweiter Renderdurchlauf.
+   */
+  const startCodeRef = useRef<string | null>(null);
   const [bon, setBon] = useState<PosCartItem[]>([]);
   const [scan, setScan] = useState("");
   const [zahlart, setZahlart] = useState<PosPaymentMethod>("cash");
@@ -94,6 +116,7 @@ export function PosTerminal({
     code: "",
   });
   const [kamera, setKamera] = useState(false);
+  const [freieZeile, setFreieZeile] = useState(false);
   const [bestaetigen, setBestaetigen] = useState(false);
   const [abschluss, setAbschluss] = useState<AbschlussInfo | null>(null);
   const [buchend, startBuchen] = useTransition();
@@ -109,36 +132,11 @@ export function PosTerminal({
    * Kasse, kein Fenster darüber. Der Tastatur-Wächter bleibt deshalb scharf,
    * und Handscanner und Kamera lassen sich gleichzeitig benutzen.
    */
-  const dialogOffen = neuDialog.offen || bestaetigen || abschluss !== null;
+  const dialogOffen =
+    neuDialog.offen || freieZeile || bestaetigen || abschluss !== null;
 
-  /**
-   * Tastatur-Wächter: Der Scanner tippt blind los, egal wo der Fokus steht.
-   * Landet ein Zeichen außerhalb eines Eingabefelds, holen wir den Fokus ins
-   * Scannerfeld zurück – die Ziffer geht dabei nicht verloren, weil das
-   * Ereignis erst danach am neuen Ziel ankommt.
-   */
-  useEffect(() => {
-    if (dialogOffen) return;
-
-    function beiTaste(event: KeyboardEvent) {
-      const ziel = event.target as HTMLElement | null;
-      if (
-        ziel &&
-        (ziel.tagName === "INPUT" ||
-          ziel.tagName === "TEXTAREA" ||
-          ziel.tagName === "SELECT" ||
-          ziel.isContentEditable)
-      ) {
-        return;
-      }
-      if (event.metaKey || event.ctrlKey || event.altKey) return;
-      if (event.key.length !== 1) return;
-      scanRef.current?.focus();
-    }
-
-    window.addEventListener("keydown", beiTaste);
-    return () => window.removeEventListener("keydown", beiTaste);
-  }, [dialogOffen]);
+  // Der Scanner tippt blind los, egal wo der Fokus steht (lib/use-scan-focus.ts).
+  useScanFocus(scanRef, dialogOffen);
 
   useEffect(() => {
     if (kunde && !dialogOffen) scanRef.current?.focus();
@@ -171,12 +169,14 @@ export function PosTerminal({
     const neueMenge = (index >= 0 ? aktuell[index].quantity : 0) + menge;
 
     if (product.freeStock <= 0) {
-      toast.error(`„${product.name}" ist nicht mehr am Lager.`);
+      melden("warnung", `${product.name} ist nicht mehr am Lager.`, product.sku);
       return false;
     }
     if (neueMenge > product.freeStock) {
-      toast.error(
-        `Von „${product.name}" sind nur noch ${formatQuantity(product.freeStock)} Stück verfügbar.`,
+      melden(
+        "warnung",
+        `${product.name}: nur noch ${formatQuantity(product.freeStock)} Stück verfügbar.`,
+        product.sku,
       );
       return false;
     }
@@ -203,11 +203,28 @@ export function PosTerminal({
         },
       ]);
     }
-    piepen();
     return true;
-  }, [piepen]);
+  }, [melden]);
 
-  async function scanVerarbeiten(code: string) {
+  /**
+   * Freie Position auf den Bon.
+   *
+   * Anders als aufDenBon() ohne Bestandsprüfung und ohne Zusammenlegen: eine
+   * Dienstleistung hat keinen Bestand, und zwei gleichlautende freie Zeilen
+   * sind zwei Vorgänge und nicht zweimal derselbe. Wer wirklich zwei Stück
+   * meint, trägt die Menge ein.
+   */
+  function freieZeileAufDenBon(zeile: PosCartItem) {
+    setBon((aktuell) => [...aktuell, zeile]);
+    melden(
+      "treffer",
+      zeile.name,
+      `freie Position · ${formatPrice(zeile.unitPrice)} je Stück`,
+    );
+    scanRef.current?.focus();
+  }
+
+  const scanVerarbeiten = useCallback(async (code: string) => {
     const gesucht = code.trim();
     if (!gesucht) return;
 
@@ -215,8 +232,13 @@ export function PosTerminal({
     try {
       const { product } = await lookupPosProduct(gesucht);
       if (product) {
-        aufDenBon(product);
-        toast.success(`${product.name} hinzugefügt.`);
+        if (aufDenBon(product)) {
+          melden(
+            "treffer",
+            product.name,
+            `${product.sku} · ${formatQuantity(product.freeStock)} Stück am Lager`,
+          );
+        }
         // Weiter geht es blind: der nächste Scan soll ohne Mausklick sitzen.
         scanRef.current?.focus();
       } else {
@@ -225,16 +247,30 @@ export function PosTerminal({
         // darüber. Sie hält über `pausiert` nur ihre Meldungen zurück, damit
         // sie nicht hinter dem offenen Anlegedialog weiterbucht. Der Fokus
         // bleibt beim Dialog, deshalb hier kein Griff ins Scannerfeld.
+        melden("unbekannt", "Code unbekannt – Artikel anlegen.", gesucht);
         setNeuDialog({ offen: true, code: gesucht });
       }
     } catch (fehler) {
       console.error("[kasse] Scan:", fehler);
-      toast.error("Der Artikel konnte nicht nachgeschlagen werden.");
+      melden("fehler", "Der Artikel konnte nicht nachgeschlagen werden.", gesucht);
     } finally {
       setSuchend(false);
       setScan("");
     }
-  }
+  }, [aufDenBon, melden]);
+
+  /*
+   * Ein Code, der schon vor der Kundenwahl gescannt wurde, wird gebucht,
+   * sobald der Bon steht. Steht hinter scanVerarbeiten, weil er die Funktion
+   * braucht.
+   */
+  useEffect(() => {
+    if (!kunde) return;
+    const code = startCodeRef.current;
+    if (code === null) return;
+    startCodeRef.current = null;
+    void scanVerarbeiten(code);
+  }, [kunde, scanVerarbeiten]);
 
   function mengeAendern(index: number, delta: number) {
     const zeile = bon[index];
@@ -246,8 +282,10 @@ export function PosTerminal({
       return;
     }
     if (zeile.maxStock !== null && neu > zeile.maxStock) {
-      toast.error(
-        `Von „${zeile.name}" sind nur noch ${formatQuantity(zeile.maxStock)} Stück verfügbar.`,
+      melden(
+        "warnung",
+        `${zeile.name}: nur noch ${formatQuantity(zeile.maxStock)} Stück verfügbar.`,
+        zeile.sku ?? undefined,
       );
       return;
     }
@@ -256,13 +294,12 @@ export function PosTerminal({
     setBon(bon.map((z, i) => (i === index ? { ...z, quantity: neu } : z)));
   }
 
-  function preisAendern(index: number, wert: string) {
-    const zahl = Number(wert.replace(",", "."));
+  function preisAendern(index: number, preis: number) {
     setBon((aktuell) =>
       aktuell.map((zeile, i) =>
-        i === index
-          ? { ...zeile, unitPrice: Number.isFinite(zahl) && zahl >= 0 ? zahl : 0 }
-          : zeile,
+        // Negative Preise gibt es an der Kasse nicht; die Datenbank lehnt sie
+        // ohnehin ab, hier fällt es nur früher auf.
+        i === index ? { ...zeile, unitPrice: Math.max(preis, 0) } : zeile,
       ),
     );
   }
@@ -314,7 +351,10 @@ export function PosTerminal({
       });
 
       if (ergebnis.error || !ergebnis.sale) {
-        toast.error(ergebnis.error ?? "Der Verkauf konnte nicht gebucht werden.");
+        melden(
+          "fehler",
+          ergebnis.error ?? "Der Verkauf konnte nicht gebucht werden.",
+        );
         setBestaetigen(false);
         return;
       }
@@ -326,8 +366,10 @@ export function PosTerminal({
         totalAmount: ergebnis.sale.totalAmount,
         receiptUrl: ergebnis.sale.receiptUrl,
       });
-      toast.success(
-        `Verkauf ${ergebnis.sale.receiptNumber} gebucht, Bestand aktualisiert.`,
+      melden(
+        "abschluss",
+        `Verkauf gebucht · ${formatPrice(ergebnis.sale.totalAmount)}`,
+        `Beleg ${ergebnis.sale.receiptNumber} · Bestand aktualisiert`,
       );
       router.refresh();
     });
@@ -343,7 +385,15 @@ export function PosTerminal({
   }
 
   if (!kunde) {
-    return <PosCustomerStep customers={customers} onWeiter={setKunde} />;
+    return (
+      <PosCustomerStep
+        customers={customers}
+        onWeiter={(auswahl, code) => {
+          startCodeRef.current = code ?? null;
+          setKunde(auswahl);
+        }}
+      />
+    );
   }
 
   return (
@@ -467,7 +517,9 @@ export function PosTerminal({
               {kamera ? "Kamera ausblenden" : "Kamera zuschalten"}
             </Button>
           </div>
-          <div className="relative mt-2">
+          <KassenStatus meldung={meldung} className="mt-2" />
+
+          <div className="relative mt-3">
             <Input
               id="pos-scan"
               ref={scanRef}
@@ -497,16 +549,26 @@ export function PosTerminal({
           </p>
 
           {/* Zweiter Weg auf den Bon: über die Bezeichnung, wenn das Etikett
-              fehlt oder nicht lesbar ist. */}
-          <div className="mt-6">
+              fehlt oder nicht lesbar ist. Daneben der dritte, für alles ohne
+              Artikelstamm – die Reihenfolge ist die der Häufigkeit. */}
+          <div className="mt-6 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-start">
             <PosProductSearch
               preisModus={preisModus}
               onSelect={(product) => {
                 if (aufDenBon(product)) {
-                  toast.success(`${product.name} hinzugefügt.`);
+                  melden("treffer", product.name, product.sku);
                 }
               }}
             />
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10"
+              onClick={() => setFreieZeile(true)}
+            >
+              <PencilLine className="size-4" aria-hidden />
+              Freie Position
+            </Button>
           </div>
 
           <div className="mt-6 overflow-hidden rounded-lg border border-border">
@@ -531,10 +593,19 @@ export function PosTerminal({
                   >
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-medium">{zeile.name}</p>
-                      <p className="code text-xs text-muted-foreground">
-                        {zeile.sku}
-                        {zeile.barcode ? ` · ${zeile.barcode}` : ""}
-                      </p>
+                      {/* Eine freie Zeile hat keine Artikelnummer – statt
+                          einer leeren Zeile steht dort, was sie ist. Sonst
+                          sähe sie aus wie ein Artikel, dessen Nummer fehlt. */}
+                      {zeile.productId === null ? (
+                        <p className="text-xs text-gold">
+                          freie Position · nicht im Bestand
+                        </p>
+                      ) : (
+                        <p className="code text-xs text-muted-foreground">
+                          {zeile.sku}
+                          {zeile.barcode ? ` · ${zeile.barcode}` : ""}
+                        </p>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-1">
@@ -562,15 +633,12 @@ export function PosTerminal({
                     </div>
 
                     <div className="w-28">
-                      <Input
-                        type="number"
-                        min={0}
-                        step="0.01"
-                        inputMode="decimal"
+                      <NumericInput
+                        dezimal
                         aria-label={`Stückpreis von ${zeile.name}`}
                         value={zeile.unitPrice}
-                        onChange={(event) => preisAendern(index, event.target.value)}
-                        className="h-9 text-right tabular"
+                        onChange={(preis) => preisAendern(index, preis)}
+                        className="h-9 text-right"
                       />
                     </div>
 
@@ -691,14 +759,27 @@ export function PosTerminal({
         </aside>
       </div>
 
+      <PosFreeLineDialog
+        open={freieZeile}
+        onOpenChange={setFreieZeile}
+        onAdd={freieZeileAufDenBon}
+        pricesGross={pricesGross}
+      />
+
       <PosNewProductDialog
         key={neuDialog.code}
         open={neuDialog.offen}
         onOpenChange={(offen) => setNeuDialog((d) => ({ ...d, offen }))}
         barcode={neuDialog.code}
         categories={categories}
+        attributes={attributes}
+        zuletztKategorieId={zuletztKategorieId}
         onCreated={(product) => {
+          // Anlegen und Buchen sind ein Vorgang – deshalb eine Meldung, und
+          // zwar die des Anlegens: dass der Artikel auf dem Bon steht, sieht
+          // man daneben.
           aufDenBon(product);
+          melden("neu", `${product.name} angelegt und gebucht.`, product.sku);
         }}
       />
 
@@ -738,46 +819,109 @@ export function PosTerminal({
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Verkauf {abschluss?.receiptNumber} gebucht</DialogTitle>
+            {/*
+              Am Tresen ist die Frage nach dem Kassieren immer dieselbe: Bon
+              dazu oder nicht? Deshalb steht sie bei Ladenpreisen in der
+              Überschrift und nicht als einer von drei gleichrangigen Knöpfen.
+              Ein Händler mit Konto bekommt ohnehin eine Rechnung – ihn danach
+              zu fragen wäre eine Frage zu viel.
+            */}
+            <DialogTitle>
+              {preisModus === "retail"
+                ? "Bon drucken?"
+                : `Verkauf ${abschluss?.receiptNumber} gebucht`}
+            </DialogTitle>
             <DialogDescription>
+              {abschluss?.receiptNumber} ·{" "}
               {abschluss ? formatPrice(abschluss.totalAmount) : ""} ·{" "}
+              {zahlart === "cash" ? "bar" : "Karte"}
               {abschluss?.receiptUrl
-                ? "Der Beleg steht als PDF bereit."
-                : "Der Beleg konnte nicht erzeugt werden – er lässt sich unter „Verkäufe“ nachholen."}
+                ? ""
+                : " · Der Beleg konnte nicht erzeugt werden – er lässt sich unter „Verkäufe“ nachholen."}
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter>
-            {/*
-              Bon zuerst: am Tresen wartet jemand darauf. Das Fenster öffnet
-              den Druckdialog selbst und bleibt danach stehen, falls ein
-              zweiter Ausdruck gebraucht wird.
-            */}
+
+          {/*
+            Eigene Fußzeile statt DialogFooter: dort stehen die Knöpfe in einer
+            Zeile nebeneinander, und drei davon liefen im Kassenfenster rechts
+            aus dem Rahmen. Hier trägt der Hauptweg eine ganze Zeile, der Rest
+            teilt sich die zweite.
+          */}
+          <div className="-mx-4 -mb-4 space-y-2 rounded-b-xl border-t bg-muted/50 p-4">
             {abschluss ? (
-              <Button asChild>
-                <a
-                  href={`/kasse/verkaeufe/${abschluss.saleId}/bon`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Printer className="size-4" aria-hidden /> Bon drucken
-                </a>
-              </Button>
+              preisModus === "retail" ? (
+                <>
+                  <Button asChild size="lg" className="h-12 w-full text-base">
+                    <a
+                      href={`/kasse/verkaeufe/${abschluss.saleId}/bon`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      autoFocus
+                      onClick={() => neuerVorgang(true)}
+                    >
+                      <Printer className="size-5" aria-hidden /> Bon drucken
+                    </a>
+                  </Button>
+
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => neuerVorgang(true)}
+                    >
+                      Ohne Bon weiter
+                    </Button>
+                    {abschluss.receiptUrl ? (
+                      <Button asChild variant="ghost">
+                        <a
+                          href={abschluss.receiptUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <Receipt className="size-4" aria-hidden /> Beleg als PDF
+                        </a>
+                      </Button>
+                    ) : null}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <Button
+                    type="button"
+                    size="lg"
+                    className="h-12 w-full text-base"
+                    autoFocus
+                    onClick={() => neuerVorgang(true)}
+                  >
+                    Nächster Verkauf
+                  </Button>
+
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {abschluss.receiptUrl ? (
+                      <Button asChild variant="outline">
+                        <a
+                          href={abschluss.receiptUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <Receipt className="size-4" aria-hidden /> Beleg als PDF
+                        </a>
+                      </Button>
+                    ) : null}
+                    <Button asChild variant="ghost">
+                      <a
+                        href={`/kasse/verkaeufe/${abschluss.saleId}/bon`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <Printer className="size-4" aria-hidden /> Bon drucken
+                      </a>
+                    </Button>
+                  </div>
+                </>
+              )
             ) : null}
-            {abschluss?.receiptUrl ? (
-              <Button asChild variant="outline">
-                <a
-                  href={abschluss.receiptUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Receipt className="size-4" aria-hidden /> Beleg als PDF
-                </a>
-              </Button>
-            ) : null}
-            <Button type="button" variant="secondary" onClick={() => neuerVorgang(true)}>
-              Nächster Verkauf
-            </Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

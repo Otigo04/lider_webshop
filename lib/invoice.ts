@@ -659,7 +659,7 @@ export async function generateInvoicePdf(data: InvoicePdfData): Promise<Buffer> 
 
   // Absender links neben dem Logo.
   y = 770;
-  text(company.company_name || "LIDER Berlin Groß- und Einzelhandel", MARGIN, {
+  text(company.company_name || "LIDER Groß- und Einzelhandel", MARGIN, {
     size: 14,
     useFont: bold,
     color: BRAND,

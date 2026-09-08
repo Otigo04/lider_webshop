@@ -29,6 +29,15 @@ export function PriceTable({
     );
   }
 
+  /*
+   * Eine einzige Stufe ab 1 Stück ist keine Staffel, sondern der Stückpreis –
+   * und der steht schon im Bestellkasten darunter. Eine Tabelle mit einer
+   * Zeile darüber sähe nach Staffel aus, wo keine ist.
+   */
+  const einzelpreis =
+    tiers.length === 1 && Number(tiers[0].min_quantity) <= 1;
+  if (einzelpreis) return null;
+
   const maxPrice = highestUnitPrice(tiers) ?? 1;
 
   return (

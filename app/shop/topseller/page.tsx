@@ -5,7 +5,7 @@ import { loadShopPage } from "@/lib/queries/shop-page";
 export const metadata: Metadata = {
   title: "Topseller",
   description:
-    "Artikel, die unsere Händler regelmäßig nachbestellen – mit bewusst hohem Bestand bei LIDER Berlin.",
+    "Artikel, die unsere Händler regelmäßig nachbestellen – mit bewusst hohem Bestand bei LIDER.",
   alternates: { canonical: "/shop/topseller" },
 };
 

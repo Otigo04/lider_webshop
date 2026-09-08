@@ -19,7 +19,7 @@ export default function ImpressumPage() {
       {logoPath ? (
         <Image
           src={logoPath}
-          alt="LIDER Berlin Groß- und Einzelhandel"
+          alt="LIDER Groß- und Einzelhandel"
           width={420}
           height={320}
           priority
@@ -33,7 +33,7 @@ export default function ImpressumPage() {
         <section>
           <h2 className="font-medium">Angaben gemäß § 5 DDG</h2>
           <p className="mt-2 text-muted-foreground">
-            LIDER Berlin Groß- und Einzelhandel
+            LIDER Groß- und Einzelhandel
             <br />
             [STRASSE]
             <br />

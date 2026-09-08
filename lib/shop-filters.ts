@@ -35,6 +35,13 @@ export interface ShopFilters {
   onlyTopseller: boolean;
   /** Nur Artikel mit freiem Bestand – nur für angemeldete Kunden sinnvoll */
   onlyAvailable: boolean;
+  /**
+   * Angehakte Merkmalswerte (Migration 032), als Wert-IDs. Aufgelöst wird die
+   * Auswahl in der Datenbank (lib/queries/attributes.ts): welcher Artikel
+   * welchen Wert trägt, steht in einer Zuordnungstabelle und nicht in den
+   * Feldern, die diesen Filtern sonst zugrunde liegen.
+   */
+  attributeValues: string[];
   /** Seite der Trefferliste, 1-basiert */
   page: number;
 }
@@ -51,6 +58,7 @@ export const EMPTY_FILTERS: ShopFilters = {
   onlyNew: false,
   onlyTopseller: false,
   onlyAvailable: false,
+  attributeValues: [],
   page: 1,
 };
 
@@ -59,6 +67,12 @@ type RawParams = Record<string, string | string[] | undefined>;
 function einzelwert(value: string | string[] | undefined): string {
   if (Array.isArray(value)) return value[0] ?? "";
   return value ?? "";
+}
+
+/** Mehrfach gesetzte Parameter (?merkmal=a&merkmal=b) als Liste. */
+function mehrwert(value: string | string[] | undefined): string[] {
+  if (Array.isArray(value)) return value.filter(Boolean);
+  return value ? [value] : [];
 }
 
 /** Zahl aus der URL, negatives und Unsinn fallen auf null zurück. */
@@ -84,6 +98,9 @@ export function parseShopFilters(params: RawParams): ShopFilters {
     onlyNew: einzelwert(params.neu) === "1",
     onlyTopseller: einzelwert(params.top) === "1",
     onlyAvailable: einzelwert(params.lager) === "1",
+    // Auf 20 begrenzt: mehr Haken setzt niemand, und eine Adresszeile mit
+    // hundert IDs wäre eine Einladung, die Abfrage aufzublähen.
+    attributeValues: mehrwert(params.merkmal).slice(0, 20),
     page: seitenzahl(params.seite),
   };
 }
@@ -224,7 +241,7 @@ export function activeFilterCount(filters: ShopFilters): number {
     filters.onlyNew,
     filters.onlyTopseller,
     filters.onlyAvailable,
-  ].filter(Boolean).length;
+  ].filter(Boolean).length + filters.attributeValues.length;
 }
 
 /**
@@ -248,6 +265,9 @@ export function buildShopHref(
   if (filters.onlyNew) params.set("neu", "1");
   if (filters.onlyTopseller) params.set("top", "1");
   if (filters.onlyAvailable) params.set("lager", "1");
+  // append statt set: mehrere Merkmalswerte stehen nebeneinander in der
+  // Adresse, so wie sie nebeneinander angehakt sind.
+  for (const wert of filters.attributeValues) params.append("merkmal", wert);
 
   for (const [schluessel, wert] of Object.entries(aenderungen)) {
     // undefined heißt "nicht angefasst", null und "" heißen "entfernen".

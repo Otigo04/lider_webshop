@@ -151,8 +151,14 @@ export function counterUnitPrice(
 
 // --- Bestand ----------------------------------------------------------------
 
-/** Ab diesem Wert gilt der Bestand als knapp (gelbes Badge). */
-export const LOW_STOCK_THRESHOLD = 50;
+/**
+ * Unter diesem Wert gilt der Bestand als knapp (gelbes Badge).
+ *
+ * Bewusst niedrig: bei 50 trug im Sortiment fast jede Karte das Warnbadge,
+ * und ein Laden, in dem alles knapp ist, wirkt leer statt dringlich. Die
+ * Warnung soll die Ausnahme bleiben, sonst liest sie niemand mehr.
+ */
+export const LOW_STOCK_THRESHOLD = 10;
 
 export type StockLevel = "out" | "low" | "ok";
 

@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { PosTerminal } from "@/components/pos/pos-terminal";
 import { getCustomers } from "@/lib/queries/admin";
-import { getCategories } from "@/lib/queries/products";
+import { getProductAttributes } from "@/lib/queries/attributes";
+import { getCategories, getLastUsedCategoryId } from "@/lib/queries/products";
 import { getCompanySettings } from "@/lib/queries/settings";
 
 export const metadata: Metadata = { title: "Kasse" };
@@ -13,16 +14,21 @@ export const metadata: Metadata = { title: "Kasse" };
  * läuft danach über Server Actions (lib/actions/pos.ts).
  */
 export default async function AdminPosPage() {
-  const [customers, categories, settings] = await Promise.all([
-    getCustomers(),
-    getCategories(),
-    getCompanySettings(),
-  ]);
+  const [customers, categories, settings, attributes, zuletztKategorieId] =
+    await Promise.all([
+      getCustomers(),
+      getCategories(),
+      getCompanySettings(),
+      getProductAttributes(),
+      getLastUsedCategoryId(),
+    ]);
 
   return (
     <PosTerminal
       customers={customers}
       categories={categories}
+      attributes={attributes}
+      zuletztKategorieId={zuletztKategorieId}
       vatRate={Number(settings.pos_vat_rate)}
       pricesGross={settings.pos_prices_gross}
     />

@@ -16,6 +16,7 @@ const KASSE_TABS: KasseTab[] = [
   { href: "/kasse", label: "Übersicht", icon: "uebersicht" },
   { href: "/kasse/terminal", label: "Kasse", icon: "kasse" },
   { href: "/kasse/verkaeufe", label: "Verkäufe", icon: "verkaeufe" },
+  { href: "/kasse/umsaetze", label: "Umsätze", icon: "umsaetze" },
   {
     href: "/kasse/tagesabschluss",
     label: "Tagesabschluss",

@@ -173,3 +173,44 @@ export async function updateCategoryField(input: {
   revalidatePath("/");
   return { success: "Gespeichert." };
 }
+
+// --- Kachelbild der Warengruppe ---------------------------------------------
+
+/**
+ * Bildpfad setzen oder löschen (Migration 031).
+ *
+ * Hochgeladen wird im Browser direkt in den Storage – wie bei den
+ * Produktfotos, damit die Datei nicht durch den Server läuft. Hier landet nur
+ * der Pfad. Die Datei selbst räumt der Aufrufer weg; misslingt das, bleibt
+ * eine verwaiste Datei im Bucket, aber kein falscher Verweis in der Tabelle.
+ */
+export async function updateCategoryImage(input: {
+  id: string;
+  path: string | null;
+}): Promise<AdminFormState> {
+  await requireAdmin();
+
+  if (!z.string().uuid().safeParse(input.id).success) {
+    return { error: "Keine Warengruppe ausgewählt." };
+  }
+  const pfad = input.path?.trim() || null;
+  if (pfad !== null && !/^kategorien\/[\w./-]+$/.test(pfad)) {
+    return { error: "Ungültiger Bildpfad." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("categories")
+    .update({ image_path: pfad })
+    .eq("id", input.id);
+
+  if (error) {
+    console.error("[admin] Kategoriebild speichern:", error.message);
+    return { error: "Das Bild konnte nicht gespeichert werden." };
+  }
+
+  revalidatePath("/admin/categories");
+  revalidatePath("/");
+  revalidatePath("/shop");
+  return { success: pfad ? "Bild gespeichert." : "Bild entfernt." };
+}

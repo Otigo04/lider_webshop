@@ -18,7 +18,7 @@ export default function DatenschutzPage() {
         <section>
           <h2 className="font-medium">Verantwortlicher</h2>
           <p className="mt-2 text-muted-foreground">
-            LIDER Berlin Groß- und Einzelhandel, [STRASSE], [PLZ ORT], [E-MAIL]
+            LIDER Groß- und Einzelhandel, [STRASSE], [PLZ ORT], [E-MAIL]
           </p>
         </section>
 

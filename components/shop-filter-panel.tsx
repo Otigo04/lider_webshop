@@ -11,7 +11,7 @@ import {
   type ShopFilters,
 } from "@/lib/shop-filters";
 import { cn } from "@/lib/utils";
-import type { Category } from "@/lib/types";
+import type { Category, ProductAttributeGroup } from "@/lib/types";
 
 /** Kategorie samt Trefferzahl in der aktuellen Ansicht. */
 export interface FilterCategory extends Category {
@@ -20,6 +20,12 @@ export interface FilterCategory extends Category {
 
 interface ShopFilterPanelProps {
   categories: FilterCategory[];
+  /**
+   * Gepflegte Merkmale mit ihren Werten (Migration 032). Leer heißt: der
+   * Abschnitt entfällt – eine Überschrift ohne Kästchen darunter ist kein
+   * Filter, sondern eine Lücke.
+   */
+  attributes: ProductAttributeGroup[];
   /** Slug der aktiven Kategorie, null auf der Gesamtübersicht */
   activeSlug: string | null;
   filters: ShopFilters;
@@ -29,6 +35,11 @@ interface ShopFilterPanelProps {
   showStockFilter: boolean;
   /** Auf Neuheiten-/Topseller-Seiten wäre der gleichnamige Haken sinnlos */
   showFlagFilters: boolean;
+  /**
+   * Mengenfilter und -sortierung nur, wenn es Mindestabnahmen über 1 Stück
+   * gibt. Sonst stünde dort eine Auswahl, die an jedem Artikel vorbeigeht.
+   */
+  showMinQuantityFilter: boolean;
   totalCount: number;
 }
 
@@ -46,14 +57,30 @@ interface ShopFilterPanelProps {
  */
 export function ShopFilterPanel({
   categories,
+  attributes,
   activeSlug,
   filters,
   action,
   showStockFilter,
   showFlagFilters,
+  showMinQuantityFilter,
   totalCount,
 }: ShopFilterPanelProps) {
   const gesetzt = activeFilterCount(filters);
+  // Ein per Adresse gesetzter Mengenfilter bleibt sichtbar, sonst ließe er
+  // sich nicht mehr zurücknehmen.
+  const zeigeMenge = showMinQuantityFilter || filters.maxMinQuantity !== null;
+  /*
+   * Warengruppen ohne Artikel führen ins Leere. Die aktive bleibt stehen,
+   * auch wenn ein gesetzter Filter sie gerade leer räumt – sonst verschwände
+   * die Gruppe, in der man selbst steht.
+   */
+  const sichtbareGruppen = categories.filter(
+    (category) => category.productCount > 0 || category.slug === activeSlug,
+  );
+  // Merkmale ohne Werte sind unfertig gepflegt und hätten nichts zum Anhaken.
+  const merkmale = attributes.filter((attribut) => attribut.values.length > 0);
+  const gesetzteWerte = new Set(filters.attributeValues);
 
   return (
     <aside className="lg:w-64 lg:shrink-0">
@@ -90,13 +117,12 @@ export function ShopFilterPanel({
                   Alle Artikel
                 </FilterLink>
               </li>
-              {categories.map((category) => (
+              {sichtbareGruppen.map((category) => (
                 <li key={category.id}>
                   <FilterLink
                     href={buildShopHref(`/shop/${category.slug}`, filters)}
                     active={category.slug === activeSlug}
                     count={category.productCount}
-                    code={category.sku_prefix}
                     dot={accentIndex(category.slug)}
                   >
                     {category.name}
@@ -111,7 +137,10 @@ export function ShopFilterPanel({
             <section>
               <h2 className="eyebrow text-muted-foreground">Sortierung</h2>
               <div className="mt-3 space-y-1.5">
-                {SORT_OPTIONS.map((option) => (
+                {SORT_OPTIONS.filter(
+                  (option) =>
+                    zeigeMenge || option.value !== "menge-auf",
+                ).map((option) => (
                   <label
                     key={option.value}
                     className="flex cursor-pointer items-center gap-2.5 text-sm"
@@ -172,47 +201,88 @@ export function ShopFilterPanel({
             </section>
 
             {/* Mindestabnahme ------------------------------------------- */}
-            <section>
-              <h2 className="eyebrow text-muted-foreground">Mindestabnahme</h2>
-              <div className="mt-3 space-y-1.5">
-                {[
-                  { value: "", label: "Beliebig" },
-                  { value: "12", label: "höchstens 12 Stück" },
-                  { value: "50", label: "höchstens 50 Stück" },
-                  { value: "200", label: "höchstens 200 Stück" },
-                ].map((option) => (
-                  <label
-                    key={option.value || "alle"}
-                    className="flex cursor-pointer items-center gap-2.5 text-sm"
-                  >
-                    <input
-                      type="radio"
-                      name="menge_max"
-                      value={option.value}
-                      defaultChecked={
-                        String(filters.maxMinQuantity ?? "") === option.value
-                      }
-                      className="size-4 accent-brand"
-                    />
-                    {option.label}
-                  </label>
-                ))}
-              </div>
-            </section>
+            {zeigeMenge ? (
+              <section>
+                <h2 className="eyebrow text-muted-foreground">
+                  Mindestabnahme
+                </h2>
+                <div className="mt-3 space-y-1.5">
+                  {[
+                    { value: "", label: "Beliebig" },
+                    { value: "12", label: "höchstens 12 Stück" },
+                    { value: "50", label: "höchstens 50 Stück" },
+                    { value: "200", label: "höchstens 200 Stück" },
+                  ].map((option) => (
+                    <label
+                      key={option.value || "alle"}
+                      className="flex cursor-pointer items-center gap-2.5 text-sm"
+                    >
+                      <input
+                        type="radio"
+                        name="menge_max"
+                        value={option.value}
+                        defaultChecked={
+                          String(filters.maxMinQuantity ?? "") === option.value
+                        }
+                        className="size-4 accent-brand"
+                      />
+                      {option.label}
+                    </label>
+                  ))}
+                </div>
+              </section>
+            ) : null}
 
-            {/* Merkmale ------------------------------------------------- */}
+            {/* Merkmale des Artikels ------------------------------------
+                Farbe, Größe, Material – gepflegt unter Einstellungen. Innerhalb
+                eines Merkmals gilt Oder („rot oder blau"), zwischen zweien Und
+                („rot, und zwar in XL"). Ein Farbkreis vor der Bezeichnung: das
+                Wort „Bordeaux" sagt weniger als der Ton daneben. */}
+            {merkmale.map((attribut) => (
+              <section key={attribut.id}>
+                <h2 className="eyebrow text-muted-foreground">
+                  {attribut.name}
+                </h2>
+                <div className="mt-3 space-y-1.5">
+                  {attribut.values.map((wert) => (
+                    <label
+                      key={wert.id}
+                      className="flex cursor-pointer items-center gap-2.5 text-sm"
+                    >
+                      <input
+                        type="checkbox"
+                        name="merkmal"
+                        value={wert.id}
+                        defaultChecked={gesetzteWerte.has(wert.id)}
+                        className="size-4 accent-brand"
+                      />
+                      {attribut.kind === "color" ? (
+                        <span
+                          aria-hidden
+                          className="size-4 shrink-0 rounded-full border border-black/20"
+                          style={{ backgroundColor: wert.hex ?? "transparent" }}
+                        />
+                      ) : null}
+                      {wert.label}
+                    </label>
+                  ))}
+                </div>
+              </section>
+            ))}
+
+            {/* Kennzeichen ---------------------------------------------- */}
             {showFlagFilters || showStockFilter ? (
               <section>
-                <h2 className="eyebrow text-muted-foreground">Merkmale</h2>
+                <h2 className="eyebrow text-muted-foreground">Kennzeichen</h2>
                 <div className="mt-3 space-y-1.5">
                   {showFlagFilters ? (
                     <>
-                      <Merkmal
+                      <Kennzeichen
                         name="neu"
                         label="Nur Neuheiten"
                         checked={filters.onlyNew}
                       />
-                      <Merkmal
+                      <Kennzeichen
                         name="top"
                         label="Nur Topseller"
                         checked={filters.onlyTopseller}
@@ -220,7 +290,7 @@ export function ShopFilterPanel({
                     </>
                   ) : null}
                   {showStockFilter ? (
-                    <Merkmal
+                    <Kennzeichen
                       name="lager"
                       label="Nur verfügbare Artikel"
                       checked={filters.onlyAvailable}
@@ -243,7 +313,10 @@ export function ShopFilterPanel({
                   <Link
                     href={buildShopHref(
                       action,
-                      { ...filters, search: filters.search },
+                      // Die Merkmalswerte stehen als eigene Parameter in der
+                      // Adresse und lassen sich nicht über `aenderungen`
+                      // löschen – dort gilt ein Schlüssel je Eintrag.
+                      { ...filters, attributeValues: [] },
                       {
                         sort: null,
                         preis_min: null,
@@ -268,7 +341,8 @@ export function ShopFilterPanel({
   );
 }
 
-function Merkmal({
+/** Ein Haken für ein festes Kennzeichen (neu, Topseller, verfügbar). */
+function Kennzeichen({
   name,
   label,
   checked,
@@ -295,14 +369,12 @@ function FilterLink({
   href,
   active,
   count,
-  code,
   dot,
   children,
 }: {
   href: string;
   active: boolean;
   count: number;
-  code?: string | null;
   dot?: number;
   children: React.ReactNode;
 }) {
@@ -325,16 +397,6 @@ function FilterLink({
             active ? "bg-background/70" : `tag-dot-${dot}`,
           )}
         />
-      ) : null}
-      {code ? (
-        <span
-          className={cn(
-            "code text-xs",
-            active ? "text-background/60" : "text-muted-foreground/70",
-          )}
-        >
-          {code}
-        </span>
       ) : null}
       <span className="flex-1">{children}</span>
       <span

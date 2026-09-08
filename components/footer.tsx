@@ -14,7 +14,7 @@ export function Footer() {
             {logoPath ? (
               <Image
                 src={logoPath}
-                alt="LIDER Berlin"
+                alt="LIDER"
                 width={124}
                 height={94}
                 className="h-auto w-24 object-contain"
@@ -42,7 +42,7 @@ export function Footer() {
         </div>
 
         <div className="mt-8 flex flex-col gap-3 border-t border-surface-dark-border pt-6 text-sm sm:flex-row sm:items-center sm:justify-between">
-          <p>© {new Date().getFullYear()} LIDER Berlin Groß- und Einzelhandel</p>
+          <p>© {new Date().getFullYear()} LIDER Groß- und Einzelhandel</p>
           <nav className="flex flex-wrap gap-x-6 gap-y-2">
             <Link
               href="/versand"

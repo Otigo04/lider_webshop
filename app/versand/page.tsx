@@ -5,7 +5,7 @@ import { FREE_SHIPPING_THRESHOLD } from "@/lib/shipping";
 export const metadata: Metadata = {
   title: "Versand und Lieferung",
   description:
-    "Versandkosten, Selbstabholung in Berlin und Ablauf einer Bestellung bei LIDER Berlin.",
+    "Versandkosten, Selbstabholung in Berlin und Ablauf einer Bestellung bei LIDER.",
   alternates: { canonical: "/versand" },
 };
 

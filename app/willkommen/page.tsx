@@ -6,7 +6,7 @@ import { getCurrentUser } from "@/lib/auth";
 
 export const metadata: Metadata = {
   title: "Konto aktiviert",
-  description: "Bestätigung der E-Mail-Adresse für das Kundenportal von Lider Großhandel.",
+  description: "Bestätigung der E-Mail-Adresse für das Kundenportal von LIDER.",
   // Bestätigungsseiten gehören nicht in den Suchindex.
   robots: { index: false, follow: false },
 };

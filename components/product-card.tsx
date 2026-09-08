@@ -23,6 +23,16 @@ export function ProductCard({
   // Kunde, wenn er die Karte überfliegt.
   const rabatt = reduzierung(product.list_price, range?.from);
 
+  /*
+   * Gehört der Artikel zu einer Gruppe, steht deren Name auf der Karte und
+   * nicht der der einzelnen Ausführung: im Sortiment liest sich „LED-Lampe
+   * E27" besser als „LED-Lampe E27 60 W warmweiß", und daneben stünde sonst
+   * dreimal fast dasselbe. Welche Ausführung sich hinter der Kachel verbirgt,
+   * verrät die Artikelnummer – ausgewählt wird auf der Artikelseite.
+   */
+  const ausfuehrungen = product.ausfuehrungen ?? 1;
+  const titel = ausfuehrungen > 1 ? (product.group?.name ?? product.name) : product.name;
+
   return (
     <Link
       href={`/shop/product/${product.id}`}
@@ -63,8 +73,14 @@ export function ProductCard({
         </div>
 
         <h3 className="mt-2 font-semibold leading-snug group-hover:underline">
-          {product.name}
+          {titel}
         </h3>
+
+        {ausfuehrungen > 1 ? (
+          <p className="mt-1 text-xs font-medium text-brand">
+            {ausfuehrungen} Ausführungen zur Auswahl
+          </p>
+        ) : null}
 
         {product.description ? (
           <p className="mt-1.5 line-clamp-2 text-sm text-muted-foreground">
@@ -76,10 +92,16 @@ export function ProductCard({
         <div className="mt-auto border-t border-border pt-3">
           {range ? (
             <>
+              {/* Die Mindestmenge steht nur dort, wo sie eine Auflage ist –
+                  „ab 1 Stück" ist keine Information, sondern Zeilenrauschen. */}
               <p className="eyebrow text-muted-foreground">
                 {range.to !== null
-                  ? `${product.variants.length} Staffeln · ab ${minQty} Stück`
-                  : `ab ${minQty} Stück`}
+                  ? minQty > 1
+                    ? `${product.variants.length} Staffeln · ab ${minQty} Stück`
+                    : `${product.variants.length} Staffeln`
+                  : minQty > 1
+                    ? `ab ${minQty} Stück`
+                    : "Stückpreis"}
               </p>
               {/*
                * Bei mehreren Staffeln die Spanne von günstig nach teuer:

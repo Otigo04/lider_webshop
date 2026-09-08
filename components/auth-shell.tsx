@@ -31,7 +31,7 @@ export function AuthShell({
             {logoPath ? (
               <Image
                 src={logoPath}
-                alt="LIDER Berlin"
+                alt="LIDER"
                 width={132}
                 height={100}
                 className="mb-8 h-auto w-28 object-contain"

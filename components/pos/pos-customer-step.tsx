@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ArrowRight, ScanBarcode, UserPlus, UserRound, Users } from "lucide-react";
 import { CustomerCombobox } from "@/components/admin/customer-combobox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useScanFocus } from "@/lib/use-scan-focus";
 import { cn } from "@/lib/utils";
 import type { AppUser, PosPriceMode } from "@/lib/types";
 
@@ -36,11 +37,21 @@ export function PosCustomerStep({
   onWeiter,
 }: {
   customers: AppUser[];
-  onWeiter: (auswahl: PosCustomerChoice) => void;
+  /** `startCode` ist ein hier schon gescannter Barcode – er gehört auf den ersten Bon */
+  onWeiter: (auswahl: PosCustomerChoice, startCode?: string) => void;
 }) {
   const [modus, setModus] = useState<Modus | null>(null);
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [bezeichnung, setBezeichnung] = useState("");
+  const [scan, setScan] = useState("");
+
+  const scanRef = useRef<HTMLInputElement>(null);
+  /*
+   * Der Wächter läuft nur, solange keine Kachel gewählt ist. Danach wird
+   * getippt – in der Kundensuche, im Anlegedialog – und ein Fokus, der
+   * dazwischen ins Scannerfeld springt, machte die Eingabe unbenutzbar.
+   */
+  useScanFocus(scanRef, modus !== null);
 
   const gewaehlt = customers.find((customer) => customer.id === customerId) ?? null;
 
@@ -61,15 +72,69 @@ export function PosCustomerStep({
     });
   }
 
+  /**
+   * Sofort scannen, ohne vorher etwas anzuklicken.
+   *
+   * Der häufigste Vorgang am Tresen ist Laufkundschaft zum Ladenpreis. Wer
+   * die Kasse öffnet und den ersten Artikel über den Scanner zieht, meint
+   * genau den – die Kundenwahl davorzuschalten hieße, jeden Barverkauf mit
+   * zwei Mausklicks zu beginnen. Ein Händlerkonto ist die Ausnahme und
+   * bleibt eine bewusste Auswahl.
+   */
+  function sofortScannen() {
+    const code = scan.trim();
+    if (!code) return;
+    setScan("");
+    onWeiter(
+      { customerId: null, label: "Barverkauf", priceMode: "retail" },
+      code,
+    );
+  }
+
   return (
     <div className="mx-auto max-w-3xl">
       <h1 className="text-2xl font-semibold tracking-tight">Kasse</h1>
       <p className="mt-1 text-muted-foreground">
-        Für wen wird kassiert? Die Auswahl steht auf dem Beleg, entscheidet über
-        die Preisliste und darüber, ob der Verkauf im Kundenkonto auftaucht.
+        Einfach scannen für den Barverkauf. Wer auf ein Kundenkonto kassiert,
+        wählt es unten – das entscheidet über Preisliste und Bestellhistorie.
       </p>
 
-      <div className="mt-8 grid gap-3 sm:grid-cols-3">
+      {/* Der schnellste Weg steht zuoberst: Feld, Scan, Bon. Die drei Kacheln
+          darunter sind der Umweg für alles, was kein Barverkauf ist. */}
+      <div className="mt-6 rounded-lg border-2 border-gold/50 bg-gold-soft p-5">
+        <label
+          htmlFor="pos-start-scan"
+          className="flex items-center gap-2 text-sm font-medium text-gold"
+        >
+          <ScanBarcode className="size-4" aria-hidden />
+          Direkt scannen
+        </label>
+        <Input
+          id="pos-start-scan"
+          ref={scanRef}
+          value={scan}
+          autoFocus
+          autoComplete="off"
+          placeholder="Scanner auslösen – der Bon öffnet sich als Barverkauf"
+          onChange={(event) => setScan(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key !== "Enter") return;
+            event.preventDefault();
+            sofortScannen();
+          }}
+          className="mt-2 h-14 border-2 border-gold/40 bg-card px-4 text-lg tabular focus-visible:border-gold"
+        />
+        <p className="mt-2 text-xs text-muted-foreground">
+          Laufkundschaft zu Einzelhandelspreisen. Für ein Händlerkonto
+          stattdessen unten auswählen.
+        </p>
+      </div>
+
+      <p className="mt-6 text-sm font-medium text-muted-foreground">
+        Oder für wen soll kassiert werden?
+      </p>
+
+      <div className="mt-3 grid gap-3 sm:grid-cols-3">
         <Auswahlkachel
           aktiv={modus === "bestand"}
           onClick={() => setModus("bestand")}

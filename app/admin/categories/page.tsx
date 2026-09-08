@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ConfirmAction } from "@/components/admin/confirm-action";
 import { InlineEdit } from "@/components/admin/inline-edit";
+import { CategoryImage } from "@/components/admin/category-image";
 import { CategoryForm } from "@/components/forms/category-form";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,6 +10,7 @@ import {
   updateCategoryField,
 } from "@/lib/actions/admin-categories";
 import { getCategories } from "@/lib/queries/products";
+import { getImageUrls } from "@/lib/storage";
 
 export const metadata: Metadata = { title: "Kategorien" };
 
@@ -19,6 +21,10 @@ export default async function AdminCategoriesPage({
   const editId = typeof params.edit === "string" ? params.edit : null;
 
   const categories = await getCategories();
+  // Die Kachelbilder liegen im privaten Bucket – Anzeige nur über Signed URLs.
+  const bilder = await getImageUrls(
+    categories.map((category) => category.image_path),
+  );
   const editing = categories.find((category) => category.id === editId);
 
   return (
@@ -31,7 +37,8 @@ export default async function AdminCategoriesPage({
       <p className="mt-4 rounded-md border border-brand/25 bg-brand-soft px-3 py-2 text-sm text-brand">
         Reihenfolge, Name und Nummernkreis lassen sich direkt in der Tabelle
         ändern. Das Kürzel steht in jeder Shop-Adresse und wird deshalb nur im
-        Formular geändert.
+        Formular geändert. Das Bild erscheint auf der Startseite über dem
+        Sortiment – am besten quadratisch.
       </p>
 
       <div className="mt-8 grid gap-10 lg:grid-cols-[1fr_22rem]">
@@ -45,6 +52,7 @@ export default async function AdminCategoriesPage({
               <thead>
                 <tr className="border-b-2 border-border text-left text-muted-foreground">
                   <th className="py-2 pr-4 font-medium">Reihenfolge</th>
+                  <th className="py-2 pr-4 font-medium">Bild</th>
                   <th className="py-2 pr-4 font-medium">Name</th>
                   <th className="py-2 pr-4 font-medium">Nummernkreis</th>
                   <th className="py-2 pr-4 font-medium">Kürzel</th>
@@ -52,7 +60,7 @@ export default async function AdminCategoriesPage({
                 </tr>
               </thead>
               <tbody>
-                {categories.map((category) => (
+                {categories.map((category, index) => (
                   <tr
                     key={category.id}
                     className="border-b border-border last:border-0"
@@ -66,6 +74,14 @@ export default async function AdminCategoriesPage({
                         value={String(category.order_index)}
                         anzeige={String(category.order_index)}
                         className="text-muted-foreground"
+                      />
+                    </td>
+                    <td className="py-2 pr-4">
+                      <CategoryImage
+                        categoryId={category.id}
+                        imagePath={category.image_path}
+                        imageUrl={bilder[index] ?? null}
+                        name={category.name}
                       />
                     </td>
                     <td className="py-2 pr-4">

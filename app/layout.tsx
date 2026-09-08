@@ -8,9 +8,9 @@ import { CartProvider } from "@/lib/cart-context";
 import { siteUrl } from "@/lib/site";
 import "./globals.css";
 
-const TITEL = "LIDER Berlin – Großhandel für Spielzeug, Multimedia, Handyzubehör";
+const TITEL = "LIDER – Groß- und Einzelhandel für Spielzeug, Multimedia, Handyzubehör";
 const BESCHREIBUNG =
-  "Großhandel aus Berlin seit 2007. Spielzeug, Multimedia und Handyzubehör mit Staffelpreisen und aktuellen Beständen im Kundenportal.";
+  "Groß- und Einzelhandel seit 2007: Spielzeug, Multimedia und Handyzubehör. Staffelpreise und aktuelle Bestände im Kundenportal für Gewerbekunden.";
 
 export const metadata: Metadata = {
   /*
@@ -20,13 +20,13 @@ export const metadata: Metadata = {
    * leer.
    */
   metadataBase: new URL(siteUrl()),
-  title: { default: TITEL, template: "%s | LIDER Berlin" },
+  title: { default: TITEL, template: "%s | LIDER" },
   description: BESCHREIBUNG,
   alternates: { canonical: "/" },
   openGraph: {
     type: "website",
     locale: "de_DE",
-    siteName: "LIDER Berlin",
+    siteName: "LIDER",
     title: TITEL,
     description: BESCHREIBUNG,
     url: "/",
