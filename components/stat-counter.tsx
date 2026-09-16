@@ -12,10 +12,13 @@ export function StatCounter({
   value,
   suffix = "",
   duration = 1100,
+  jahreszahl = false,
 }: {
   value: number;
   suffix?: string;
   duration?: number;
+  /** Ohne Tausenderpunkt – „2007", nicht „2.007" */
+  jahreszahl?: boolean;
 }) {
   const ref = useRef<HTMLSpanElement>(null);
   const [display, setDisplay] = useState(0);
@@ -55,7 +58,7 @@ export function StatCounter({
 
   return (
     <span ref={ref} className="stat-counter tabular">
-      {display.toLocaleString("de-DE")}
+      {jahreszahl ? display : display.toLocaleString("de-DE")}
       {suffix}
     </span>
   );

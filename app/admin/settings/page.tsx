@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { CompanySettingsForm } from "@/components/forms/company-settings-form";
 import { ProductAttributesSettings } from "@/components/forms/product-attributes-settings";
 import { ProductFlagsSettings } from "@/components/forms/product-flags-settings";
+import { SiteBannersSettings } from "@/components/forms/site-banners-settings";
+import { getAllBanners } from "@/lib/queries/banners";
 import { getCompanySettings } from "@/lib/queries/settings";
 import { getProductAttributes } from "@/lib/queries/attributes";
 import { getProductFlags } from "@/lib/queries/product-flags";
@@ -9,10 +11,11 @@ import { getProductFlags } from "@/lib/queries/product-flags";
 export const metadata: Metadata = { title: "Einstellungen" };
 
 export default async function AdminSettingsPage() {
-  const [settings, productFlags, attributes] = await Promise.all([
+  const [settings, productFlags, attributes, hinweise] = await Promise.all([
     getCompanySettings(),
     getProductFlags(),
     getProductAttributes(),
+    getAllBanners(),
   ]);
 
   return (
@@ -25,6 +28,21 @@ export default async function AdminSettingsPage() {
 
       <div className="mt-8 max-w-2xl">
         <CompanySettingsForm settings={settings} />
+      </div>
+
+      <div className="mt-12 max-w-2xl border-t border-border pt-8">
+        <h2 className="text-lg font-semibold tracking-tight">Hinweisleiste</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Die farbige Leiste ganz oben im Shop – für Versandkonditionen,
+          Aktionen oder geänderte Öffnungszeiten. Stehen mehrere Hinweise
+          aktiv, wechseln sie sich ab.
+        </p>
+        <div className="mt-6">
+          <SiteBannersSettings
+            banners={hinweise.banners}
+            verfuegbar={hinweise.verfuegbar}
+          />
+        </div>
       </div>
 
       <div className="mt-12 max-w-2xl border-t border-border pt-8">

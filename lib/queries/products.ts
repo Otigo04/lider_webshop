@@ -435,6 +435,12 @@ export interface LandingCategory extends Category {
   productCount: number;
   /** Signierte URL des Kachelbilds (Migration 031), null = keins hinterlegt */
   imageUrl: string | null;
+  /**
+   * Bis zu drei Artikelfotos der Gruppe. Stehen auf der Kachel, wenn kein
+   * eigenes Kachelbild gepflegt ist – eine Warengruppe erkennt man an ihrer
+   * Ware schneller als an einer Farbfläche.
+   */
+  vorschau: string[];
 }
 
 export interface LandingData {
@@ -451,6 +457,16 @@ export interface LandingData {
    * nicht aus einer einzigen Gruppe besteht.
    */
   sortiment: PublicProductListItem[];
+  /**
+   * Dieselbe Idee je Warengruppe, für die Reiter über dem Sortiment: Schlüssel
+   * ist die category_id, höchstens acht Artikel, zuletzt aufgenommene zuerst.
+   */
+  sortimentNachGruppe: Record<string, PublicProductListItem[]>;
+  /**
+   * Artikel, bei denen reduzierung() eine Ersparnis ergibt – höchste zuerst.
+   * Ein gepflegter Vorher-Preis allein reicht nicht (siehe lib/pricing.ts).
+   */
+  reduziert: PublicProductListItem[];
   /**
    * Vier Bilder im Kopfbereich: reduzierte Artikel, Topseller und Neuheiten,
    * bei jedem Aufruf neu gemischt. Der Kopf ist das Schaufenster – dort
@@ -495,6 +511,8 @@ export async function getLandingData(perSection = 8): Promise<LandingData> {
     productCount: 0,
     ticker: [],
     sortiment: [],
+    sortimentNachGruppe: {},
+    reduziert: [],
     schaufenster: [],
   };
 
@@ -580,9 +598,27 @@ export async function getLandingData(perSection = 8): Promise<LandingData> {
     if (!nachgelegt) break;
   }
 
+  // Reiter je Warengruppe: die ersten acht jeder Gruppe (rows ist nach
+  // Aufnahmedatum absteigend sortiert).
+  const JE_GRUPPE = 8;
+  const gruppenZeilen = [...nachGruppe.values()].flatMap((liste) =>
+    liste.slice(0, JE_GRUPPE),
+  );
+
+  // Kandidaten für „Reduziert": nur wer überhaupt einen Vorher-Preis hat.
+  // Ob daraus eine Ersparnis wird, zeigt sich erst mit den Preisen.
+  const rabattZeilen = rows.filter((row) => row.list_price !== null).slice(0, 40);
+
   const ids = [
     ...new Set(
-      [...hervorgehoben, ...bandZeilen, ...sortimentZeilen, ...schaufensterZeilen].map(
+      [
+        ...hervorgehoben,
+        ...bandZeilen,
+        ...sortimentZeilen,
+        ...schaufensterZeilen,
+        ...gruppenZeilen,
+        ...rabattZeilen,
+      ].map(
         (row) => row.id as string,
       ),
     ),
@@ -653,6 +689,22 @@ export async function getLandingData(perSection = 8): Promise<LandingData> {
     categories.map((category) => category.image_path),
   );
 
+  const sortimentNachGruppe: Record<string, PublicProductListItem[]> = {};
+  for (const [gruppe, liste] of nachGruppe) {
+    sortimentNachGruppe[gruppe] = liste.slice(0, JE_GRUPPE).map(zuArtikel);
+  }
+
+  const reduziert = rabattZeilen
+    .map(zuArtikel)
+    .map((product) => ({
+      product,
+      rabatt: reduzierung(product.list_price, product.priceFrom),
+    }))
+    .filter((eintrag) => eintrag.rabatt !== null)
+    .sort((a, b) => b.rabatt!.prozent - a.rabatt!.prozent)
+    .slice(0, 12)
+    .map((eintrag) => eintrag.product);
+
   return {
     neuheiten: items.filter((p) => istNeu(p)).slice(0, perSection),
     topseller: items.filter((p) => p.is_topseller).slice(0, perSection),
@@ -660,16 +712,22 @@ export async function getLandingData(perSection = 8): Promise<LandingData> {
       ...category,
       productCount: proKategorie.get(category.id) ?? 0,
       imageUrl: kategorieBilder[index] ?? null,
+      vorschau: (sortimentNachGruppe[category.id] ?? [])
+        .map((product) => product.imageUrl)
+        .filter((url): url is string => url !== null)
+        .slice(0, 3),
     })),
     productCount: rows.length,
     ticker: bandZeilen.map(zuArtikel),
     sortiment: sortimentZeilen.map(zuArtikel),
+    sortimentNachGruppe,
+    reduziert,
     schaufenster,
   };
 }
 
 function ohneArtikel(category: Category): LandingCategory {
-  return { ...category, productCount: 0, imageUrl: null };
+  return { ...category, productCount: 0, imageUrl: null, vorschau: [] };
 }
 
 export async function getPublicProduct(id: string): Promise<PublicProductDetail | null> {

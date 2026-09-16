@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/public";
 import type { CompanySettings } from "@/lib/types";
 
 const EMPTY_SETTINGS: CompanySettings = {
@@ -47,4 +48,40 @@ export async function getCompanySettings(): Promise<CompanySettings> {
   // eingespielte Migration mitbringt (etwa die Kassenfelder aus 018), fehlen
   // sonst schlicht und die Kasse rechnete mit undefined.
   return { ...EMPTY_SETTINGS, ...(data as Partial<CompanySettings> | null) };
+}
+
+/** Kontaktangaben, die jeder Besucher sehen darf (Migration 036). */
+export interface PublicContact {
+  company_name: string | null;
+  address_street: string | null;
+  address_zip: string | null;
+  address_city: string | null;
+  phone: string | null;
+  email: string | null;
+  website: string | null;
+}
+
+/**
+ * Telefon, E-Mail und Anschrift für Fußzeile und Startseite – ohne Sitzung
+ * und ohne Bankdaten. company_settings selbst bleibt nur für Angemeldete
+ * lesbar; die Funktion public_company_contact() gibt genau diese Spalten frei.
+ * Fehlt sie noch, bleibt alles null und die Aufrufer zeigen Platzhalter.
+ */
+export async function getPublicContact(): Promise<PublicContact> {
+  const leer: PublicContact = {
+    company_name: null,
+    address_street: null,
+    address_zip: null,
+    address_city: null,
+    phone: null,
+    email: null,
+    website: null,
+  };
+  const { data, error } = await createPublicClient().rpc("public_company_contact");
+  if (error) {
+    console.error("[einstellungen] Kontaktdaten:", error.message);
+    return leer;
+  }
+  const zeile = (Array.isArray(data) ? data[0] : data) as Partial<PublicContact> | undefined;
+  return { ...leer, ...(zeile ?? {}) };
 }

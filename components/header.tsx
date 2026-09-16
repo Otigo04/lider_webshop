@@ -19,6 +19,7 @@ export async function Header() {
     { href: "/shop", label: "Sortiment" },
     { href: "/shop/neuheiten", label: "Neuheiten" },
     { href: "/shop/topseller", label: "Topseller" },
+    { href: "/shop/reduziert", label: "Reduziert", erstAbXl: isAdmin },
     ...(user ? [{ href: "/orders", label: "Bestellungen" }] : []),
     ...(isAdmin ? [{ href: "/admin", label: "Verwaltung" }] : []),
     // Eigenes Portal für Ladengeschäft und Buchhaltung, nur für Admins –

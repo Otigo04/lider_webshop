@@ -747,25 +747,89 @@ sechs Signale, hörbar und sichtbar:
 
 ## 🖼️ Warengruppen auf der Startseite
 
-`components/category-carousel.tsx`, Bilder aus `categories.image_path`
-(Migration 031).
+`components/category-grid.tsx`, Bilder aus `categories.image_path`
+(Migration 031) oder – ohne Kachelbild – bis zu drei Artikelfotos der Gruppe
+(`LandingCategory.vorschau`).
 
 - **Bild an der Warengruppe, nicht im Quelltext**: gepflegt wird es unter
   `/admin/categories` (`components/admin/category-image.tsx`). Hochgeladen
   wird direkt aus dem Browser in den Bucket `products` unter
-  `kategorien/<id>/…`; die Server Action bekommt nur den Pfad. Eigene
-  Storage-Policies braucht das nicht – „admin write" gilt für den ganzen
-  Bucket, gelesen wird über Signed URLs.
-- **Reihe statt Raster**: native Scroll-Snap-Bahn, die Pfeile schieben nur um
-  eine Kachelbreite. Ein Karussell mit eigenem Zustand zeigte ohne JavaScript
-  nichts und würgte auf dem Telefon das Wischen ab.
-- **Farbbalken unten** trägt die Warengruppenfarbe aus `lib/accent-colors.ts`
-  – dieselbe wie in Filterspalte und Kachelliste. Er verbindet die Ansichten,
-  er schmückt nicht.
-- Ohne Bild bleibt die Kachel eine Kachel (Farbfläche der Gruppe). Ein Loch
-  im Raster sähe nach Fehler aus.
-- Die Warengruppenspalte neben dem Sortiment-Querschnitt ist dafür entfallen:
-  zweimal dieselbe Liste auf einer Seite ist eine zu viel.
+  `kategorien/<id>/…`; die Server Action bekommt nur den Pfad.
+- **Raster statt Bildreihe**: alle Warengruppen auf einen Blick, Fläche in
+  der Warengruppenfarbe aus `lib/accent-colors.ts` (dieselbe wie in
+  Filterspalte und Artikelliste). Die frühere Scroll-Reihe zeigte nur, was
+  hineinpasste, und bei Gruppen ohne Bild eine leere Fläche.
+- Darunter drei **Schnellwege** zu Reduziert, Neuheiten, Topseller.
+
+---
+
+## 🏠 Aufbau der Startseite
+
+`app/page.tsx`, Daten aus `getLandingData()`. Reihenfolge:
+Kopfbereich (Auslage) → Katalogband → Warengruppen → **Reduziert** →
+Sortiment mit Reitern je Warengruppe → Neu und gefragt (Neuheiten und
+Topseller nebeneinander) → Portalvorteile → Über uns → Kontakt.
+
+- **Jeder Abschnitt eine eigene Fläche** (Navy, Blau getönt, Rot getönt,
+  Weiß, Gold getönt …). Eine durchgehend weiße Seite ließ die Abschnitte
+  ineinanderlaufen.
+- **Reduziert** steht über dem Sortiment und trägt ein rotes Aktionsfeld
+  („bis −xx %"): auch ein einzelner reduzierter Artikel füllt die Zeile.
+  `LandingData.reduziert` ist nach Ersparnis sortiert, gezählt wird nur, was
+  `reduzierung()` übrig lässt.
+- **Sortiment-Reiter** (`components/sortiment-tabs.tsx`): Karten rendert der
+  Server, der Client schaltet nur um. Keine Artikeldaten als JSON im Browser.
+- **Neuheiten und Topseller als Listenzeilen** (`components/catalog-row.tsx`)
+  nebeneinander – zwei kurze Listen füllen eine Zeile, zwei Bahnen wären
+  zweimal Leerraum.
+- **Angemeldete Kunden** sehen statt Registrierungsaufrufen „Meine
+  Bestellungen" und „Zum Warenkorb".
+- **Bewegung** in `app/globals.css` (Abschnitt „Startseite und
+  Hinweisleiste"): wandernde Farbfelder und schwebende Auslage im Kopf,
+  Goldstrich unter Überschriften, Puls am Prozentzeichen, gestaffelter
+  Auftritt der Reiterkarten. Alles steht bei `prefers-reduced-motion`.
+
+---
+
+## 📣 Hinweisleiste
+
+`supabase/migrations/035_hinweisleiste.sql`, Tabelle `site_banners`,
+gepflegt unter `/admin/settings`
+(`components/forms/site-banners-settings.tsx`).
+
+- Farbige Leiste **über** der Kopfleiste (`components/announcement-bar.tsx`,
+  geladen von `components/site-banner.tsx` im Wurzellayout). Mehrere aktive
+  Hinweise wechseln sich alle 5,5 s ab, beim Draufzeigen hält der Wechsel an.
+- Fläche `brand`, `gold` oder `signal` – kein freies Hex, die Leiste bleibt in
+  der Markenpalette. Gold trägt dunkle Schrift (Kontrast).
+- Link optional: interner Pfad (`/shop/reduziert`) oder `https://…`; alles
+  andere weist die Action ab.
+- **Nicht in `/admin` und `/kasse`** – dort wird gearbeitet.
+- Gelesen über den öffentlichen Client, RLS gibt Besuchern nur aktive Zeilen.
+  Fehlt die Tabelle, zeigt die Leiste den Versandhinweis als Vorgabe.
+
+---
+
+## 🔻 Route „Reduziert"
+
+`/shop/reduziert`. Anders als Neuheiten und Topseller kein Flag, sondern der
+Filter `onlyReduced` (`?rabatt=1`, `lib/shop-filters.ts`), ausgewertet über
+`reduzierung()` im `FilterAdapter`. Steht auch als Kennzeichen in der
+Filterspalte und als Reiter in der Kopfleiste (für Admins erst ab `xl`, sonst
+passen die Reiter nicht neben das Benutzermenü).
+
+Aktiv ist in der Kopfleiste immer nur der **spezifischste** Reiter: auf
+`/shop/reduziert` leuchtet nicht zusätzlich „Sortiment".
+
+---
+
+## ☎️ Kontaktdaten für Besucher
+
+`public_company_contact()` (Migration 036) gibt Firmenname, Anschrift,
+Telefon, E-Mail und Webseite aus `company_settings` frei – sonst nichts.
+`company_settings` selbst bleibt nur für Angemeldete lesbar (Bankdaten).
+Gelesen über `getPublicContact()` in Fußzeile und Startseite; fehlt ein Wert,
+steht der `[ … ]`-Platzhalter da.
 
 ---
 

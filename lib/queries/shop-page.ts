@@ -1,7 +1,12 @@
 import "server-only";
 import type { ProductFlag } from "@/lib/actions/admin-products";
 import { getCurrentUser } from "@/lib/auth";
-import { lowestUnitPrice, minOrderQuantity, freeStock } from "@/lib/pricing";
+import {
+  freeStock,
+  lowestUnitPrice,
+  minOrderQuantity,
+  reduzierung,
+} from "@/lib/pricing";
 import { istNeu } from "@/lib/product-flags";
 import { gruppiere } from "@/lib/product-groups";
 import {
@@ -27,8 +32,8 @@ import type { FilterCategory } from "@/components/shop-filter-panel";
 import type { ProductAttributeGroup } from "@/lib/types";
 
 /**
- * Gemeinsamer Unterbau der drei Sortiments-Routen (/shop, /shop/[category],
- * /shop/neuheiten, /shop/topseller).
+ * Gemeinsamer Unterbau der Sortiments-Routen (/shop, /shop/[category],
+ * /shop/neuheiten, /shop/topseller, /shop/reduziert).
  *
  * Die Routen unterscheiden sich nur in Kategorie und Flag; alles andere –
  * Anmeldestatus, Kategoriezählung, Filter, Sortierung – ist identisch und
@@ -41,6 +46,7 @@ const KUNDE: FilterAdapter<ProductListItem> = {
   minQuantity: (p) => minOrderQuantity(p.variants),
   isNew: (p) => istNeu(p),
   isTopseller: (p) => p.is_topseller,
+  isReduced: (p) => reduzierung(p.list_price, lowestUnitPrice(p.variants)) !== null,
   stock: (p) => freeStock(p),
 };
 
@@ -50,6 +56,7 @@ const BESUCHER: FilterAdapter<PublicProductListItem> = {
   minQuantity: (p) => p.minOrderQuantity,
   isNew: (p) => istNeu(p),
   isTopseller: (p) => p.is_topseller,
+  isReduced: (p) => reduzierung(p.list_price, p.priceFrom) !== null,
   // Bestände sind ohne Login nicht sichtbar – der Filter entfällt dort.
   stock: () => null,
 };

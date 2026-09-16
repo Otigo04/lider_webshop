@@ -4,6 +4,7 @@ import { CookieBanner } from "@/components/cookie-banner";
 import { Footer } from "@/components/footer";
 import { Header } from "@/components/header";
 import { ScrollProgress } from "@/components/scroll-progress";
+import { SiteBanner } from "@/components/site-banner";
 import { CartProvider } from "@/lib/cart-context";
 import { siteUrl } from "@/lib/site";
 import "./globals.css";
@@ -69,6 +70,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           >
             Zum Inhalt springen
           </a>
+          <SiteBanner />
           <Header />
           <ScrollProgress />
           <main id="inhalt" tabIndex={-1} className="flex-1">

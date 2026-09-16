@@ -263,6 +263,7 @@ function FilterFelder({ filters }: { filters: ShopFilters }) {
       ) : null}
       {filters.onlyNew ? <input type="hidden" name="neu" value="1" /> : null}
       {filters.onlyTopseller ? <input type="hidden" name="top" value="1" /> : null}
+      {filters.onlyReduced ? <input type="hidden" name="rabatt" value="1" /> : null}
       {filters.onlyAvailable ? <input type="hidden" name="lager" value="1" /> : null}
     </>
   );

@@ -33,6 +33,8 @@ export interface ShopFilters {
   maxMinQuantity: number | null;
   onlyNew: boolean;
   onlyTopseller: boolean;
+  /** Nur Artikel mit sichtbarer Reduzierung (reduzierung() in lib/pricing.ts) */
+  onlyReduced: boolean;
   /** Nur Artikel mit freiem Bestand – nur für angemeldete Kunden sinnvoll */
   onlyAvailable: boolean;
   /**
@@ -57,6 +59,7 @@ export const EMPTY_FILTERS: ShopFilters = {
   maxMinQuantity: null,
   onlyNew: false,
   onlyTopseller: false,
+  onlyReduced: false,
   onlyAvailable: false,
   attributeValues: [],
   page: 1,
@@ -97,6 +100,7 @@ export function parseShopFilters(params: RawParams): ShopFilters {
     maxMinQuantity: zahl(params.menge_max),
     onlyNew: einzelwert(params.neu) === "1",
     onlyTopseller: einzelwert(params.top) === "1",
+    onlyReduced: einzelwert(params.rabatt) === "1",
     onlyAvailable: einzelwert(params.lager) === "1",
     // Auf 20 begrenzt: mehr Haken setzt niemand, und eine Adresszeile mit
     // hundert IDs wäre eine Einladung, die Abfrage aufzublähen.
@@ -156,6 +160,8 @@ export interface FilterAdapter<T> {
   minQuantity: (item: T) => number | null;
   isNew: (item: T) => boolean;
   isTopseller: (item: T) => boolean;
+  /** Bleibt nach reduzierung() eine Ersparnis übrig? */
+  isReduced: (item: T) => boolean;
   /** Freier Bestand, null wenn er in dieser Ansicht nicht vorliegt */
   stock: (item: T) => number | null;
 }
@@ -168,6 +174,7 @@ export function applyShopFilters<T>(
   const gefiltert = items.filter((item) => {
     if (filters.onlyNew && !adapter.isNew(item)) return false;
     if (filters.onlyTopseller && !adapter.isTopseller(item)) return false;
+    if (filters.onlyReduced && !adapter.isReduced(item)) return false;
 
     if (filters.onlyAvailable) {
       const bestand = adapter.stock(item);
@@ -240,6 +247,7 @@ export function activeFilterCount(filters: ShopFilters): number {
     filters.maxMinQuantity !== null,
     filters.onlyNew,
     filters.onlyTopseller,
+    filters.onlyReduced,
     filters.onlyAvailable,
   ].filter(Boolean).length + filters.attributeValues.length;
 }
@@ -264,6 +272,7 @@ export function buildShopHref(
   }
   if (filters.onlyNew) params.set("neu", "1");
   if (filters.onlyTopseller) params.set("top", "1");
+  if (filters.onlyReduced) params.set("rabatt", "1");
   if (filters.onlyAvailable) params.set("lager", "1");
   // append statt set: mehrere Merkmalswerte stehen nebeneinander in der
   // Adresse, so wie sie nebeneinander angehakt sind.

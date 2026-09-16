@@ -21,16 +21,25 @@ import type { NavLink } from "@/components/mobile-nav";
 export function MainNav({ links }: { links: NavLink[] }) {
   const pfad = usePathname();
 
+  /*
+   * Aktiv ist nur der spezifischste passende Reiter: auf /shop/reduziert
+   * leuchtete sonst „Sortiment" (/shop) mit, und zwei aktive Reiter sagen
+   * nicht mehr, wo man ist.
+   */
+  const passt = (href: string) =>
+    href === "/" ? pfad === "/" : pfad === href || pfad.startsWith(`${href}/`);
+  const aktivHref = links
+    .map((link) => link.href)
+    .filter(passt)
+    .sort((a, b) => b.length - a.length)[0];
+
   return (
     /* Erst ab lg: zwischen 768 und 1024 px passen Logo, sechs Reiter und
        Benutzermenü nicht nebeneinander – die Leiste lief seitlich aus dem
        Fenster und zog die ganze Seite mit. Dort greift das Klappmenü. */
     <nav className="hidden min-w-0 items-center gap-0.5 lg:flex">
       {links.map((link) => {
-        const aktiv =
-          link.href === "/"
-            ? pfad === "/"
-            : pfad === link.href || pfad.startsWith(`${link.href}/`);
+        const aktiv = link.href === aktivHref;
 
         // Die Kasse ist kein Shop-Reiter, sondern der Weg in ein anderes
         // Portal. Sie steht deshalb als goldener Knopf da, nicht als Text.
@@ -60,6 +69,7 @@ export function MainNav({ links }: { links: NavLink[] }) {
             aria-current={aktiv ? "page" : undefined}
             className={cn(
               "group relative rounded-md px-3 py-2 text-sm font-medium transition-colors duration-200",
+              link.erstAbXl && "hidden xl:block",
               aktiv
                 ? "text-surface-dark-foreground"
                 : "text-surface-dark-foreground/80 hover:text-surface-dark-foreground",

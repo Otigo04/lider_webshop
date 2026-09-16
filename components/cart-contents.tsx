@@ -7,7 +7,11 @@ import { useCart } from "@/lib/cart-context";
 import { useCartImages } from "@/lib/use-cart-images";
 import { formatPrice, formatQuantity } from "@/lib/format";
 import { lineTotal, minOrderQuantity, resolveTier } from "@/lib/pricing";
-import { qualifiesForFreeShipping, shippingNote } from "@/lib/shipping";
+import {
+  FREE_SHIPPING_THRESHOLD,
+  qualifiesForFreeShipping,
+  shippingNote,
+} from "@/lib/shipping";
 import { steuer } from "@/lib/vat";
 import { cn } from "@/lib/utils";
 import { QuantityInput } from "@/components/quantity-input";
@@ -180,6 +184,33 @@ export function CartContents({ vatRate }: { vatRate: number }) {
         >
           {shippingNote(total)}
         </p>
+
+        {/* Wie weit es noch bis zur Versandkostenfreiheit ist – dieselbe Grenze,
+            die oben in der Hinweisleiste steht. Eine Zahl zum Auffüllen ist
+            greifbarer als eine Bedingung im Fließtext. */}
+        {!qualifiesForFreeShipping(total) ? (
+          <div className="mt-3">
+            <div className="flex justify-between text-xs">
+              <span className="text-muted-foreground">Bis versandkostenfrei</span>
+              <span className="font-semibold tabular">
+                noch {formatPrice(FREE_SHIPPING_THRESHOLD - total)}
+              </span>
+            </div>
+            <div
+              role="progressbar"
+              aria-label="Fortschritt bis zur Versandkostenfreiheit"
+              aria-valuemin={0}
+              aria-valuemax={FREE_SHIPPING_THRESHOLD}
+              aria-valuenow={Math.round(total)}
+              className="mt-1.5 h-2 overflow-hidden rounded-full bg-muted"
+            >
+              <div
+                className="h-full rounded-full bg-gold transition-[width] duration-500 ease-out"
+                style={{ width: `${Math.min(100, (total / FREE_SHIPPING_THRESHOLD) * 100)}%` }}
+              />
+            </div>
+          </div>
+        ) : null}
 
         <Button asChild size="lg" className="mt-5 w-full">
           <Link href="/checkout">Zur Kasse</Link>

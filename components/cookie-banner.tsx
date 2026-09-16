@@ -59,7 +59,7 @@ export function CookieBanner() {
               >
                 Technisch notwendige Cookies für die Anmeldung setzen wir
                 immer. Marketing-Cookies nur mit Ihrer Einwilligung. Ihre
-                Entscheidung können Sie jederzeit über „Cookie-Einstellungen"
+                Entscheidung können Sie jederzeit über „Cookie-Einstellungen“
                 in der Fußzeile ändern – Einzelheiten in der{" "}
                 <Link
                   href="/datenschutz"

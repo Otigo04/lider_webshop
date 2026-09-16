@@ -287,6 +287,11 @@ export function ShopFilterPanel({
                         label="Nur Topseller"
                         checked={filters.onlyTopseller}
                       />
+                      <Kennzeichen
+                        name="rabatt"
+                        label="Nur reduzierte Artikel"
+                        checked={filters.onlyReduced}
+                      />
                     </>
                   ) : null}
                   {showStockFilter ? (
@@ -324,6 +329,7 @@ export function ShopFilterPanel({
                         menge_max: null,
                         neu: null,
                         top: null,
+                        rabatt: null,
                         lager: null,
                       },
                     )}

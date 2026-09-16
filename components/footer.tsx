@@ -2,9 +2,11 @@ import Image from "next/image";
 import Link from "next/link";
 import { CookieSettingsLink } from "@/components/cookie-settings-link";
 import { getLogoPath } from "@/lib/logo";
+import { getPublicContact } from "@/lib/queries/settings";
 
-export function Footer() {
+export async function Footer() {
   const logoPath = getLogoPath();
+  const kontakt = await getPublicContact();
 
   return (
     <footer className="border-t-2 border-gold bg-surface-dark text-surface-dark-muted">
@@ -32,11 +34,30 @@ export function Footer() {
           <dl className="grid gap-x-10 gap-y-2 text-sm sm:grid-cols-2">
             <div className="flex gap-2">
               <dt className="text-surface-dark-muted/70">Telefon</dt>
-              <dd className="text-surface-dark-foreground">[TELEFON]</dd>
+              <dd className="text-surface-dark-foreground">
+                {kontakt.phone ? (
+                  <a
+                    href={`tel:${kontakt.phone.replace(/[^+\d]/g, "")}`}
+                    className="hover:text-gold-bright"
+                  >
+                    {kontakt.phone}
+                  </a>
+                ) : (
+                  "[TELEFON]"
+                )}
+              </dd>
             </div>
             <div className="flex gap-2">
               <dt className="text-surface-dark-muted/70">E-Mail</dt>
-              <dd className="text-surface-dark-foreground">[E-MAIL]</dd>
+              <dd className="text-surface-dark-foreground">
+                {kontakt.email ? (
+                  <a href={`mailto:${kontakt.email}`} className="hover:text-gold-bright">
+                    {kontakt.email}
+                  </a>
+                ) : (
+                  "[E-MAIL]"
+                )}
+              </dd>
             </div>
           </dl>
         </div>

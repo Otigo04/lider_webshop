@@ -34,7 +34,8 @@ export function AddressFields({
   nameDefault?: string | null;
 }) {
   return (
-    <div className="grid gap-3 sm:grid-cols-[1fr_8rem]">
+    // PLZ schmal vorn, Ort breit dahinter – so wie auf jedem Briefumschlag.
+    <div className="grid gap-3 sm:grid-cols-[8rem_1fr]">
       {nameLabel ? (
         <div className="space-y-2 sm:col-span-2">
           <Label htmlFor={`${prefix}_name`}>{nameLabel}</Label>

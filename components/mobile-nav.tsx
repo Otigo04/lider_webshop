@@ -12,6 +12,12 @@ export interface NavLink {
   label: string;
   /** Kein Shop-Reiter, sondern der Weg in ein anderes Portal (Kasse) */
   hervorgehoben?: boolean;
+  /**
+   * Reiter erst ab xl in der breiten Leiste zeigen. Zwischen 1024 und 1280 px
+   * passen bei Admins sonst nicht alle Reiter neben Logo und Benutzermenü.
+   * Im Klappmenü steht er immer.
+   */
+  erstAbXl?: boolean;
 }
 
 /**

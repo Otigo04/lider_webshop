@@ -511,3 +511,27 @@ export interface ProductAttributeValue {
 export interface ProductAttributeGroup extends ProductAttribute {
   values: ProductAttributeValue[];
 }
+
+/** Fläche eines Hinweises: Wappenblau, Lorbeergold oder Signalrot (Aktionen). */
+export type SiteBannerTone = "brand" | "gold" | "signal";
+
+export const SITE_BANNER_TONE_LABELS: Record<SiteBannerTone, string> = {
+  brand: "Blau",
+  gold: "Gold",
+  signal: "Rot (Aktion)",
+};
+
+/**
+ * Hinweis in der Leiste über der Kopfleiste (Migration 035). Stehen mehrere
+ * aktiv, wechselt die Leiste zwischen ihnen.
+ */
+export interface SiteBanner {
+  id: string;
+  message: string;
+  /** Interner Pfad (/versand) oder volle Adresse; null = kein Link */
+  link_url: string | null;
+  link_label: string | null;
+  tone: SiteBannerTone;
+  is_active: boolean;
+  order_index: number;
+}
