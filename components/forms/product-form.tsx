@@ -490,9 +490,15 @@ export function ProductForm({
         <div className="mt-4 space-y-3">
           {tiers.map((tier, index) => (
             <div key={tier.key} className="flex flex-wrap items-end gap-3">
+              {/* Jedes Feld braucht ein eigenes id/htmlFor-Paar: die Zeile
+                  wiederholt sich, und ohne Verknüpfung liest ein Vorleser
+                  „Zahl, leer“ – dreimal je Staffel, ohne zu sagen, welche. */}
               <div className="w-32 space-y-1">
-                <Label className="text-xs">ab Menge</Label>
+                <Label htmlFor={`tier-${tier.key}-min`} className="text-xs">
+                  ab Menge
+                </Label>
                 <Input
+                  id={`tier-${tier.key}-min`}
                   type="number"
                   min={1}
                   step={1}
@@ -511,8 +517,11 @@ export function ProductForm({
               </div>
 
               <div className="w-32 space-y-1">
-                <Label className="text-xs">bis Menge</Label>
+                <Label htmlFor={`tier-${tier.key}-max`} className="text-xs">
+                  bis Menge
+                </Label>
                 <Input
+                  id={`tier-${tier.key}-max`}
                   type="number"
                   min={1}
                   step={1}
@@ -532,8 +541,11 @@ export function ProductForm({
               </div>
 
               <div className="w-36 space-y-1">
-                <Label className="text-xs">Preis / Stück (€)</Label>
+                <Label htmlFor={`tier-${tier.key}-preis`} className="text-xs">
+                  Preis / Stück (€)
+                </Label>
                 <Input
+                  id={`tier-${tier.key}-preis`}
                   type="number"
                   min={0}
                   step="0.01"

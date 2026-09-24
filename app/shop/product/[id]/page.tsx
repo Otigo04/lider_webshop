@@ -26,7 +26,17 @@ export async function generateMetadata({
   const { id } = await params;
   const product = await getPublicProduct(id);
 
-  if (!product) return { title: "Artikel" };
+  /*
+   * Nicht vorhanden oder nicht mehr im Sortiment: die Seite zeigt gleich die
+   * 404-Tafel, der HTTP-Status bleibt aber 200. Grund ist das loading.tsx
+   * dieses Abschnitts – es öffnet eine Suspense-Grenze, Next schickt den
+   * Rahmen sofort los, und wenn notFound() greift, sind die Kopfzeilen längst
+   * raus. Ohne `noindex` behielte eine Suchmaschine jeden ausgelisteten
+   * Artikel als gültige Adresse im Index.
+   */
+  if (!product) {
+    return { title: "Artikel nicht gefunden", robots: { index: false, follow: false } };
+  }
 
   /*
    * Beschreibung aus dem Artikeltext, sonst aus den Eckdaten gebaut. Ein

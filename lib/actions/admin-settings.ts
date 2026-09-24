@@ -30,6 +30,9 @@ const settingsSchema = z.object({
   iban: z.string().trim().max(60).optional(),
   bic: z.string().trim().max(20).optional(),
   payment_terms_days: z.coerce.number().int().min(0).max(365),
+  // Versandkostenfreigrenze (Migration 037). Betriebsentscheidung, deshalb
+  // eine Eingabe und keine Konstante im Code. 0 heißt „immer kostenfrei".
+  free_shipping_threshold: z.coerce.number().min(0).max(100_000),
   // Kassenvorgaben: der Steuersatz und die Preislesart der Ladenkasse stehen
   // in der Datenbank, nicht im Code (siehe migrations/018_kasse_pos.sql).
   pos_vat_rate: z.coerce.number().refine((v) => [0, 7, 19].includes(v), {
@@ -61,6 +64,7 @@ export async function updateCompanySettings(
     iban: formData.get("iban") || undefined,
     bic: formData.get("bic") || undefined,
     payment_terms_days: formData.get("payment_terms_days") || 14,
+    free_shipping_threshold: formData.get("free_shipping_threshold") ?? 300,
     pos_vat_rate: formData.get("pos_vat_rate") || 19,
     pos_prices_gross: formData.get("pos_prices_gross") === "on",
     pos_receipt_footer: formData.get("pos_receipt_footer") || undefined,
@@ -72,29 +76,56 @@ export async function updateCompanySettings(
 
   const data = parsed.data;
   const supabase = await createClient();
-  const { error } = await supabase
+
+  const felder = {
+    company_name: data.company_name || null,
+    owner_name: data.owner_name || null,
+    address_street: data.address_street || null,
+    address_zip: data.address_zip || null,
+    address_city: data.address_city || null,
+    address_country: data.address_country,
+    phone: data.phone || null,
+    email: data.email || null,
+    website: data.website || null,
+    tax_number: data.tax_number || null,
+    vat_id: data.vat_id || null,
+    bank_name: data.bank_name || null,
+    iban: data.iban || null,
+    bic: data.bic || null,
+    payment_terms_days: data.payment_terms_days,
+    free_shipping_threshold: data.free_shipping_threshold,
+    pos_vat_rate: data.pos_vat_rate,
+    pos_prices_gross: data.pos_prices_gross,
+    pos_receipt_footer: data.pos_receipt_footer || null,
+  };
+
+  let { error } = await supabase
     .from("company_settings")
-    .update({
-      company_name: data.company_name || null,
-      owner_name: data.owner_name || null,
-      address_street: data.address_street || null,
-      address_zip: data.address_zip || null,
-      address_city: data.address_city || null,
-      address_country: data.address_country,
-      phone: data.phone || null,
-      email: data.email || null,
-      website: data.website || null,
-      tax_number: data.tax_number || null,
-      vat_id: data.vat_id || null,
-      bank_name: data.bank_name || null,
-      iban: data.iban || null,
-      bic: data.bic || null,
-      payment_terms_days: data.payment_terms_days,
-      pos_vat_rate: data.pos_vat_rate,
-      pos_prices_gross: data.pos_prices_gross,
-      pos_receipt_footer: data.pos_receipt_footer || null,
-    })
+    .update(felder)
     .eq("id", true);
+
+  /*
+   * Spalte fehlt, weil Migration 037 noch nicht eingespielt ist. Zwei Codes,
+   * weil zwei Schichten meckern können: PGRST204 kommt von PostgREST („nicht
+   * im Schema-Cache"), 42703 von Postgres selbst. Beim Schreiben ist es in
+   * aller Regel PGRST204 – die Anfrage scheitert schon an der Übersetzung.
+   *
+   * Ohne diesen Rückfall scheiterte das Speichern der gesamten Firmendaten an
+   * einem einzigen neuen Feld – der Admin könnte dann weder Bankverbindung
+   * noch Steuersatz ändern, bis jemand die Migration nachzieht.
+   */
+  if (error?.code === "PGRST204" || error?.code === "42703") {
+    console.warn(
+      "[admin] Spalte company_settings.free_shipping_threshold fehlt – " +
+        "Migration 037 noch nicht eingespielt. Versandgrenze wird nicht gespeichert.",
+    );
+    const { free_shipping_threshold: _weg, ...ohneGrenze } = felder;
+    void _weg;
+    ({ error } = await supabase
+      .from("company_settings")
+      .update(ohneGrenze)
+      .eq("id", true));
+  }
 
   if (error) {
     console.error("[admin] Firmendaten speichern:", error.message);
@@ -103,5 +134,10 @@ export async function updateCompanySettings(
 
   revalidatePath("/admin/settings");
   revalidatePath("/kasse/terminal");
+  // Die Versandgrenze steht auch im Schaufenster und im Bestellweg.
+  revalidatePath("/");
+  revalidatePath("/versand");
+  revalidatePath("/cart");
+  revalidatePath("/checkout");
   return { success: "Firmendaten gespeichert." };
 }

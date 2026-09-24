@@ -11,7 +11,11 @@ import { useCart } from "@/lib/cart-context";
 import { useCartImages } from "@/lib/use-cart-images";
 import { formatPrice, formatQuantity } from "@/lib/format";
 import { lineTotal, resolveTier } from "@/lib/pricing";
-import { qualifiesForFreeShipping, shippingNote } from "@/lib/shipping";
+import {
+  formatThreshold,
+  qualifiesForFreeShipping,
+  shippingNote,
+} from "@/lib/shipping";
 import { steuer } from "@/lib/vat";
 import { AddressFields } from "@/components/forms/address-fields";
 import { Button } from "@/components/ui/button";
@@ -100,10 +104,13 @@ function fruehesterTermin(): string {
 export function CheckoutForm({
   adresse,
   vatRate,
+  versandFreiAb,
 }: {
   adresse: HinterlegteAdresse;
   /** Steuersatz aus den Firmendaten – nur Anzeige, gerechnet wird in der DB */
   vatRate: number;
+  /** Netto-Grenze für den kostenfreien Versand (company_settings) */
+  versandFreiAb: number;
 }) {
   const { items, ready, total, clear } = useCart();
   const bilder = useCartImages(items);
@@ -160,7 +167,7 @@ export function CheckoutForm({
   const versand = deliveryMethod === "shipping";
 
   return (
-    <form action={formAction} className="grid gap-8 lg:grid-cols-[1fr_22rem]">
+    <form action={formAction} className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_22rem]">
       <input type="hidden" name="items" value={JSON.stringify(payload)} />
       <input type="hidden" name="deliveryMethod" value={deliveryMethod} />
       <input type="hidden" name="paymentMethod" value={zahlart} />
@@ -243,8 +250,8 @@ export function CheckoutForm({
               icon={<Package className="size-5" aria-hidden />}
               title="Versand"
               text={
-                qualifiesForFreeShipping(total)
-                  ? "Kostenfrei ab 100 € netto – erreicht."
+                qualifiesForFreeShipping(total, versandFreiAb)
+                  ? `Kostenfrei ab ${formatThreshold(versandFreiAb)} netto – erreicht.`
                   : "Kosten nach Gewicht und Ziel, Mitteilung mit der Auftragsbestätigung."
               }
             />
@@ -394,12 +401,12 @@ export function CheckoutForm({
           <p
             className={cn(
               "mt-3 rounded-md border px-3 py-2 text-xs",
-              qualifiesForFreeShipping(total)
+              qualifiesForFreeShipping(total, versandFreiAb)
                 ? "border-success/30 bg-success/10 text-success"
                 : "border-border bg-muted text-muted-foreground",
             )}
           >
-            {shippingNote(total)}
+            {shippingNote(total, versandFreiAb)}
           </p>
         ) : (
           <p className="mt-3 rounded-md border border-border bg-muted px-3 py-2 text-xs text-muted-foreground">

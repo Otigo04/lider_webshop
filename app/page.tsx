@@ -27,7 +27,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { reduzierung } from "@/lib/pricing";
 import { getLandingData } from "@/lib/queries/products";
 import { getPublicContact } from "@/lib/queries/settings";
-import { FREE_SHIPPING_THRESHOLD } from "@/lib/shipping";
+import { formatThreshold } from "@/lib/shipping";
 import { cn } from "@/lib/utils";
 
 /**
@@ -50,7 +50,13 @@ import { cn } from "@/lib/utils";
  * 036). Fehlen sie, stehen [ ... ]-Platzhalter da – erfunden wird nichts.
  */
 
-const LEISTUNGEN = [
+/*
+ * Die Versandzusage trägt eine gepflegte Zahl (company_settings, Migration
+ * 037), deshalb eine Funktion statt einer Konstante: eine Konstante würde
+ * beim Laden des Moduls einmal ausgewertet und bliebe bei einer Änderung der
+ * Grenze auf dem alten Wert stehen.
+ */
+const leistungen = (versandFreiAb: number) => [
   {
     icon: Layers,
     title: "Staffelpreise ohne Nachfragen",
@@ -66,7 +72,7 @@ const LEISTUNGEN = [
   {
     icon: Truck,
     title: "Versand oder Abholung",
-    text: `Sie entscheiden pro Bestellung. Ab ${FREE_SHIPPING_THRESHOLD} € netto liefern wir versandkostenfrei, Abholung in Berlin ist jederzeit möglich.`,
+    text: `Sie entscheiden pro Bestellung. Ab ${formatThreshold(versandFreiAb)} netto liefern wir versandkostenfrei, Abholung in Berlin ist jederzeit möglich.`,
     farbe: "bg-gold text-gold-foreground",
   },
   {
@@ -83,6 +89,9 @@ export default async function HomePage() {
     getCurrentUser(),
     getPublicContact(),
   ]);
+  // Werbeangabe, deshalb auch ohne Anmeldung sichtbar: public_company_contact()
+  // gibt die Grenze mit heraus (Migration 037).
+  const versandFreiAb = firma.free_shipping_threshold;
   const {
     neuheiten,
     topseller,
@@ -201,7 +210,7 @@ export default async function HomePage() {
             {/* Drei Zusagen, die ein Händler vor dem ersten Klick wissen will. */}
             <ul className="enter enter-3 mt-10 flex flex-wrap gap-x-7 gap-y-2.5 border-t border-surface-dark-border pt-5 text-sm">
               <Zusage icon={Truck}>
-                Versandkostenfrei ab {FREE_SHIPPING_THRESHOLD} € netto
+                Versandkostenfrei ab {formatThreshold(versandFreiAb)} netto
               </Zusage>
               <Zusage icon={Layers}>Staffelpreise je Artikel</Zusage>
               <Zusage icon={Store}>Abholung in Berlin</Zusage>
@@ -482,7 +491,7 @@ export default async function HomePage() {
             />
           </Reveal>
           <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {LEISTUNGEN.map((item, index) => (
+            {leistungen(versandFreiAb).map((item, index) => (
               <Reveal key={item.title} delay={index * 70} className="flex">
                 <div className="card-hover group relative w-full overflow-hidden rounded-lg border border-border bg-card p-6">
                   <div

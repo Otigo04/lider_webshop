@@ -3,7 +3,12 @@ import { CheckoutForm } from "@/components/forms/checkout-form";
 import { requireUser } from "@/lib/auth";
 import { getCompanySettings } from "@/lib/queries/settings";
 
-export const metadata: Metadata = { title: "Kasse" };
+/*
+ * „Bestellung aufgeben", nicht „Kasse": in diesem Projekt heißt so das
+ * Ladenportal unter /kasse. Zwei Reiter namens „Kasse | LIDER" nebeneinander
+ * im Browser wären an der Theke eine Verwechslung mit Folgen.
+ */
+export const metadata: Metadata = { title: "Bestellung aufgeben" };
 
 export default async function CheckoutPage() {
   const user = await requireUser("/checkout");
@@ -28,6 +33,7 @@ export default async function CheckoutPage() {
             country: user.shipping_country,
           }}
           vatRate={company.pos_vat_rate}
+          versandFreiAb={company.free_shipping_threshold}
         />
       </div>
     </div>

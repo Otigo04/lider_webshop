@@ -790,6 +790,14 @@ export async function generateInvoicePdf(data: InvoicePdfData): Promise<Buffer> 
       text(zeile, MARGIN, { size: 9.5, color: INK });
       y -= 12;
     }
+    /*
+     * Luft bis zur Positionstabelle. Der Kopfbalken der Tabelle beginnt bei
+     * `y - 5` und ist 18 pt hoch, reicht also 13 pt über den Satzspiegel
+     * hinaus. Die letzte Adresszeile liegt nur 12 pt darüber – ohne diesen
+     * Abstand schnitt der Balken ihr die untere Hälfte ab, und auf der
+     * Rechnung stand eine halbe Lieferanschrift.
+     */
+    y -= 10;
   }
 
   // ------------------------------------------------------- Positionstabelle

@@ -379,6 +379,21 @@ export interface PosCartItem {
   unitPrice: number;
   /** Frei verfügbarer Bestand beim Erfassen; null bei freien Zeilen */
   maxStock: number | null;
+  /**
+   * Preisstaffeln und Ladenpreis des Artikels, damit sich der Stückpreis bei
+   * einer Mengenänderung am Tresen neu auflösen lässt. Ohne sie blieb eine
+   * Großhandelszeile auf dem Preis der Menge stehen, mit der sie auf den Bon
+   * kam – wer nachträglich von 5 auf 50 erhöhte, zahlte den 5er-Preis.
+   * Fehlen bei freien Positionen: die haben keinen Artikelstamm.
+   */
+  variants?: PriceTier[];
+  retailPrice?: number | null;
+  /**
+   * Der Preis wurde von Hand überschrieben. Dann bleibt er stehen, auch wenn
+   * sich die Menge ändert – sonst verwürfe die nächste Mengenkorrektur den
+   * ausgehandelten Preis.
+   */
+  preisManuell?: boolean;
 }
 
 /**
@@ -410,6 +425,12 @@ export interface CompanySettings {
   iban: string | null;
   bic: string | null;
   payment_terms_days: number;
+  /**
+   * Netto-Warenwert, ab dem der Versand kostenfrei ist (Migration 037).
+   * 0 heißt „immer kostenfrei". Stand vorher als Konstante im Code, während
+   * die Hinweisleiste ihre eigene Zahl trug – beide gingen auseinander.
+   */
+  free_shipping_threshold: number;
   /**
    * Umsatzsteuersatz des Betriebs in Prozent – kein fester Wert im Code.
    * Der Name stammt aus Migration 018, gilt aber seit Migration 029 für die

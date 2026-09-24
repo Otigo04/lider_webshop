@@ -238,7 +238,7 @@ export default async function KassePage() {
         </div>
       </section>
 
-      <div className="mt-10 grid gap-10 lg:grid-cols-[1fr_20rem]">
+      <div className="mt-10 grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <section>
           <div className="flex items-center justify-between">
             <h2 className="font-medium">Letzte Belege</h2>

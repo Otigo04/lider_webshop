@@ -29,7 +29,7 @@ export default async function AdminCustomersPage({
         ist für manuell angelegte Konten, z. B. bei Telefonbestellungen.
       </p>
 
-      <div className="mt-8 grid gap-10 lg:grid-cols-[1fr_22rem]">
+      <div className="mt-8 grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="overflow-x-auto">
           {customers.length === 0 ? (
             <p className="rounded-md border border-dashed border-border px-4 py-12 text-center text-sm text-muted-foreground">

@@ -156,13 +156,20 @@ export async function createOrder(
   });
 
   if (error) {
-    console.error("[bestellung] create_order:", error.message);
-    // Die RAISE-EXCEPTION-Texte aus der Funktion sind bewusst kundentauglich
-    // formuliert ("Von X sind nur noch 3 Stück verfügbar.") und werden direkt
-    // durchgereicht. Bei allem anderen bleibt es bei einer neutralen Meldung.
+    console.error("[bestellung] create_order:", error.code, error.message);
+    /*
+     * Nur die eigenen RAISE-EXCEPTION-Texte durchreichen. Die sind bewusst
+     * kundentauglich formuliert ("Von X sind nur noch 3 Stück verfügbar.")
+     * und tragen den Postgres-Code P0001 (raise_exception).
+     *
+     * Alles andere – Berechtigungs-, Constraint- oder Verbindungsfehler –
+     * nennt Tabellen, Spalten und Regelnamen. Das gehört ins Log, nicht auf
+     * den Bildschirm eines Kunden.
+     */
+    const eigeneMeldung = error.code === "P0001" ? error.message : null;
     return {
       error:
-        error.message ||
+        eigeneMeldung ||
         "Die Bestellung konnte nicht angelegt werden. Bitte erneut versuchen.",
     };
   }

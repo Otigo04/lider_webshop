@@ -43,7 +43,7 @@ export function SiteBannersSettings({
         Die Tabelle für die Hinweisleiste fehlt noch. Bitte
         <code className="code mx-1">supabase/migrations/035_hinweisleiste.sql</code>
         im Supabase SQL-Editor ausführen. Bis dahin zeigt die Leiste den
-        Versandhinweis „ab 100 € versandkostenfrei“.
+        Versandhinweis mit der Freigrenze aus den Firmendaten.
       </p>
     );
   }
@@ -150,7 +150,7 @@ function BannerFormular({ banner }: { banner?: SiteBanner }) {
           maxLength={160}
           value={text}
           onChange={(event) => setText(event.target.value)}
-          placeholder="z. B. Ab 100 € Nettowarenwert versandkostenfrei"
+          placeholder="z. B. Ab 300 € Nettowarenwert versandkostenfrei"
         />
       </div>
 

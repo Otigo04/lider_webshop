@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { getCompanySettings } from "@/lib/queries/settings";
 import { ChevronLeft } from "lucide-react";
 import { CreateInvoiceButton } from "@/components/admin/create-invoice-button";
 import { NotifyReadyButton } from "@/components/admin/notify-ready-button";
@@ -40,6 +41,8 @@ export default async function AdminOrderDetailPage({
 
   const items = order.items ?? [];
   const invoice = await getInvoiceForOrder(id);
+  // Die Freigrenze ist eine Einstellung, keine Konstante (Migration 037).
+  const firma = await getCompanySettings();
   const invoiceUrl = await getInvoiceUrl(invoice?.file_path);
   const betraege = steuer(toNumber(order.total_amount), toNumber(order.vat_rate));
   const abholung = order.delivery_method === "pickup";
@@ -95,7 +98,10 @@ export default async function AdminOrderDetailPage({
             {DELIVERY_METHOD_LABELS[order.delivery_method]}
             {order.delivery_method === "shipping" ? (
               <span className="ml-2 text-xs text-muted-foreground">
-                {qualifiesForFreeShipping(Number(order.total_amount))
+                {qualifiesForFreeShipping(
+                  Number(order.total_amount),
+                  firma.free_shipping_threshold,
+                )
                   ? "versandkostenfrei"
                   : "Versandkosten berechnen"}
               </span>

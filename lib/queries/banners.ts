@@ -10,6 +10,11 @@ const SPALTEN = "id, message, link_url, link_label, tone, is_active, order_index
  * Solange Migration 035 nicht eingespielt ist, fehlt die Tabelle. Die Leiste
  * zeigt dann den Hinweis, mit dem die Migration sie ohnehin befüllt – sonst
  * bliebe sie bis zum Einspielen einfach leer, und niemand merkte, warum.
+ *
+ * Die Zahl kommt hier aus der Rückfall-Konstante und nicht aus den
+ * Firmendaten: dieser Zweig greift nur, wenn die Tabelle fehlt, und dann
+ * fehlte womöglich auch die Spalte aus Migration 037. Sobald die Leiste
+ * gepflegt ist, schreibt der Admin ihren Text ohnehin selbst.
  */
 const VORGABE: SiteBanner = {
   id: "vorgabe",

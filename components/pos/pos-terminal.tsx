@@ -163,7 +163,16 @@ export function PosTerminal({
     modusRef.current = preisModus;
   }, [preisModus]);
 
-  const aufDenBon = useCallback((product: PosProduct, menge = 1) => {
+  /**
+   * `false` = nicht aufgenommen (kein Bestand). `"ohnePreis"` = aufgenommen,
+   * aber ohne gepflegten Preis: die Zeile steht mit 0,00 € auf dem Bon. Der
+   * Aufrufer meldet das als Warnung statt als Treffer – ein Artikel, der
+   * stillschweigend für nichts über den Tresen geht, ist der teuerste Fehler,
+   * den diese Kasse machen kann.
+   */
+  type BonErgebnis = false | "ok" | "ohnePreis";
+
+  const aufDenBon = useCallback((product: PosProduct, menge = 1): BonErgebnis => {
     const aktuell = bonRef.current;
     const index = aktuell.findIndex((zeile) => zeile.productId === product.id);
     const neueMenge = (index >= 0 ? aktuell[index].quantity : 0) + menge;
@@ -200,10 +209,12 @@ export function PosTerminal({
           quantity: neueMenge,
           unitPrice: preis,
           maxStock: product.freeStock,
+          variants: product.variants,
+          retailPrice: product.retailPrice,
         },
       ]);
     }
-    return true;
+    return preis > 0 ? "ok" : "ohnePreis";
   }, [melden]);
 
   /**
@@ -232,7 +243,14 @@ export function PosTerminal({
     try {
       const { product } = await lookupPosProduct(gesucht);
       if (product) {
-        if (aufDenBon(product)) {
+        const ergebnis = aufDenBon(product);
+        if (ergebnis === "ohnePreis") {
+          melden(
+            "warnung",
+            `${product.name} hat keinen Preis – steht mit 0,00 € auf dem Bon.`,
+            `${product.sku} · Preis in der Zeile eintragen`,
+          );
+        } else if (ergebnis) {
           melden(
             "treffer",
             product.name,
@@ -290,8 +308,26 @@ export function PosTerminal({
       return;
     }
 
-    // Preis neu auflösen: eine größere Menge kann in die nächste Staffel fallen.
-    setBon(bon.map((z, i) => (i === index ? { ...z, quantity: neu } : z)));
+    /*
+     * Preis neu auflösen: eine größere Menge kann in die nächste Staffel
+     * fallen. Nicht bei einer freien Position (kein Artikelstamm) und nicht,
+     * wenn der Preis von Hand gesetzt wurde – ein ausgehandelter Preis darf
+     * nicht an der Mengenkorrektur zerbrechen.
+     */
+    const neuerPreis =
+      zeile.preisManuell || !zeile.variants
+        ? zeile.unitPrice
+        : counterUnitPrice(
+            { variants: zeile.variants, retailPrice: zeile.retailPrice ?? null },
+            neu,
+            preisModus,
+          );
+
+    setBon(
+      bon.map((z, i) =>
+        i === index ? { ...z, quantity: neu, unitPrice: neuerPreis } : z,
+      ),
+    );
   }
 
   function preisAendern(index: number, preis: number) {
@@ -299,7 +335,9 @@ export function PosTerminal({
       aktuell.map((zeile, i) =>
         // Negative Preise gibt es an der Kasse nicht; die Datenbank lehnt sie
         // ohnehin ab, hier fällt es nur früher auf.
-        i === index ? { ...zeile, unitPrice: Math.max(preis, 0) } : zeile,
+        i === index
+          ? { ...zeile, unitPrice: Math.max(preis, 0), preisManuell: true }
+          : zeile,
       ),
     );
   }
@@ -555,7 +593,14 @@ export function PosTerminal({
             <PosProductSearch
               preisModus={preisModus}
               onSelect={(product) => {
-                if (aufDenBon(product)) {
+                const ergebnis = aufDenBon(product);
+                if (ergebnis === "ohnePreis") {
+                  melden(
+                    "warnung",
+                    `${product.name} hat keinen Preis – steht mit 0,00 € auf dem Bon.`,
+                    `${product.sku} · Preis in der Zeile eintragen`,
+                  );
+                } else if (ergebnis) {
                   melden("treffer", product.name, product.sku);
                 }
               }}

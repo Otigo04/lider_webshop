@@ -18,7 +18,10 @@ export default async function CartPage() {
       </p>
 
       <div className="mt-8">
-        <CartContents vatRate={company.pos_vat_rate} />
+        <CartContents
+          vatRate={company.pos_vat_rate}
+          versandFreiAb={company.free_shipping_threshold}
+        />
       </div>
     </div>
   );

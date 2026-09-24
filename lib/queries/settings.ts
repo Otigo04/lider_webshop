@@ -1,6 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { createPublicClient } from "@/lib/supabase/public";
+import { FREE_SHIPPING_THRESHOLD, freeShippingThreshold } from "@/lib/shipping";
 import type { CompanySettings } from "@/lib/types";
 
 const EMPTY_SETTINGS: CompanySettings = {
@@ -19,6 +20,7 @@ const EMPTY_SETTINGS: CompanySettings = {
   iban: null,
   bic: null,
   payment_terms_days: 14,
+  free_shipping_threshold: FREE_SHIPPING_THRESHOLD,
   pos_vat_rate: 19,
   pos_prices_gross: true,
   pos_receipt_footer: null,
@@ -47,7 +49,19 @@ export async function getCompanySettings(): Promise<CompanySettings> {
   // Über die Vorgaben legen statt ersetzen: Spalten, die eine noch nicht
   // eingespielte Migration mitbringt (etwa die Kassenfelder aus 018), fehlen
   // sonst schlicht und die Kasse rechnete mit undefined.
-  return { ...EMPTY_SETTINGS, ...(data as Partial<CompanySettings> | null) };
+  const zusammen = {
+    ...EMPTY_SETTINGS,
+    ...(data as Partial<CompanySettings> | null),
+  };
+
+  // NUMERIC kommt über PostgREST als Zeichenkette an. Ungeprüft übernommen
+  // würde aus dem Vergleich „Summe >= Grenze" ein Textvergleich.
+  return {
+    ...zusammen,
+    free_shipping_threshold: freeShippingThreshold(
+      zusammen.free_shipping_threshold,
+    ),
+  };
 }
 
 /** Kontaktangaben, die jeder Besucher sehen darf (Migration 036). */
@@ -59,6 +73,12 @@ export interface PublicContact {
   phone: string | null;
   email: string | null;
   website: string | null;
+  /**
+   * Versandkostenfreigrenze. Steht in der öffentlichen Auskunft, weil sie auf
+   * Startseite und Versandseite geworben wird – die sehen auch Besucher ohne
+   * Konto. Bankdaten und Steuernummern bleiben hinter der Policy.
+   */
+  free_shipping_threshold: number;
 }
 
 /**
@@ -76,6 +96,7 @@ export async function getPublicContact(): Promise<PublicContact> {
     phone: null,
     email: null,
     website: null,
+    free_shipping_threshold: FREE_SHIPPING_THRESHOLD,
   };
   const { data, error } = await createPublicClient().rpc("public_company_contact");
   if (error) {
@@ -83,5 +104,11 @@ export async function getPublicContact(): Promise<PublicContact> {
     return leer;
   }
   const zeile = (Array.isArray(data) ? data[0] : data) as Partial<PublicContact> | undefined;
-  return { ...leer, ...(zeile ?? {}) };
+  const zusammen = { ...leer, ...(zeile ?? {}) };
+  return {
+    ...zusammen,
+    free_shipping_threshold: freeShippingThreshold(
+      zusammen.free_shipping_threshold,
+    ),
+  };
 }

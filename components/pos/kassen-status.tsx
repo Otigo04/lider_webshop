@@ -40,7 +40,11 @@ const DARSTELLUNG: Record<
   { label: string; klasse: string; Icon: typeof CheckCircle2 }
 > = {
   treffer: {
-    label: "Gebucht",
+    // „Erfasst", nicht „Gebucht": zu diesem Zeitpunkt steht der Artikel auf
+    // dem Bon bzw. der Lieferliste – gebucht wird er erst beim Abschluss,
+    // und der meldet sich als „Abgeschlossen". Zwei Meldungen, die beide
+    // „fertig" hießen, ließen am Tresen offen, was tatsächlich geschehen ist.
+    label: "Erfasst",
     klasse: "border-success/40 bg-success/10 text-success",
     Icon: CheckCircle2,
   },

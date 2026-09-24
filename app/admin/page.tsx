@@ -117,8 +117,13 @@ export default async function AdminDashboardPage() {
         </div>
       </section>
 
-      <div className="mt-10 grid gap-10 lg:grid-cols-[1fr_20rem]">
-        <div className="space-y-10">
+      <div className="mt-10 grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        {/* min-w-0: ein Rasterfeld ist von sich aus so breit wie sein
+            schmalstmöglicher Inhalt. Die Tabelle darin trägt min-w-2xl,
+            also wuchs das Feld auf 672 px – ihr overflow-x-auto kam nie zum
+            Zug, und auf dem Handy ließ sich stattdessen die ganze Seite
+            seitlich schieben. */}
+        <div className="min-w-0 space-y-10">
           <section>
             <div className="flex items-center justify-between">
               <h2 className="font-medium">Letzte Bestellungen</h2>

@@ -72,6 +72,9 @@ export function CustomerCombobox({
           onFocus={() => setOpen(true)}
           onBlur={() => setTimeout(() => setOpen(false), 150)}
           placeholder="Firma, Name oder E-Mail suchen …"
+          // aria-label statt id/htmlFor: die Combobox steht an mehreren
+          // Stellen, eine feste id käme dort doppelt vor.
+          aria-label="Kunde suchen"
           className="pl-9"
         />
       </div>

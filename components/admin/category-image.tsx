@@ -137,6 +137,9 @@ export function CategoryImage({
           accept={ALLOWED_IMAGE_TYPES.join(",")}
           className="sr-only"
           id={`kategoriebild-${categoryId}`}
+          // Das Feld liegt nur versteckt hinter dem Knopf darunter; ohne
+          // eigene Beschriftung meldet ein Vorleser „Datei auswählen, leer“.
+          aria-label="Bild der Warengruppe auswählen"
           onChange={(event) => void hochladen(event.target.files?.[0])}
         />
         <Button

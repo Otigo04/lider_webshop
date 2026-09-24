@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { FREE_SHIPPING_THRESHOLD } from "@/lib/shipping";
+import { getPublicContact } from "@/lib/queries/settings";
+import { formatThreshold } from "@/lib/shipping";
 
 export const metadata: Metadata = {
   title: "Versand und Lieferung",
@@ -13,15 +14,19 @@ export const metadata: Metadata = {
  * Was ein Händler wissen will, bevor er ein Konto anlegt: was der Versand
  * kostet, ob er abholen kann und wie eine Bestellung abläuft.
  *
- * Alle Angaben stammen aus dem Code und nicht aus einer Annahme: die
- * Freigrenze aus lib/shipping.ts, der Ablauf aus lib/actions/orders.ts und
- * den Bestellstatus-Bezeichnungen. Ändert sich die Grenze, ändert sich diese
- * Seite mit – deshalb steht sie als Konstante hier und nicht als Zahl im Text.
+ * Alle Angaben stammen aus den gepflegten Daten und nicht aus einer Annahme:
+ * die Freigrenze aus company_settings (Migration 037), der Ablauf aus
+ * lib/actions/orders.ts und den Bestellstatus-Bezeichnungen. Wird die Grenze
+ * unter /admin/settings geändert, ändert sich diese Seite mit – deshalb steht
+ * hier keine Zahl im Text.
  *
  * Keine AGB: die gehören von einem Anwalt geschrieben, nicht aus dem
  * Quelltext abgeleitet.
  */
-export default function VersandPage() {
+export default async function VersandPage() {
+  // Öffentliche Auskunft: die Seite ist auch ohne Anmeldung erreichbar.
+  const { free_shipping_threshold: versandFreiAb } = await getPublicContact();
+
   return (
     <div className="mx-auto max-w-2xl px-4 py-16">
       <p className="eyebrow text-gold">Für Gewerbekunden</p>
@@ -31,7 +36,7 @@ export default function VersandPage() {
         <section>
           <h2 className="text-base font-semibold">Versandkosten</h2>
           <p className="mt-2 text-muted-foreground">
-            Ab {FREE_SHIPPING_THRESHOLD} € netto Warenwert liefern wir
+            Ab {formatThreshold(versandFreiAb)} netto Warenwert liefern wir
             versandkostenfrei. Darunter richten sich die Kosten nach Gewicht
             und Zielort; wir teilen sie mit der Auftragsbestätigung mit, bevor
             die Ware das Haus verlässt.

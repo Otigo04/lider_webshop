@@ -112,7 +112,7 @@ export default async function OrderDetailPage({
         <OrderStatusBadge status={order.status} />
       </div>
 
-      <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_20rem]">
+      <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <div className="space-y-8">
           {/* Positionen – schmale Bildschirme als Karten. */}
           <section>

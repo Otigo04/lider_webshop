@@ -191,9 +191,10 @@ export function InvoiceForm({
           className="space-y-6"
         >
           <section>
-            <Label>Artikel suchen</Label>
+            <Label htmlFor="rechnung-artikelsuche">Artikel suchen</Label>
             <div className="relative mt-2">
               <Input
+                id="rechnung-artikelsuche"
                 value={productQuery}
                 onChange={(event) => setProductQuery(event.target.value)}
                 placeholder="Name oder Artikelnummer …"

@@ -20,7 +20,10 @@ export async function Header() {
     { href: "/shop/neuheiten", label: "Neuheiten" },
     { href: "/shop/topseller", label: "Topseller" },
     { href: "/shop/reduziert", label: "Reduziert", erstAbXl: isAdmin },
-    ...(user ? [{ href: "/orders", label: "Bestellungen" }] : []),
+    // Für Admins erst ab xl: zwischen 1024 und 1280 px passen Logo, sieben
+    // Reiter und Benutzermenü nicht in die auf max-w-6xl gedeckelte Leiste.
+    // Der Admin erreicht seine Bestellungen dort über das Benutzermenü.
+    ...(user ? [{ href: "/orders", label: "Bestellungen", erstAbXl: isAdmin }] : []),
     ...(isAdmin ? [{ href: "/admin", label: "Verwaltung" }] : []),
     // Eigenes Portal für Ladengeschäft und Buchhaltung, nur für Admins –
     // deshalb hervorgehoben statt als weiterer grauer Reiter.
@@ -37,7 +40,7 @@ export async function Header() {
           className="group flex shrink-0 items-center gap-2.5 leading-none focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold"
         >
           {logoPath ? (
-            <span className="relative block size-10 shrink-0 transition-transform duration-300 group-hover:scale-105">
+            <span className="relative block size-9 shrink-0 transition-transform duration-300 group-hover:scale-105 sm:size-10">
               <Image
                 src={logoPath}
                 alt="LIDER Groß- und Einzelhandel"
@@ -49,9 +52,18 @@ export async function Header() {
             </span>
           ) : null}
           {wordmarkPath ? (
+            /* Auf dem Handy kleiner: Wappen, Schriftzug, Warenkorb,
+               Benutzermenü und Klappmenü zusammen brauchten bei 390 px mehr
+               Platz als die Leiste hat – die Seite ließ sich seitlich
+               schieben. Die Breite folgt der Höhe über das Seitenverhältnis
+               der Datei, damit der Schriftzug nicht verzerrt. */
             <span
-              className="relative block h-10"
-              style={{ width: `calc(2.5rem * ${LOGO_WORDMARK_ASPECT})` }}
+              className="relative block h-7 w-[calc(1.75rem*var(--wortmarke-ar))] sm:h-10 sm:w-[calc(2.5rem*var(--wortmarke-ar))]"
+              style={
+                {
+                  "--wortmarke-ar": String(LOGO_WORDMARK_ASPECT),
+                } as React.CSSProperties
+              }
             >
               <Image
                 src={wordmarkPath}
@@ -71,13 +83,14 @@ export async function Header() {
 
         <MainNav links={links} />
 
-        <div className="flex min-w-0 items-center gap-1">
+        <div className="flex shrink-0 items-center gap-1">
           {user ? <CartLink /> : null}
           {user ? (
             <UserMenu
               label={user.company_name || user.full_name || user.email}
               email={user.email}
               isAdmin={isAdmin}
+              kompakt={isAdmin}
             />
           ) : (
             <div className="hidden items-center gap-2 lg:flex">

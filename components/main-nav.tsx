@@ -50,7 +50,7 @@ export function MainNav({ links }: { links: NavLink[] }) {
               href={link.href}
               aria-current={aktiv ? "page" : undefined}
               className={cn(
-                "ml-2 flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-semibold uppercase tracking-wide transition-colors duration-200",
+                "ml-2 flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border px-3 py-1.5 text-sm font-semibold uppercase tracking-wide transition-colors duration-200",
                 aktiv
                   ? "border-gold bg-gold text-gold-foreground"
                   : "border-gold/70 text-gold-bright hover:bg-gold hover:text-gold-foreground",
@@ -68,7 +68,7 @@ export function MainNav({ links }: { links: NavLink[] }) {
             href={link.href}
             aria-current={aktiv ? "page" : undefined}
             className={cn(
-              "group relative rounded-md px-3 py-2 text-sm font-medium transition-colors duration-200",
+              "group relative shrink-0 whitespace-nowrap rounded-md px-2.5 py-2 text-sm font-medium transition-colors duration-200",
               link.erstAbXl && "hidden xl:block",
               aktiv
                 ? "text-surface-dark-foreground"

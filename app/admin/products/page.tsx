@@ -350,9 +350,14 @@ export default async function AdminProductsPage({
          * drei Preise in eine Spalte und Bestand samt Verfügbarkeit in eine
          * weitere. Die Aktionen sind Symbolknöpfe mit Beschriftung für
          * Screenreader.
+         *
+         * Trotzdem ein overflow-x-auto wie in den übrigen Adminlisten: sieben
+         * Spalten unterschreiten die Fensterbreite eines Handys nicht. Ohne
+         * den Rahmen ließ sich die ganze Seite samt Kopfleiste seitlich
+         * schieben, statt nur die Tabelle.
          */
-        <div className="mt-6">
-          <table className="w-full border-collapse text-sm">
+        <div className="mt-6 overflow-x-auto">
+          <table className="w-full min-w-3xl border-collapse text-sm">
             <thead>
               <tr className="border-b-2 border-border text-left text-muted-foreground">
                 <th className="py-2 pr-3 font-medium">Artikel</th>

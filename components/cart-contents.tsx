@@ -8,7 +8,6 @@ import { useCartImages } from "@/lib/use-cart-images";
 import { formatPrice, formatQuantity } from "@/lib/format";
 import { lineTotal, minOrderQuantity, resolveTier } from "@/lib/pricing";
 import {
-  FREE_SHIPPING_THRESHOLD,
   qualifiesForFreeShipping,
   shippingNote,
 } from "@/lib/shipping";
@@ -18,7 +17,14 @@ import { QuantityInput } from "@/components/quantity-input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
-export function CartContents({ vatRate }: { vatRate: number }) {
+export function CartContents({
+  vatRate,
+  versandFreiAb,
+}: {
+  vatRate: number;
+  /** Netto-Grenze aus den Firmendaten (company_settings, Migration 037) */
+  versandFreiAb: number;
+}) {
   const { items, ready, total, itemCount, updateQuantity, removeItem, clear } =
     useCart();
   const bilder = useCartImages(items);
@@ -54,7 +60,7 @@ export function CartContents({ vatRate }: { vatRate: number }) {
   const betraege = steuer(total, vatRate);
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[1fr_20rem]">
+    <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
       <ul className="divide-y divide-border rounded-md border border-border">
         {items.map((item) => {
           const tier = resolveTier(item.tiers, item.quantity);
@@ -177,36 +183,36 @@ export function CartContents({ vatRate }: { vatRate: number }) {
         <p
           className={cn(
             "mt-3 rounded-md border px-3 py-2 text-xs",
-            qualifiesForFreeShipping(total)
+            qualifiesForFreeShipping(total, versandFreiAb)
               ? "border-success/30 bg-success/10 text-success"
               : "border-border bg-muted text-muted-foreground",
           )}
         >
-          {shippingNote(total)}
+          {shippingNote(total, versandFreiAb)}
         </p>
 
         {/* Wie weit es noch bis zur Versandkostenfreiheit ist – dieselbe Grenze,
             die oben in der Hinweisleiste steht. Eine Zahl zum Auffüllen ist
             greifbarer als eine Bedingung im Fließtext. */}
-        {!qualifiesForFreeShipping(total) ? (
+        {!qualifiesForFreeShipping(total, versandFreiAb) && versandFreiAb > 0 ? (
           <div className="mt-3">
             <div className="flex justify-between text-xs">
               <span className="text-muted-foreground">Bis versandkostenfrei</span>
               <span className="font-semibold tabular">
-                noch {formatPrice(FREE_SHIPPING_THRESHOLD - total)}
+                noch {formatPrice(versandFreiAb - total)}
               </span>
             </div>
             <div
               role="progressbar"
               aria-label="Fortschritt bis zur Versandkostenfreiheit"
               aria-valuemin={0}
-              aria-valuemax={FREE_SHIPPING_THRESHOLD}
+              aria-valuemax={versandFreiAb}
               aria-valuenow={Math.round(total)}
               className="mt-1.5 h-2 overflow-hidden rounded-full bg-muted"
             >
               <div
                 className="h-full rounded-full bg-gold transition-[width] duration-500 ease-out"
-                style={{ width: `${Math.min(100, (total / FREE_SHIPPING_THRESHOLD) * 100)}%` }}
+                style={{ width: `${Math.min(100, (total / versandFreiAb) * 100)}%` }}
               />
             </div>
           </div>

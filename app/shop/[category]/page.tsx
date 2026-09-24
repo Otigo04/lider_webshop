@@ -9,7 +9,16 @@ export async function generateMetadata({
 }: PageProps<"/shop/[category]">): Promise<Metadata> {
   const { category: slug } = await params;
   const category = await getCategoryBySlug(slug);
-  if (!category) return { title: "Kategorie" };
+  /*
+   * Nicht vorhanden: die Seite zeigt gleich die 404-Tafel, der HTTP-Status
+   * bleibt aber 200. Grund ist das loading.tsx dieses Abschnitts – es öffnet
+   * eine Suspense-Grenze, Next schickt den Rahmen sofort los, und wenn
+   * notFound() greift, sind die Kopfzeilen längst raus. Ohne `noindex` nähme
+   * eine Suchmaschine die leere Seite als gültige Adresse auf.
+   */
+  if (!category) {
+    return { title: "Warengruppe nicht gefunden", robots: { index: false, follow: false } };
+  }
 
   return {
     title: category.name,

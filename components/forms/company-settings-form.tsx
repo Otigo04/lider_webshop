@@ -202,6 +202,27 @@ export function CompanySettingsForm({ settings }: { settings: CompanySettings })
               className="tabular"
             />
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="free_shipping_threshold">
+              Versandkostenfrei ab (€ netto)
+            </Label>
+            <Input
+              id="free_shipping_threshold"
+              name="free_shipping_threshold"
+              type="number"
+              min={0}
+              max={100000}
+              step="0.01"
+              defaultValue={settings.free_shipping_threshold}
+              className="tabular"
+            />
+            <p className="text-xs text-muted-foreground">
+              Steht im Warenkorb, im Bestellformular, auf der Startseite und
+              unter „Versand“. <strong>0</strong> heißt: immer kostenfrei. Der
+              Text der Hinweisleiste oben auf der Seite wird davon nicht
+              berührt – ihn schreiben Sie weiter unten selbst.
+            </p>
+          </div>
         </div>
       </section>
 

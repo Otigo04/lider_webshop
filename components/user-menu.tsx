@@ -17,9 +17,16 @@ interface UserMenuProps {
   label: string;
   email: string;
   isAdmin: boolean;
+  /**
+   * Nur das Zeichen zeigen, nie die Beschriftung. Gesetzt für Admins: deren
+   * Kopfleiste trägt zwei Reiter mehr (Verwaltung, Kasse), und die Leiste ist
+   * bei `max-w-6xl` gedeckelt – ein breiteres Fenster bringt dort keinen
+   * Platz mehr dazu. Ohne das lief der Firmenname über den Warenkorb.
+   */
+  kompakt?: boolean;
 }
 
-export function UserMenu({ label, email, isAdmin }: UserMenuProps) {
+export function UserMenu({ label, email, isAdmin, kompakt }: UserMenuProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -27,14 +34,18 @@ export function UserMenu({ label, email, isAdmin }: UserMenuProps) {
         <Button
           variant="ghost"
           size="sm"
-          className="min-w-0 gap-1 text-surface-dark-muted hover:bg-white/10 hover:text-surface-dark-foreground"
+          className="min-w-0 shrink-0 gap-1 text-surface-dark-muted hover:bg-white/10 hover:text-surface-dark-foreground"
         >
           {/* Das Zeichen steht immer, die Beschriftung erst ab xl: ein langer
               Firmenname oder eine lange E-Mail schob die Kopfleiste sonst über
               den Fensterrand hinaus. Wer der Angemeldete ist, steht im Menü. */}
           <UserRound className="size-4 shrink-0" aria-hidden />
-          <span className="hidden max-w-40 truncate xl:inline">{label}</span>
-          <span className="sr-only xl:hidden">Angemeldet als {label}</span>
+          {kompakt ? null : (
+            <span className="hidden max-w-40 truncate xl:inline">{label}</span>
+          )}
+          <span className={kompakt ? "sr-only" : "sr-only xl:hidden"}>
+            Angemeldet als {label}
+          </span>
           <ChevronDown className="size-4" />
         </Button>
       </DropdownMenuTrigger>
