@@ -192,6 +192,7 @@ CREATE TABLE product_images (
 - `/admin/products` – Produktverwaltung
 - `/admin/gruppen` – Angebote mit Ausführungen (Farbe, Größe, Wattzahl)
 - `/admin/bestand` – Wareneingang (Schnellerfassung) und sein Journal
+- `/admin/preisschilder` – Preisschilder fürs Regal, druckfertig auf A4
 - `/admin/products/new` – Produkt erstellen
 - `/admin/products/[id]/edit` – Produkt bearbeiten
 - `/admin/orders` – Bestellverwaltung
@@ -653,6 +654,87 @@ eine Liste, die beim Scannen wächst, und eine Sammelbuchung am Ende.
   keine EAN ist kürzer.
 - Das ausführliche Artikelformular (`/admin/products/new`) bleibt daneben für
   Fotos, Beschreibung und Staffeln und verweist oben hierher.
+
+---
+
+## 🏷️ Preisschilder fürs Regal
+
+`/admin/preisschilder`, Grundlage `supabase/migrations/038_preisschilder.sql`
+(Symbole) und `039_schildgroessen.sql` (Maße). Artikel anklicken, Stückzahl
+setzen, drucken – A4 mit Schnittlinien.
+
+- **Nichts wird gespeichert außer Symbolen und Maßen.** Ein Preisschild ist
+  eine Momentaufnahme; ändert sich der Preis, wird neu gedruckt. Eine abgelegte
+  Schilderliste wäre eine zweite Wahrheit, die still veraltet. Bleiben müssen
+  die Symbolbibliothek (`label_icons`, Bucket `products` unter `etiketten/…`)
+  und die Schildgrößen (`label_sizes`) – beides Werkzeug, das über den
+  einzelnen Druck hinausgeht.
+- **Maße in Millimetern, frei einstellbar.** Am Regal wird gemessen, welches
+  Schild in die Schiene passt, nicht ausgerechnet, wie oft es auf ein Blatt
+  geht. Gepflegt werden deshalb Breite und Höhe; Spalten, Zeilen und die Zahl
+  je Bogen fallen in `raster()` ab. Abgerundet und nicht gestreckt: ein Schild,
+  das 64,5 mm breit sein soll, ist auf dem Papier 64,5 mm breit, und was rechts
+  übrig bleibt, ist Rand. Die Alternative wäre, die eingegebenen Maße
+  stillschweigend zu verändern – dann passte das ausgeschnittene Schild nicht
+  mehr in die Schiene.
+- **Schriftgrößen sind Anteile der Schildhöhe**, keine Tabelle je Format:
+  seit die Maße frei eingegeben werden, gibt es keine feste Liste, für die man
+  sie pflegen könnte. Ein doppelt so hohes Schild trägt doppelt so große
+  Schrift. Preis und Fußzeile werden zusätzlich auf die Breite begrenzt –
+  aus einem abgeschnittenen „1.299,0" würde ein falscher Preis.
+- **`hoehenBedarf()` ist die Bremse dazu**: es rechnet, was ein voll besetztes
+  Schild braucht (zweizeilige Bezeichnung, Preis, beide Haarlinien, Fußzeile).
+  Zu groß geratene Anteile fielen sonst nicht auf dem Bildschirm auf, sondern
+  erst auf dem abgeschnittenen Papier. Daraus folgt auch die Untergrenze von
+  25 mm: darunter trägt ein Schild seine drei Angaben nicht mehr lesbar.
+- **Euro groß, Cent hochgestellt** (`preisTeile()`). Nicht als Zierde: „12" in
+  voller Größe und „99" halb so groß brauchen weniger Breite als „12,99", der
+  Betrag kann dadurch rund anderthalbmal so groß gesetzt werden. Genau die Zahl
+  liest man aus zwei Metern.
+- **Streichpreis neben den Preis, Prozentfeld in den Kopf.** Beides
+  untereinander kostete Höhe, die auf einem 40-mm-Schild der Preis besser
+  braucht. Das Prozentfeld ist schwarz mit weißer Schrift – die einzige
+  Auszeichnung, die auf weißem wie auf rotem Grund gleich stark steht.
+- **Zwei Haarlinien** teilen das Schild in Kopf, Preis und Fußzeile. Sie tragen
+  nichts vor, sie ordnen: drei Felder statt drei Zeilen, die im Weißraum
+  schwimmen.
+- **Der Bogen ist ein Route Handler** (`/admin/preisschilder/druck`), wie der
+  Kassenbon und aus demselben Grund: als Seite läge er unter dem
+  Verwaltungslayout und brächte Reiterleiste und Rahmen aufs Papier. **POST**,
+  weil fünfzig Artikel mit Namen und Preisen keine Adresszeile überleben; die
+  Werkbank schickt ein Formular mit `target="_blank"`. Übermittelt werden die
+  **Maße**, nicht die Kennung der Größe: ein Bogen, der geöffnet wird, nachdem
+  jemand die Größe geändert hat, käme sonst anders aus dem Drucker als in der
+  Vorschau stand.
+- **HTML statt PDF.** Die Schilder sind reines Rechteck-Layout, das CSS-Grid
+  ohne eine Zeile Koordinatenrechnerei setzt. `print-color-adjust: exact` ist
+  dabei nicht Kosmetik: ohne das druckt Chrome die roten Flächen weiß.
+- **Rot heißt reduziert**, sonst weiß – die Schrift bleibt in beiden Fällen
+  schwarz. Ob rot, entscheidet `reduzierung()` wie im Shop: ein Cent
+  Unterschied ist kein Angebot. Die Fläche ist `#e2001a` und nicht das
+  Markenrot `#a02020`, weil schwarze Ziffern darauf lesbar bleiben müssen.
+- **Der verdeckte Großhandelspreis** steht als Anhängsel hinter der
+  Artikelnummer: `123123#1299` für 12,99 € Einkauf (`ghCode()` – Cent, kein
+  Euro-Zeichen, kein Trennzeichen). **Mindestens dreistellig**: 0,77 € ergäbe
+  sonst `#77`, und das liest sich wie 77 Euro; mit führender Null steht dort
+  `#077`, und drei Stellen heißen immer Euro-Euro-Cent-Cent. Auf weißem Schild
+  rot, auf rotem schwarz. Leeres Feld heißt „kein Code", nicht „0 €".
+- **Maße und Farben stehen in `lib/preisschild.ts`**, nicht im Bogen-Baustein:
+  die Werkbank zeigt dieselbe Vorschau in Originalgröße, die der Drucker aufs
+  Papier bringt (`components/admin/preisschild-vorschau.tsx`, Millimeter statt
+  Tailwind-Klassen). Zwei Zahlensätze liefen auseinander, und dann wäre die
+  Vorschau genau das, was sie nicht sein darf: ungefähr.
+- **Schnittlinien als eigene Ebene** über dem Raster, nicht als Zellrahmen: die
+  rote Fläche füllt die Zelle bis zur Kante, damit nach dem Schnitt kein weißer
+  Rand bleibt. Eine Linie *innerhalb* der Zelle läge unter der Farbe und wäre
+  ausgerechnet auf dem roten Schild unsichtbar. Die Ebene ist so groß wie die
+  Schilder zusammen, nicht wie die Nutzfläche – auf dem Reststreifen hat keine
+  Schnittlinie etwas zu suchen.
+- Die letzte Seite bleibt angebrochen; leere Zellen sind weißes Papier, kein
+  Fehler.
+- Ein zweiter Klick auf denselben Artikel heißt „noch eins", nicht „noch eine
+  Zeile" – wie beim Wareneingang. Zwei Zeilen für denselben Artikel ließen sich
+  getrennt bepreisen, und das fiele erst auf dem Papier auf.
 
 ---
 

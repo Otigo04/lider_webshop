@@ -1,0 +1,419 @@
+import "server-only";
+import { formatPrice } from "@/lib/format";
+import {
+  AKTIONSROT,
+  CENT_ANTEIL,
+  CODEROT,
+  NAME_ZEILE,
+  RAND,
+  SEITE,
+  istReduziert,
+  kennungSchriftgroesse,
+  kopfHoehe,
+  nebenblockBreite,
+  preisSchriftgroesse,
+  preisTeile,
+  raster,
+  schildKennung,
+  schildMasse,
+  type Preisschild,
+  type SchildFormat,
+} from "@/lib/preisschild";
+
+/**
+ * Druckbogen für Regal-Preisschilder.
+ *
+ * HTML plus `window.print()` wie beim Kassenbon (lib/pos-receipt.ts) und aus
+ * demselben Grund: damit druckt jeder Drucker, für den ein Treiber da ist.
+ * Ein PDF über pdf-lib wäre hier sogar der Umweg – die Schilder sind reines
+ * Rechteck-Layout, das CSS-Grid ohne eine Zeile Koordinatenrechnerei setzt.
+ *
+ * Ausgegeben wird ein fertiger A4-Bogen: Raster, Schnittlinien, Folgeseiten.
+ * Am Ende liegt ein Blatt im Drucker, das nur noch zerschnitten werden muss.
+ */
+
+/** Kein Text aus der Datenbank darf als Markup im Bogen landen. */
+function esc(wert: unknown): string {
+  return String(wert ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/** Millimeterwert fürs Stylesheet – drei Nachkommastellen reichen dem Drucker. */
+function mm(wert: number): string {
+  return `${wert.toFixed(3)}mm`;
+}
+
+/**
+ * Schnittlinien als eigene Ebene über dem Raster.
+ *
+ * Nicht als Zellrahmen: die roten Schilder sollen randlos ausgeschnitten
+ * werden, also füllt die Farbfläche die Zelle bis zur Kante. Eine Linie
+ * *innerhalb* der Zelle läge dann unter der Farbe und wäre auf einem roten
+ * Schild unsichtbar – ausgerechnet dort, wo man sie zum Schneiden braucht.
+ *
+ * Einzelne Linien statt eines sich wiederholenden Verlaufs, damit sie an
+ * derselben Stelle sitzen wie die Zellgrenzen: ein `repeating-linear-gradient`
+ * rundet über zwanzig Wiederholungen sichtbar weg.
+ */
+function schnittlinien(format: SchildFormat): string {
+  const { spalten, zeilen } = raster(format);
+  const linien: string[] = [];
+
+  for (let i = 0; i <= spalten; i++) {
+    linien.push(`<div class="schnitt v" style="left:${mm(i * format.breite)}"></div>`);
+  }
+  for (let i = 0; i <= zeilen; i++) {
+    linien.push(`<div class="schnitt h" style="top:${mm(i * format.hoehe)}"></div>`);
+  }
+  return linien.join("");
+}
+
+/**
+ * Ein Schild.
+ *
+ * Reduziert = rote Fläche mit schwarzer Schrift, sonst weiße Fläche mit
+ * schwarzer Schrift. Der Großhandelscode ist die einzige Ausnahme: auf Weiß
+ * steht er rot, auf Rot schwarz – er soll sich von der Artikelnummer absetzen,
+ * ohne wie eine zweite Preisangabe auszusehen.
+ *
+ * Preis- und Fußzeilengröße stehen inline und nicht im Stylesheet: beide
+ * hängen von der Länge ihres Textes ab, damit ein vierstelliger Preis oder
+ * eine lange Artikelnummer nicht über den Rand läuft.
+ */
+function schild(s: Preisschild, format: SchildFormat): string {
+  const masse = schildMasse(format);
+  const rot = istReduziert(s);
+  const { euro, cent } = preisTeile(s.preis);
+  const kennung = schildKennung(s.sku, s.code);
+  const belegt = nebenblockBreite(s.vorher, s.prozent, masse);
+
+  const neben =
+    s.vorher !== null || s.prozent !== null
+      ? `<div class="neben">
+          ${s.vorher !== null ? `<span class="vorher">${esc(formatPrice(s.vorher))}</span>` : ""}
+          ${s.prozent !== null ? `<span class="prozent">−${s.prozent}&nbsp;%</span>` : ""}
+        </div>`
+      : "";
+
+  return `<div class="zelle${rot ? " rot" : ""}">
+    <div class="kopf">
+      ${s.icon ? `<img class="icon" src="${s.icon}" alt="">` : ""}
+      <span class="name">${esc(s.name)}</span>
+    </div>
+    <div class="trenner"></div>
+    <div class="preisblock">
+      <div class="preiszeile">
+        <div class="preis" style="font-size:${mm(preisSchriftgroesse(s.preis, masse, belegt))}">
+          <span class="euro">${esc(euro)}</span><span class="cent">${esc(cent)}</span><span class="waehrung">€</span>
+        </div>
+        ${neben}
+      </div>
+    </div>
+    <div class="trenner"></div>
+    <div class="kennung" style="font-size:${mm(kennungSchriftgroesse(kennung, masse))}">${
+      s.code
+        ? `${esc(s.sku)}<span class="code">#${esc(s.code)}</span>`
+        : esc(kennung)
+    }</div>
+  </div>`;
+}
+
+export interface BogenOptions {
+  format: SchildFormat;
+  /** Druckdialog beim Öffnen selbst auslösen */
+  autoPrint?: boolean;
+}
+
+/**
+ * Vollständiges HTML-Dokument mit allen Bögen.
+ *
+ * Die Schilder werden hier nicht vervielfältigt – die Liste kommt bereits
+ * Stück für Stück herein. Wie viele Bögen daraus werden, ergibt sich aus der
+ * Länge: die letzte Seite bleibt angebrochen, statt mit Platzhaltern
+ * aufgefüllt zu werden. Leere Zellen sind weißes Papier, kein Fehler.
+ */
+export function buildLabelSheetHtml(
+  schilder: Preisschild[],
+  { format, autoPrint = true }: BogenOptions,
+): string {
+  const m = schildMasse(format);
+  const r = raster(format);
+
+  const seiten: string[] = [];
+  for (let start = 0; start < schilder.length; start += r.proBogen) {
+    const teil = schilder.slice(start, start + r.proBogen);
+    seiten.push(`<section class="bogen">
+      <div class="raster">${teil.map((s) => schild(s, format)).join("")}</div>
+      <div class="linien" aria-hidden="true">${schnittlinien(format)}</div>
+    </section>`);
+  }
+
+  if (seiten.length === 0) {
+    seiten.push(
+      `<section class="bogen"><p class="leer">Keine Schilder ausgewählt.</p></section>`,
+    );
+  }
+
+  const titel = `Preisschilder ${format.name} – ${schilder.length} Stück auf ${seiten.length} Bogen`;
+
+  return `<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${esc(titel)}</title>
+<style>
+  @page { size: A4; margin: 0; }
+
+  * { box-sizing: border-box; }
+
+  html { background: #8a8a8a; }
+
+  body {
+    margin: 0;
+    /* Systemschrift, keine Webfont-Nachladung: fehlte sie beim Öffnen des
+       Druckdialogs, stünden die Preise in einer Ersatzschrift auf dem Papier. */
+    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    color: #000;
+    /* Ohne das druckt Chrome die roten Flächen weiß – dann sähe ein
+       Aktionsschild aus wie jedes andere. */
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .bogen {
+    position: relative;
+    width: ${mm(SEITE.breite)};
+    height: ${mm(SEITE.hoehe)};
+    padding: ${mm(RAND)};
+    margin: 0 auto 10mm;
+    background: #fff;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+    page-break-after: always;
+    break-after: page;
+  }
+  .bogen:last-of-type { page-break-after: auto; break-after: auto; }
+
+  .raster {
+    display: grid;
+    grid-template-columns: repeat(${r.spalten}, ${mm(format.breite)});
+    grid-auto-rows: ${mm(format.hoehe)};
+    width: ${mm(r.rasterB)};
+    height: ${mm(r.rasterH)};
+  }
+
+  /* Ebene der Schnittlinien, deckungsgleich über dem belegten Raster. Sie ist
+     so groß wie die Schilder zusammen, nicht wie die Nutzfläche: bei einem
+     freien Maß bleibt rechts und unten ein Streifen Papier übrig, und dort
+     hat keine Schnittlinie etwas zu suchen. */
+  .linien {
+    position: absolute;
+    top: ${mm(RAND)};
+    left: ${mm(RAND)};
+    width: ${mm(r.rasterB)};
+    height: ${mm(r.rasterH)};
+    pointer-events: none;
+  }
+  .schnitt { position: absolute; background: #9a9a9a; }
+  .schnitt.v { top: -2mm; height: calc(100% + 4mm); width: 0.2mm; }
+  .schnitt.h { left: -2mm; width: calc(100% + 4mm); height: 0.2mm; }
+
+  .zelle {
+    display: flex;
+    flex-direction: column;
+    padding: ${mm(m.luft)};
+    overflow: hidden;
+    background: #fff;
+  }
+  .zelle.rot { background: ${AKTIONSROT}; }
+
+  /* Feste Höhe: zwei Zeilen Bezeichnung, auch wenn nur eine gebraucht wird.
+     Sonst rutschte der Preis mit der Länge des Namens auf und ab, und auf dem
+     Bogen stünde ein Dutzend Preise auf verschiedenen Höhen. */
+  .kopf {
+    display: flex;
+    align-items: center;
+    gap: ${mm(m.luft * 0.7)};
+    height: ${mm(kopfHoehe(m))};
+    flex: none;
+    overflow: hidden;
+  }
+  /* Die Bezeichnung nimmt, was übrig ist – das Symbol behält sein Maß, statt
+     bei einem langen Namen zusammengedrückt zu werden. */
+  .kopf .name { flex: 1; min-width: 0; }
+
+  .icon {
+    width: ${mm(m.icon)};
+    height: ${mm(m.icon)};
+    object-fit: contain;
+    flex: none;
+  }
+
+  .name {
+    font-size: ${mm(m.name)};
+    font-weight: 600;
+    line-height: ${NAME_ZEILE};
+    letter-spacing: -0.015em;
+    /* Zwei Zeilen, dann Schluss: eine dritte Zeile drückte den Preis aus dem
+       Schild, und der ist die Aussage. */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* Haarlinien über und unter dem Preis. Sie tragen nichts vor, sie ordnen:
+     drei Felder statt drei Zeilen, die im Weißraum schwimmen. */
+  .trenner {
+    height: ${mm(m.linie)};
+    margin: ${mm(m.linienLuft)} 0;
+    background: currentColor;
+    opacity: 0.85;
+    flex: none;
+  }
+
+  .preisblock {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 0;
+  }
+
+  /* Preis und Nebenblock nebeneinander: eine eigene Zeile für den alten Preis
+     kostete Höhe, die auf einem kleinen Schild der neue besser braucht.
+     Mittig und nicht an der Grundlinie ausgerichtet: der Nebenblock ist
+     zweizeilig, und an der Grundlinie seiner ersten Zeile hängend ragte die
+     zweite unter die Haarlinie. */
+  .preiszeile {
+    display: flex;
+    align-items: center;
+    gap: ${mm(m.luft * 0.7)};
+    min-width: 0;
+  }
+
+  /* Euro groß, Cent und Währung hochgestellt: derselbe Betrag braucht so
+     weniger Breite und kann größer gesetzt werden. */
+  .preis {
+    display: flex;
+    align-items: flex-start;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.035em;
+    white-space: nowrap;
+  }
+  .preis .euro { font-size: 1em; line-height: 1; }
+  .preis .cent {
+    font-size: ${CENT_ANTEIL}em;
+    line-height: 1;
+    margin-left: 0.04em;
+    letter-spacing: -0.02em;
+  }
+  .preis .waehrung {
+    font-size: ${CENT_ANTEIL}em;
+    line-height: 1;
+    margin-left: 0.14em;
+    font-weight: 600;
+  }
+
+  /* Streichpreis und Prozentfeld untereinander rechts vom Preis: zusammen in
+     einer Reihe wären sie breiter als der Preis selbst. */
+  .neben {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: ${mm(m.luft * 0.3)};
+    flex: none;
+  }
+
+  .vorher {
+    font-size: ${mm(m.vorher)};
+    font-weight: 600;
+    text-decoration: line-through;
+    /* Kein Grau: auf rotem Grund verschwände es. Die Durchstreichung sagt
+       bereits, dass der Preis nicht mehr gilt. */
+    text-decoration-thickness: 0.1em;
+    white-space: nowrap;
+  }
+
+  /* Schwarzes Feld mit weißer Schrift – die einzige Auszeichnung, die auf
+     weißem wie auf rotem Grund gleich stark steht. */
+  .prozent {
+    font-size: ${mm(m.prozent)};
+    font-weight: 700;
+    line-height: 1;
+    padding: 0.22em 0.4em;
+    background: #000;
+    color: #fff;
+    white-space: nowrap;
+  }
+
+  .kennung {
+    font-weight: 600;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    flex: none;
+  }
+  .kennung .code { color: ${CODEROT}; }
+  .zelle.rot .kennung .code { color: #000; }
+
+  .leer { padding: 20mm; font-size: 12pt; }
+
+  .leiste {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 10px;
+    background: #1f2937;
+    color: #fff;
+    font-size: 14px;
+  }
+  .leiste button {
+    font: inherit;
+    padding: 6px 14px;
+    border: 0;
+    border-radius: 4px;
+    background: #fff;
+    color: #111827;
+    cursor: pointer;
+  }
+
+  @media print {
+    html { background: #fff; }
+    .leiste { display: none; }
+    .bogen { margin: 0; box-shadow: none; }
+  }
+</style>
+</head>
+<body>
+  <div class="leiste">
+    <span>${esc(titel)}</span>
+    <button type="button" onclick="window.print()">Drucken</button>
+  </div>
+
+${seiten.join("\n")}
+
+  ${
+    autoPrint
+      ? `<script>
+    // Erst drucken, wenn Symbole und Schriften stehen – sonst geht ein halb
+    // aufgebauter Bogen aufs Papier.
+    window.addEventListener("load", function () {
+      window.setTimeout(function () { window.print(); }, 200);
+    });
+  </script>`
+      : ""
+  }
+</body>
+</html>`;
+}
