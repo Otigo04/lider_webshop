@@ -5,6 +5,7 @@ import { ListPlus, Plus, Printer, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { NumericInput } from "@/components/numeric-input";
 import { PreisschildGroessen } from "@/components/admin/preisschild-groessen";
+import { PreisschildLabels } from "@/components/admin/preisschild-labels";
 import { PreisschildSymbole } from "@/components/admin/preisschild-symbole";
 import { PreisschildVorschau } from "@/components/admin/preisschild-vorschau";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,7 @@ import {
   ghCode,
   proBogen,
   schildPreis,
+  type LabelOption,
   type Preisschild,
   type SchildFormat,
 } from "@/lib/preisschild";
@@ -45,6 +47,8 @@ interface Zeile {
   /** Großhandelspreis in Euro; 0 = kein Code hinter der Artikelnummer. */
   gh: number;
   iconId: string | null;
+  /** Schlüssel des Labels in der Fußzeile, null = keins */
+  labelKey: string | null;
   anzahl: number;
 }
 
@@ -55,11 +59,16 @@ export function PreisschildWerkbank({
   artikel,
   icons,
   formate,
+  labels,
 }: {
   artikel: PreisschildArtikel[];
   icons: LabelIcon[];
   formate: SchildFormat[];
+  labels: LabelOption[];
 }) {
+  // Eigene Kopie, damit eine neu gewählte Farbe sofort in der Vorschau steht
+  // und nicht erst nach dem Speichern.
+  const [labelListe, setLabelListe] = useState(labels);
   const [formatId, setFormatId] = useState(
     () => formate[Math.min(1, formate.length - 1)]?.id ?? "",
   );
@@ -124,6 +133,7 @@ export function PreisschildWerkbank({
           vorher: a.vorher ?? 0,
           gh: a.grosshandel ?? 0,
           iconId: null,
+          labelKey: null,
           anzahl: 1,
         },
       ];
@@ -149,6 +159,7 @@ export function PreisschildWerkbank({
   function alsSchild(z: Zeile): Preisschild {
     const { preis, vorher, prozent } = schildPreis(z.preis, z.vorher || null);
     const icon = z.iconId ? icons.find((i) => i.id === z.iconId) : null;
+    const label = z.labelKey ? labelListe.find((l) => l.key === z.labelKey) : null;
     return {
       name: z.name,
       preis,
@@ -157,6 +168,7 @@ export function PreisschildWerkbank({
       sku: z.sku,
       code: ghCode(z.gh),
       icon: icon?.url ?? null,
+      label: label ? { name: label.name, farbe: label.farbe } : null,
     };
   }
 
@@ -175,15 +187,24 @@ export function PreisschildWerkbank({
       vorher: z.vorher || null,
       gh: z.gh || null,
       iconId: z.iconId,
+      label: alsSchild(z).label,
       anzahl: z.anzahl,
     })),
   });
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
         <PreisschildGroessen formate={formate} />
         <PreisschildSymbole icons={icons} />
+        <PreisschildLabels
+          labels={labelListe}
+          onFarbe={(key, farbe) =>
+            setLabelListe((alt) =>
+              alt.map((l) => (l.key === key ? { ...l, farbe } : l)),
+            )
+          }
+        />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
@@ -445,7 +466,7 @@ export function PreisschildWerkbank({
                     </Button>
                   </div>
 
-                  <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
                     <Feld label="Preis" htmlFor={`preis-${z.productId}`}>
                       <NumericInput
                         id={`preis-${z.productId}`}
@@ -494,6 +515,26 @@ export function PreisschildWerkbank({
                         {icons.map((icon) => (
                           <option key={icon.id} value={icon.id}>
                             {icon.name}
+                          </option>
+                        ))}
+                      </select>
+                    </Feld>
+
+                    <Feld label="Label" htmlFor={`label-${z.productId}`}>
+                      <select
+                        id={`label-${z.productId}`}
+                        value={z.labelKey ?? ""}
+                        onChange={(event) =>
+                          aendern(z.productId, {
+                            labelKey: event.target.value || null,
+                          })
+                        }
+                        className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                      >
+                        <option value="">Ohne</option>
+                        {labelListe.map((label) => (
+                          <option key={label.key} value={label.key}>
+                            {label.name}
                           </option>
                         ))}
                       </select>

@@ -211,3 +211,41 @@ export async function deleteLabelSize(id: string): Promise<AdminFormState> {
   revalidatePath("/admin/preisschilder");
   return { success: "Größe gelöscht." };
 }
+
+// --- Labelfarben (Migration 040) --------------------------------------------
+
+const labelFarbeSchema = z.object({
+  key: z.string().regex(/^(neu|topseller|flag:[0-9a-f-]{36})$/, "Unbekanntes Label."),
+  farbe: z.string().regex(/^#[0-9a-fA-F]{6}$/, "Ungültige Farbe."),
+});
+
+/** Farbe eines Labels speichern – gilt ab dann für alle Preisschilder. */
+export async function setLabelFarbe(input: {
+  key: string;
+  farbe: string;
+}): Promise<AdminFormState> {
+  await requireAdmin();
+
+  const parsed = labelFarbeSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("label_badge_colors").upsert({
+    badge_key: parsed.data.key,
+    color: parsed.data.farbe.toLowerCase(),
+    updated_at: new Date().toISOString(),
+  });
+
+  if (error) {
+    console.error("[preisschilder] Labelfarbe:", error.message);
+    return {
+      error:
+        error.code === "42P01"
+          ? "Migration 040 fehlt – Farbe nicht gespeichert."
+          : "Die Farbe konnte nicht gespeichert werden.",
+    };
+  }
+
+  revalidatePath("/admin/preisschilder");
+  return { success: "Farbe gespeichert." };
+}

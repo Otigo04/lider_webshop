@@ -1,7 +1,12 @@
 import "server-only";
 import { PRODUCT_BUCKET } from "@/lib/constants";
 import { toNumber } from "@/lib/format";
-import { STANDARD_FORMATE, type SchildFormat } from "@/lib/preisschild";
+import {
+  LABEL_VORGABEN,
+  STANDARD_FORMATE,
+  type LabelOption,
+  type SchildFormat,
+} from "@/lib/preisschild";
 import { baseUnitPrice } from "@/lib/pricing";
 import { getImageUrls } from "@/lib/storage";
 import { createClient } from "@/lib/supabase/server";
@@ -239,4 +244,48 @@ export async function getLabelIconDataUris(
   );
 
   return karte;
+}
+
+/**
+ * Labels für Preisschilder: „Neu", „Topseller" und die Artikel-Flags
+ * (Migration 021), jeweils mit der Farbe aus label_badge_colors
+ * (Migration 040). Ohne gespeicherte Farbe gilt die Vorgabe – bei Flags die
+ * Farbe ihres Farbpunkts in der Artikelliste.
+ */
+export async function getLabelOptionen(): Promise<LabelOption[]> {
+  const supabase = await createClient();
+  const [flags, farben] = await Promise.all([
+    supabase.from("product_flags").select("id, name, color").order("created_at"),
+    supabase.from("label_badge_colors").select("badge_key, color"),
+  ]);
+
+  if (flags.error) console.error("[preisschilder] Flags:", flags.error.message);
+  if (farben.error && farben.error.code !== "42P01") {
+    console.error("[preisschilder] Labelfarben:", farben.error.message);
+  } else if (farben.error) {
+    console.warn(
+      "[preisschilder] Tabelle label_badge_colors fehlt – Migration 040 einspielen.",
+    );
+  }
+
+  const gespeichert = new Map(
+    ((farben.data ?? []) as { badge_key: string; color: string }[]).map((z) => [
+      z.badge_key,
+      z.color,
+    ]),
+  );
+
+  const optionen: LabelOption[] = [
+    { key: "neu", name: "Neu", farbe: LABEL_VORGABEN.neu },
+    { key: "topseller", name: "Topseller", farbe: LABEL_VORGABEN.topseller },
+    ...((flags.data ?? []) as { id: string; name: string; color: number }[]).map(
+      (flag) => ({
+        key: `flag:${flag.id}`,
+        name: flag.name,
+        farbe: LABEL_VORGABEN.flags[flag.color - 1] ?? LABEL_VORGABEN.flags[0],
+      }),
+    ),
+  ];
+
+  return optionen.map((o) => ({ ...o, farbe: gespeichert.get(o.key) ?? o.farbe }));
 }

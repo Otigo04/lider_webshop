@@ -4,12 +4,19 @@ import {
   AKTIONSROT,
   CENT_ANTEIL,
   CODEROT,
+  LABEL_LUFT,
+  NAME_GEWICHT,
   NAME_ZEILE,
   RAND,
+  SCHRIFT,
   SEITE,
   istReduziert,
   kennungSchriftgroesse,
   kopfHoehe,
+  labelBreite,
+  labelSchrift,
+  nameBreite,
+  nameSatz,
   nebenblockBreite,
   preisSchriftgroesse,
   preisTeile,
@@ -98,10 +105,17 @@ function schild(s: Preisschild, format: SchildFormat): string {
         </div>`
       : "";
 
+  const label = s.label
+    ? `<span class="label" style="background:${esc(s.label.farbe)};color:${labelSchrift(s.label.farbe)}">${esc(s.label.name)}</span>`
+    : "";
+
+  // Die Bezeichnung setzt das Skript am Ende des Bogens in zwei Zeilen
+  // (nameSatz()): messen kann erst der Browser, der die Schrift hat. Bis
+  // dahin – und ohne Skript – steht sie als Fließtext da.
   return `<div class="zelle${rot ? " rot" : ""}">
     <div class="kopf">
       ${s.icon ? `<img class="icon" src="${s.icon}" alt="">` : ""}
-      <span class="name">${esc(s.name)}</span>
+      <span class="name" data-breite="${nameBreite(masse, !!s.icon).toFixed(3)}">${esc(s.name)}</span>
     </div>
     <div class="trenner"></div>
     <div class="preisblock">
@@ -113,11 +127,14 @@ function schild(s: Preisschild, format: SchildFormat): string {
       </div>
     </div>
     <div class="trenner"></div>
-    <div class="kennung" style="font-size:${mm(kennungSchriftgroesse(kennung, masse))}">${
-      s.code
-        ? `${esc(s.sku)}<span class="code">#${esc(s.code)}</span>`
-        : esc(kennung)
-    }</div>
+    <div class="fuss">
+      <span class="kennung" style="font-size:${mm(kennungSchriftgroesse(kennung, masse, labelBreite(s.label, masse)))}">${
+        s.code
+          ? `${esc(s.sku)}<span class="code">#${esc(s.code)}</span>`
+          : esc(kennung)
+      }</span>
+      ${label}
+    </div>
   </div>`;
 }
 
@@ -176,7 +193,7 @@ export function buildLabelSheetHtml(
     margin: 0;
     /* Systemschrift, keine Webfont-Nachladung: fehlte sie beim Öffnen des
        Druckdialogs, stünden die Preise in einer Ersatzschrift auf dem Papier. */
-    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    font-family: ${SCHRIFT};
     color: #000;
     /* Ohne das druckt Chrome die roten Flächen weiß – dann sähe ein
        Aktionsschild aus wie jedes andere. */
@@ -254,16 +271,18 @@ export function buildLabelSheetHtml(
 
   .name {
     font-size: ${mm(m.name)};
-    font-weight: 600;
+    font-weight: ${NAME_GEWICHT};
     line-height: ${NAME_ZEILE};
-    letter-spacing: -0.015em;
     /* Zwei Zeilen, dann Schluss: eine dritte Zeile drückte den Preis aus dem
-       Schild, und der ist die Aussage. */
+       Schild, und der ist die Aussage. Greift nur, bis das Skript die Zeilen
+       gesetzt hat. */
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
+  .name.gesetzt { display: block; }
+  .name .zeile { display: block; white-space: nowrap; }
 
   /* Haarlinien über und unter dem Preis. Sie tragen nichts vor, sie ordnen:
      drei Felder statt drei Zeilen, die im Weißraum schwimmen. */
@@ -351,7 +370,28 @@ export function buildLabelSheetHtml(
     white-space: nowrap;
   }
 
+  /* Fußzeile: Artikelnummer links, Label rechts. */
+  .fuss {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: ${mm(m.luft * 0.7)};
+    flex: none;
+  }
+
+  .label {
+    font-size: ${mm(m.label)};
+    font-weight: 700;
+    line-height: 1;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0.15em ${LABEL_LUFT / 2}em;
+    white-space: nowrap;
+    flex: none;
+  }
+
   .kennung {
+    min-width: 0;
     font-weight: 600;
     line-height: 1;
     font-variant-numeric: tabular-nums;
@@ -402,6 +442,39 @@ export function buildLabelSheetHtml(
   </div>
 
 ${seiten.join("\n")}
+
+  <script>
+    // Bezeichnungen in zwei Zeilen setzen – dieselbe Funktion wie in der
+    // Vorschau der Werkbank, per toString() hierher übernommen.
+    (function () {
+      var nameSatz = ${nameSatz.toString()};
+      var ctx = document.createElement("canvas").getContext("2d");
+      if (!ctx) return;
+      ctx.font = ${JSON.stringify(`${NAME_GEWICHT} 100px ${SCHRIFT}`)};
+      var cache = {};
+      function messen(t) {
+        if (!(t in cache)) cache[t] = ctx.measureText(t).width / 100;
+        return cache[t];
+      }
+      var basis = ${m.name};
+      var satzCache = {};
+      document.querySelectorAll(".name[data-breite]").forEach(function (el) {
+        var text = el.textContent || "";
+        var schluessel = el.getAttribute("data-breite") + "|" + text;
+        var satz = satzCache[schluessel] ||
+          (satzCache[schluessel] = nameSatz(text, parseFloat(el.getAttribute("data-breite")), basis, messen));
+        el.textContent = "";
+        satz.zeilen.forEach(function (zeile) {
+          var span = document.createElement("span");
+          span.className = "zeile";
+          span.textContent = zeile;
+          el.appendChild(span);
+        });
+        el.style.fontSize = satz.groesse.toFixed(3) + "mm";
+        el.classList.add("gesetzt");
+      });
+    })();
+  </script>
 
   ${
     autoPrint

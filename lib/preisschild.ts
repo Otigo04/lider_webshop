@@ -26,6 +26,37 @@ export interface Preisschild {
   code: string | null;
   /** Data-URI (Druck) bzw. Signed URL (Vorschau) des Symbols, null = keins */
   icon: string | null;
+  /** Farbiges Label in der Fußzeile („Neu", „Topseller", Artikel-Flag), null = keins */
+  label: SchildLabel | null;
+}
+
+/**
+ * Ein wählbares Label: „Neu", „Topseller" oder ein Artikel-Flag. Der Text
+ * kommt aus dem Bestand, gepflegt wird hier nur die Farbe (Migration 040).
+ */
+export interface LabelOption {
+  /** 'neu', 'topseller' oder 'flag:<uuid>' */
+  key: string;
+  name: string;
+  farbe: string;
+}
+
+/**
+ * Farben, solange keine eigene gespeichert ist. Die Flags nehmen den
+ * Farbton ihres Farbpunkts in der Artikelliste (.tag-N in app/globals.css),
+ * damit ein Label auf dem Schild so aussieht wie in der Verwaltung.
+ */
+export const LABEL_VORGABEN = {
+  neu: "#059669",
+  topseller: "#b8721c",
+  flags: ["#283f78", "#0f5f57", "#9a4310", "#9c1f47", "#4c2f96", "#1c6b34"],
+} as const;
+
+/** Ein Label, wie es auf dem Schild steht: Text und Flächenfarbe. */
+export interface SchildLabel {
+  name: string;
+  /** Hex-Farbe der Fläche, #rrggbb */
+  farbe: string;
 }
 
 // --- Bogen und Schildgröße ---------------------------------------------------
@@ -142,13 +173,20 @@ export function schildMasse(format: SchildFormat) {
     luft,
     innenH,
     innenB,
-    /** Schriftgröße der Bezeichnung; sie darf über zwei Zeilen laufen. */
-    name: klemme(innenH * 0.145, 2, 12),
+    /**
+     * Höchstgröße der Bezeichnung. Zwei Zeilen, voll ausgeschrieben – passt
+     * sie so nicht, setzt nameSatz() sie kleiner. Bewusst deutlich unter dem
+     * Preis: gelesen wird aus der Entfernung der Betrag, die Bezeichnung erst
+     * vor dem Regal.
+     */
+    name: klemme(innenH * 0.1, 1.8, 8),
     /** Wunschgröße des Euro-Betrags – die Breitenprüfung kann sie kürzen. */
     preis: klemme(innenH * 0.38, 4, 40),
     vorher: klemme(innenH * 0.125, 1.8, 10),
     prozent: klemme(innenH * 0.125, 1.8, 10),
     kennung: klemme(innenH * 0.135, 1.8, 11),
+    /** Label in der Fußzeile, etwas kleiner als die Artikelnummer. */
+    label: klemme(innenH * 0.11, 1.6, 9),
     /** Symbol neben der Bezeichnung. */
     icon: klemme(innenH * 0.2, 3, 18),
     /** Stärke der beiden Haarlinien. */
@@ -176,7 +214,12 @@ const PROZENT_LUFT = 0.44;
  */
 export function hoehenBedarf(masse: ReturnType<typeof schildMasse>): number {
   const trenner = 2 * (masse.linie + 2 * masse.linienLuft);
-  return kopfHoehe(masse) + trenner + preiszeilenHoehe(masse) + masse.kennung;
+  return (
+    kopfHoehe(masse) +
+    trenner +
+    preiszeilenHoehe(masse) +
+    Math.max(masse.kennung, masse.label * 1.3)
+  );
 }
 
 /**
@@ -206,6 +249,145 @@ export function kopfHoehe(masse: ReturnType<typeof schildMasse>): number {
     masse.prozent * (1 + PROZENT_LUFT),
     masse.icon,
   );
+}
+
+/** Schrift aller Schilder. Systemschrift, keine Webfont – siehe Druckbogen. */
+export const SCHRIFT = '"Segoe UI", "Helvetica Neue", Arial, sans-serif';
+
+/** Strichstärke der Bezeichnung; die Messung in nameSatz() muss sie kennen. */
+export const NAME_GEWICHT = 600;
+
+/**
+ * Freie Breite der Bezeichnung in Millimetern – die Innenbreite abzüglich
+ * eines Symbols davor. Ein Hauch Reserve, weil Bildschirm und Druckertreiber
+ * die Laufweite nicht auf den Hundertstelmillimeter gleich setzen.
+ */
+export function nameBreite(
+  masse: ReturnType<typeof schildMasse>,
+  mitIcon: boolean,
+): number {
+  const icon = mitIcon ? masse.icon + masse.luft * 0.7 : 0;
+  return (masse.innenB - icon) * 0.97;
+}
+
+/**
+ * Satz der Bezeichnung: zwei Zeilen, voll ausgeschrieben.
+ *
+ * Zeile 1 wird bis zum Rand gefüllt. Passt das nächste Wort nicht mehr ganz
+ * hinein, wird es dort getrennt – so viel, wie bis zum Rand geht, dann ein
+ * „-", der Rest in Zeile 2. Vorher rutschte das ganze Wort in die zweite
+ * Zeile, ließ die erste halb leer und schnitt die zweite mit „…" ab: aus
+ * „Cimar 15W Magnetisches Fahrradlicht" wurde „Magnetisches…".
+ *
+ * Trennt nach Zeichen und nicht nach Silben – eine Silbentrennung bräuchte
+ * ein Wörterbuch, und `hyphens: auto` trennt je nach Browser gar nicht.
+ * Mindestens drei Zeichen vorn und zwei hinten, sonst stünde ein einsames
+ * „M-" am Zeilenende.
+ *
+ * Reicht der Platz auch so nicht, wird die Schrift in Schritten kleiner,
+ * bis auf die Hälfte. Erst darunter wird gekürzt – „voll ausgeschrieben"
+ * geht vor „groß".
+ *
+ * Gemessen wird in em (`messen` liefert die Breite eines Texts bei
+ * Schriftgröße 1), so gilt dieselbe Messung für jede Schriftgröße.
+ *
+ * ACHTUNG: Die Funktion wird per `toString()` in den Druckbogen eingebettet
+ * und läuft dort im Browser. Sie darf deshalb nichts außerhalb ihres eigenen
+ * Körpers verwenden – keine Konstanten, keine Hilfsfunktionen, keine Importe.
+ */
+export function nameSatz(
+  text: string,
+  breiteMm: number,
+  basisMm: number,
+  messen: (text: string) => number,
+): { zeilen: string[]; groesse: number } {
+  const MIN_VORNE = 3;
+  const MIN_HINTEN = 2;
+  const MIN_ANTEIL = 0.5;
+
+  function umbrechen(woerter: string[], breiteEm: number): string[] | null {
+    if (woerter.length === 0) return [];
+    let zeile1 = "";
+    let rest: string | null = null;
+    let i = 0;
+    for (; i < woerter.length; i++) {
+      const probe = zeile1 ? zeile1 + " " + woerter[i] : woerter[i];
+      if (messen(probe) <= breiteEm) {
+        zeile1 = probe;
+        continue;
+      }
+      const zeichen = Array.from(woerter[i]);
+      for (let n = zeichen.length - MIN_HINTEN; n >= MIN_VORNE; n--) {
+        // Nicht mitten in einer Zahl: aus „1500W" würde sonst „150-" und „0W".
+        if (/\d/.test(zeichen[n - 1]) && /\d/.test(zeichen[n])) continue;
+        const vorne = zeichen.slice(0, n).join("");
+        // Steht an der Stelle schon ein Bindestrich, kein zweiter dazu.
+        const kandidat =
+          (zeile1 ? zeile1 + " " : "") + vorne + (vorne.slice(-1) === "-" ? "" : "-");
+        if (messen(kandidat) <= breiteEm) {
+          zeile1 = kandidat;
+          rest = zeichen.slice(n).join("");
+          break;
+        }
+      }
+      break;
+    }
+    if (i >= woerter.length) return [zeile1];
+    if (!zeile1) return null;
+    const zeile2 = (rest !== null ? [rest] : [])
+      .concat(woerter.slice(rest !== null ? i + 1 : i))
+      .join(" ");
+    return messen(zeile2) <= breiteEm ? [zeile1, zeile2] : null;
+  }
+
+  const woerter = String(text).trim().split(/\s+/).filter(Boolean);
+  for (let anteil = 1; anteil >= MIN_ANTEIL - 1e-9; anteil -= 0.05) {
+    const groesse = basisMm * anteil;
+    const zeilen = umbrechen(woerter, breiteMm / groesse);
+    if (zeilen) return { zeilen: zeilen, groesse: groesse };
+  }
+
+  // Notfall: selbst bei halber Größe zu lang. Von hinten kürzen, bis es passt.
+  const klein = basisMm * MIN_ANTEIL;
+  const alle = Array.from(woerter.join(" "));
+  for (let laenge = alle.length - 1; laenge > 0; laenge--) {
+    const gekuerzt = (alle.slice(0, laenge).join("").trim() + "…").split(/\s+/);
+    const satz = umbrechen(gekuerzt, breiteMm / klein);
+    if (satz) return { zeilen: satz, groesse: klein };
+  }
+  return { zeilen: [woerter.join(" ")], groesse: klein };
+}
+
+/**
+ * Schriftfarbe auf einem Label: schwarz auf hellen, weiß auf dunklen
+ * Flächen. Relative Leuchtdichte nach WCAG, Schwelle beim Punkt gleichen
+ * Kontrasts zu beiden.
+ */
+export function labelSchrift(farbe: string): "#000" | "#fff" {
+  const hex = /^#?([0-9a-f]{6})$/i.exec(farbe)?.[1];
+  if (!hex) return "#fff";
+  const kanal = (i: number) => {
+    const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  const l = 0.2126 * kanal(0) + 0.7152 * kanal(2) + 0.0722 * kanal(4);
+  return l > 0.179 ? "#000" : "#fff";
+}
+
+/** Innenabstand des Labels, in em seiner Schrift (links + rechts). */
+export const LABEL_LUFT = 0.9;
+
+/**
+ * Breite des Labels in der Fußzeile, in Millimetern. Geschätzt wie der Preis:
+ * es muss nur verhindern, dass die Artikelnummer unter das Label läuft.
+ */
+export function labelBreite(
+  label: SchildLabel | null,
+  masse: ReturnType<typeof schildMasse>,
+): number {
+  if (!label) return 0;
+  const em = Array.from(label.name.toUpperCase()).length * 0.68 + LABEL_LUFT;
+  return em * masse.label + masse.luft * 0.7;
 }
 
 function klemme(wert: number, min: number, max: number): number {
@@ -320,9 +502,12 @@ export function preisSchriftgroesse(
 export function kennungSchriftgroesse(
   text: string,
   masse: ReturnType<typeof schildMasse>,
+  /** Vom Label rechts daneben belegte Breite. */
+  belegt = 0,
 ): number {
   const breite = Math.max(1, text.length) * 0.56;
-  return Math.min(masse.kennung, masse.innenB / breite);
+  const frei = Math.max(masse.innenB - belegt, masse.innenB / 2);
+  return Math.min(masse.kennung, frei / breite);
 }
 
 // --- Großhandelscode ---------------------------------------------------------

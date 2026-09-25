@@ -5,10 +5,17 @@ import {
   AKTIONSROT,
   CENT_ANTEIL,
   CODEROT,
+  LABEL_LUFT,
+  NAME_GEWICHT,
   NAME_ZEILE,
+  SCHRIFT,
   istReduziert,
   kennungSchriftgroesse,
   kopfHoehe,
+  labelBreite,
+  labelSchrift,
+  nameBreite,
+  nameSatz,
   nebenblockBreite,
   preisSchriftgroesse,
   preisTeile,
@@ -17,6 +24,19 @@ import {
   type Preisschild,
   type SchildFormat,
 } from "@/lib/preisschild";
+
+/**
+ * Textbreite in em, gemessen mit derselben Schrift wie auf dem Papier. Ein
+ * Canvas genügt – der Druckbogen misst im Browser genauso.
+ */
+let leinwand: CanvasRenderingContext2D | null = null;
+function messen(text: string): number {
+  if (typeof document === "undefined") return text.length * 0.55;
+  leinwand ??= document.createElement("canvas").getContext("2d");
+  if (!leinwand) return text.length * 0.55;
+  leinwand.font = `${NAME_GEWICHT} 100px ${SCHRIFT}`;
+  return leinwand.measureText(text).width / 100;
+}
 
 /**
  * Ein Preisschild in Originalgröße auf dem Bildschirm.
@@ -41,6 +61,7 @@ export function PreisschildVorschau({
   const rot = istReduziert(schild);
   const { euro, cent } = preisTeile(schild.preis);
   const kennung = schildKennung(schild.sku, schild.code);
+  const satz = nameSatz(schild.name, nameBreite(m, !!schild.icon), m.name, messen);
 
   const trenner: React.CSSProperties = {
     height: `${m.linie}mm`,
@@ -64,7 +85,7 @@ export function PreisschildVorschau({
         color: "#000",
         display: "flex",
         flexDirection: "column",
-        fontFamily: '"Segoe UI", "Helvetica Neue", Arial, sans-serif',
+        fontFamily: SCHRIFT,
       }}
     >
       <div
@@ -94,21 +115,24 @@ export function PreisschildVorschau({
             }}
           />
         ) : null}
+        {/* Zeilen fertig gesetzt aus nameSatz() – der Browser bricht hier
+            nichts mehr selbst um, sonst sähe die Vorschau anders aus als der
+            Bogen. */}
         <span
           style={{
             flex: 1,
             minWidth: 0,
-            fontSize: `${m.name}mm`,
-            fontWeight: 600,
+            fontSize: `${satz.groesse}mm`,
+            fontWeight: NAME_GEWICHT,
             lineHeight: NAME_ZEILE,
-            letterSpacing: "-0.015em",
-            display: "-webkit-box",
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: "vertical",
             overflow: "hidden",
           }}
         >
-          {schild.name}
+          {satz.zeilen.map((zeile, i) => (
+            <span key={i} style={{ display: "block", whiteSpace: "nowrap" }}>
+              {zeile}
+            </span>
+          ))}
         </span>
       </div>
 
@@ -218,19 +242,47 @@ export function PreisschildVorschau({
 
       <div
         style={{
-          fontSize: `${kennungSchriftgroesse(kennung, m)}mm`,
-          fontWeight: 600,
-          lineHeight: 1,
-          fontVariantNumeric: "tabular-nums",
-          letterSpacing: "0.01em",
-          whiteSpace: "nowrap",
-          overflow: "hidden",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: `${m.luft * 0.7}mm`,
           flex: "none",
         }}
       >
-        {schild.sku}
-        {schild.code ? (
-          <span style={{ color: rot ? "#000" : CODEROT }}>#{schild.code}</span>
+        <span
+          style={{
+            fontSize: `${kennungSchriftgroesse(kennung, m, labelBreite(schild.label, m))}mm`,
+            fontWeight: 600,
+            lineHeight: 1,
+            fontVariantNumeric: "tabular-nums",
+            letterSpacing: "0.01em",
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            minWidth: 0,
+          }}
+        >
+          {schild.sku}
+          {schild.code ? (
+            <span style={{ color: rot ? "#000" : CODEROT }}>#{schild.code}</span>
+          ) : null}
+        </span>
+        {schild.label ? (
+          <span
+            style={{
+              fontSize: `${m.label}mm`,
+              fontWeight: 700,
+              lineHeight: 1,
+              textTransform: "uppercase",
+              letterSpacing: "0.04em",
+              padding: `0.15em ${LABEL_LUFT / 2}em`,
+              background: schild.label.farbe,
+              color: labelSchrift(schild.label.farbe),
+              whiteSpace: "nowrap",
+              flex: "none",
+            }}
+          >
+            {schild.label.name}
+          </span>
         ) : null}
       </div>
     </div>

@@ -660,7 +660,8 @@ eine Liste, die beim Scannen wächst, und eine Sammelbuchung am Ende.
 ## 🏷️ Preisschilder fürs Regal
 
 `/admin/preisschilder`, Grundlage `supabase/migrations/038_preisschilder.sql`
-(Symbole) und `039_schildgroessen.sql` (Maße). Artikel anklicken, Stückzahl
+(Symbole), `039_schildgroessen.sql` (Maße) und `040_preisschild_labels.sql`
+(Labelfarben). Artikel anklicken, Stückzahl
 setzen, drucken – A4 mit Schnittlinien.
 
 - **Nichts wird gespeichert außer Symbolen und Maßen.** Ein Preisschild ist
@@ -735,6 +736,17 @@ setzen, drucken – A4 mit Schnittlinien.
 - Ein zweiter Klick auf denselben Artikel heißt „noch eins", nicht „noch eine
   Zeile" – wie beim Wareneingang. Zwei Zeilen für denselben Artikel ließen sich
   getrennt bepreisen, und das fiele erst auf dem Papier auf.
+- **Bezeichnung: zwei Zeilen, voll ausgeschrieben** (`nameSatz()`). Zeile 1
+  wird bis zum Rand gefüllt; passt ein Wort nicht mehr ganz, wird es dort mit
+  „-" getrennt und in Zeile 2 fortgesetzt (mind. 3 Zeichen vorn, 2 hinten, nie
+  mitten in einer Zahl). Reicht es nicht, wird die Schrift bis auf die Hälfte
+  kleiner, erst dann gekürzt. Gemessen wird per Canvas im Browser – im
+  Druckbogen läuft dieselbe Funktion, per `toString()` eingebettet. Deshalb
+  darf `nameSatz()` nichts außerhalb ihres Körpers verwenden.
+- **Labels** (Migration 040, `label_badge_colors`): „Neu", „Topseller" und die
+  Artikel-Flags aus den Einstellungen, farbig unten rechts in der Fußzeile.
+  Angelegt werden sie nicht hier, nur ihre Farbe wird gewählt und gespeichert.
+  Schriftfarbe schwarz/weiß nach Leuchtdichte (`labelSchrift()`).
 
 ---
 

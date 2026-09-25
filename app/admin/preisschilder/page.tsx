@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { PreisschildWerkbank } from "@/components/admin/preisschild-werkbank";
 import {
   getLabelIcons,
+  getLabelOptionen,
   getLabelSizes,
   getPreisschildArtikel,
 } from "@/lib/queries/preisschilder";
@@ -19,10 +20,11 @@ export const metadata: Metadata = { title: "Preisschilder" };
  * (Migration 039) – beides Werkzeug, das über den einzelnen Druck hinausgeht.
  */
 export default async function PreisschilderPage() {
-  const [artikel, icons, formate] = await Promise.all([
+  const [artikel, icons, formate, labels] = await Promise.all([
     getPreisschildArtikel(),
     getLabelIcons(),
     getLabelSizes(),
+    getLabelOptionen(),
   ]);
 
   return (
@@ -37,7 +39,12 @@ export default async function PreisschilderPage() {
         </p>
       </header>
 
-      <PreisschildWerkbank artikel={artikel} icons={icons} formate={formate} />
+      <PreisschildWerkbank
+        artikel={artikel}
+        icons={icons}
+        formate={formate}
+        labels={labels}
+      />
     </div>
   );
 }

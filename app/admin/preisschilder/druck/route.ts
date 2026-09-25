@@ -33,6 +33,14 @@ const zeileSchema = z.object({
   /** Großhandelspreis in Euro – daraus wird der verdeckte Code. */
   gh: z.coerce.number().min(0).max(1_000_000).nullable(),
   iconId: z.string().uuid().nullable(),
+  /** Label der Fußzeile; Text und Farbe kommen aus der Werkbank mit. */
+  label: z
+    .object({
+      name: z.string().trim().min(1).max(30),
+      farbe: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+    })
+    .nullable()
+    .optional(),
   anzahl: z.coerce.number().int().min(1).max(500),
 });
 
@@ -112,6 +120,7 @@ export async function POST(request: Request) {
       sku: zeile.sku,
       code: ghCode(zeile.gh),
       icon: zeile.iconId ? (symbole.get(zeile.iconId) ?? null) : null,
+      label: zeile.label ?? null,
     };
     for (let i = 0; i < zeile.anzahl; i++) schilder.push(schild);
   }
