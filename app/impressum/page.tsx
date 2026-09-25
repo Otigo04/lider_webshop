@@ -1,16 +1,21 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { getLogoPath } from "@/lib/logo";
+import { getPublicContact } from "@/lib/queries/settings";
 
 export const metadata: Metadata = { title: "Impressum" };
 
 /**
- * Pflichtangaben nach § 5 DDG. Die Platzhalter müssen vor dem Livegang durch
- * die echten Firmendaten ersetzt werden – erfundene Angaben wären hier eine
- * Abmahnung wert.
+ * Pflichtangaben nach § 5 DDG. Firmenname, Anschrift, Vertretung, Kontakt und
+ * USt-IdNr. kommen aus den Firmendaten (/admin/settings) über
+ * getPublicContact() – ein Platzhalter unten heißt also "in den
+ * Einstellungen nicht gepflegt", nicht "im Code vergessen". Registergericht
+ * und Registernummer gibt es als Einstellung nicht (nicht jeder Betrieb ist
+ * im Handelsregister eingetragen) und bleiben deshalb von Hand einzutragen.
  */
-export default function ImpressumPage() {
+export default async function ImpressumPage() {
   const logoPath = getLogoPath();
+  const firma = await getPublicContact();
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-16">
@@ -33,25 +38,29 @@ export default function ImpressumPage() {
         <section>
           <h2 className="font-medium">Angaben gemäß § 5 DDG</h2>
           <p className="mt-2 text-muted-foreground">
-            LIDER Groß- und Einzelhandel
+            {firma.company_name ?? "LIDER Groß- und Einzelhandel"}
             <br />
-            [STRASSE]
+            {firma.address_street ?? "[STRASSE]"}
             <br />
-            [PLZ ORT]
+            {firma.address_zip && firma.address_city
+              ? `${firma.address_zip} ${firma.address_city}`
+              : "[PLZ ORT]"}
           </p>
         </section>
 
         <section>
           <h2 className="font-medium">Vertreten durch</h2>
-          <p className="mt-2 text-muted-foreground">[GESCHÄFTSFÜHRUNG]</p>
+          <p className="mt-2 text-muted-foreground">
+            {firma.owner_name ?? "[GESCHÄFTSFÜHRUNG]"}
+          </p>
         </section>
 
         <section>
           <h2 className="font-medium">Kontakt</h2>
           <p className="mt-2 text-muted-foreground">
-            Telefon: [TELEFON]
+            Telefon: {firma.phone ?? "[TELEFON]"}
             <br />
-            E-Mail: [E-MAIL]
+            E-Mail: {firma.email ?? "[E-MAIL]"}
           </p>
         </section>
 
@@ -67,7 +76,7 @@ export default function ImpressumPage() {
         <section>
           <h2 className="font-medium">Umsatzsteuer-Identifikationsnummer</h2>
           <p className="mt-2 text-muted-foreground">
-            gemäß § 27 a UStG: [USt-IdNr.]
+            gemäß § 27 a UStG: {firma.vat_id ?? "[USt-IdNr.]"}
           </p>
         </section>
       </div>

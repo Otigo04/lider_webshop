@@ -65,15 +65,19 @@ export async function getCompanySettings(): Promise<CompanySettings> {
   };
 }
 
-/** Kontaktangaben, die jeder Besucher sehen darf (Migration 036). */
+/** Kontaktangaben, die jeder Besucher sehen darf (Migration 036, 042). */
 export interface PublicContact {
   company_name: string | null;
+  /** Vertretungsberechtigte(r) – Pflichtangabe im Impressum (§ 5 DDG). */
+  owner_name: string | null;
   address_street: string | null;
   address_zip: string | null;
   address_city: string | null;
   phone: string | null;
   email: string | null;
   website: string | null;
+  /** USt-IdNr. nach § 27 a UStG – anders als die Steuernummer öffentlich. */
+  vat_id: string | null;
   /**
    * Versandkostenfreigrenze. Steht in der öffentlichen Auskunft, weil sie auf
    * Startseite und Versandseite geworben wird – die sehen auch Besucher ohne
@@ -83,20 +87,23 @@ export interface PublicContact {
 }
 
 /**
- * Telefon, E-Mail und Anschrift für Fußzeile und Startseite – ohne Sitzung
- * und ohne Bankdaten. company_settings selbst bleibt nur für Angemeldete
- * lesbar; die Funktion public_company_contact() gibt genau diese Spalten frei.
- * Fehlt sie noch, bleibt alles null und die Aufrufer zeigen Platzhalter.
+ * Telefon, E-Mail, Anschrift, Vertretung und USt-IdNr. für Fußzeile,
+ * Startseite, Impressum und Datenschutzerklärung – ohne Sitzung und ohne
+ * Bankdaten. company_settings selbst bleibt nur für Angemeldete lesbar; die
+ * Funktion public_company_contact() gibt genau diese Spalten frei. Fehlt sie
+ * noch, bleibt alles null und die Aufrufer zeigen Platzhalter.
  */
 export async function getPublicContact(): Promise<PublicContact> {
   const leer: PublicContact = {
     company_name: null,
+    owner_name: null,
     address_street: null,
     address_zip: null,
     address_city: null,
     phone: null,
     email: null,
     website: null,
+    vat_id: null,
     free_shipping_threshold: FREE_SHIPPING_THRESHOLD,
   };
   const { data, error } = await createPublicClient().rpc("public_company_contact");

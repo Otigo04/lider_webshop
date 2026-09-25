@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getPublicContact } from "@/lib/queries/settings";
 
 export const metadata: Metadata = { title: "Datenschutz" };
 
@@ -6,8 +7,12 @@ export const metadata: Metadata = { title: "Datenschutz" };
  * Gerüst mit den Punkten, die für diese Anwendung tatsächlich zutreffen
  * (Supabase als Auftragsverarbeiter, Session-Cookies, Bestelldaten).
  * Der Text ist keine Rechtsberatung und muss vor dem Livegang geprüft werden.
+ * Firmenname, Anschrift und E-Mail im "Verantwortlicher"-Block kommen aus
+ * den Firmendaten (/admin/settings), wie im Impressum.
  */
-export default function DatenschutzPage() {
+export default async function DatenschutzPage() {
+  const firma = await getPublicContact();
+
   return (
     <div className="mx-auto max-w-2xl px-4 py-16">
       <h1 className="text-2xl font-semibold tracking-tight">
@@ -18,7 +23,12 @@ export default function DatenschutzPage() {
         <section>
           <h2 className="font-medium">Verantwortlicher</h2>
           <p className="mt-2 text-muted-foreground">
-            LIDER Groß- und Einzelhandel, [STRASSE], [PLZ ORT], [E-MAIL]
+            {firma.company_name ?? "LIDER Groß- und Einzelhandel"},{" "}
+            {firma.address_street ?? "[STRASSE]"},{" "}
+            {firma.address_zip && firma.address_city
+              ? `${firma.address_zip} ${firma.address_city}`
+              : "[PLZ ORT]"}
+            , {firma.email ?? "[E-MAIL]"}
           </p>
         </section>
 
