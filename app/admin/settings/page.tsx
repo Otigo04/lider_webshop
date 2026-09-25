@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { CompanySettingsForm } from "@/components/forms/company-settings-form";
+import { MaintenanceModeSettings } from "@/components/forms/maintenance-mode-settings";
 import { ProductAttributesSettings } from "@/components/forms/product-attributes-settings";
 import { ProductFlagsSettings } from "@/components/forms/product-flags-settings";
 import { SiteBannersSettings } from "@/components/forms/site-banners-settings";
@@ -28,6 +29,17 @@ export default async function AdminSettingsPage() {
 
       <div className="mt-8 max-w-2xl">
         <CompanySettingsForm settings={settings} />
+      </div>
+
+      <div className="mt-12 max-w-2xl border-t border-border pt-8">
+        <h2 className="text-lg font-semibold tracking-tight">Wartungsmodus</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Solange der Webshop in Eigenentwicklung ist, kann hier der
+          Wartungsscreen für neue Besucher ein- und ausgeschaltet werden.
+        </p>
+        <div className="mt-6">
+          <MaintenanceModeSettings aktiv={settings.maintenance_mode} />
+        </div>
       </div>
 
       <div className="mt-12 max-w-2xl border-t border-border pt-8">

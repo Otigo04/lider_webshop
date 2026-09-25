@@ -25,6 +25,7 @@ const EMPTY_SETTINGS: CompanySettings = {
   pos_prices_gross: true,
   pos_receipt_footer: null,
   pos_closing_from: null,
+  maintenance_mode: false,
 };
 
 /**

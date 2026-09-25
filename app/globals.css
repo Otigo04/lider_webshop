@@ -577,6 +577,12 @@
     animation: pulse-ring 2.4s cubic-bezier(0.16, 1, 0.3, 1) infinite;
   }
 
+  /* Wartungsscreen: eine Bahn läuft endlos durch den Fortschrittsbalken –
+     es gibt keinen echten Fortschritt zu zeigen, nur „es wird gearbeitet". */
+  .progress-sweep {
+    animation: progress-sweep 1.8s ease-in-out infinite;
+  }
+
   /* Lichtkante, die beim Überfahren über Hauptknöpfe streicht. */
   .shine {
     position: relative;
@@ -644,6 +650,10 @@
   from { opacity: 0; transform: translateY(12px) scale(0.98); }
   to { opacity: 1; transform: none; }
 }
+@keyframes progress-sweep {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .hero-backdrop::before,
@@ -651,7 +661,8 @@
   .float,
   .pulse-ring::after,
   .banner-message,
-  .tab-item {
+  .tab-item,
+  .progress-sweep {
     animation: none !important;
   }
   .heading-bar {

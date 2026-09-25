@@ -141,3 +141,42 @@ export async function updateCompanySettings(
   revalidatePath("/checkout");
   return { success: "Firmendaten gespeichert." };
 }
+
+/**
+ * Wartungsmodus an- oder ausschalten (Migration 041). Eigene Action statt
+ * ein Feld in updateCompanySettings(): ein Checkbox-Klick am Tresen soll
+ * nicht am Rest des – deutlich größeren – Firmendaten-Formulars hängen, und
+ * ein Fehler dort soll den Schalter nicht mit ins Leere laufen lassen.
+ */
+export async function setMaintenanceMode(
+  aktiv: boolean,
+): Promise<AdminFormState> {
+  await requireAdmin();
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("company_settings")
+    .update({ maintenance_mode: aktiv })
+    .eq("id", true);
+
+  // Migration 041 noch nicht eingespielt – siehe Kommentar bei
+  // updateCompanySettings() zu PGRST204/42703.
+  if (error?.code === "PGRST204" || error?.code === "42703") {
+    return {
+      error:
+        "Die Tabelle kennt den Wartungsmodus noch nicht. Bitte supabase/migrations/041_wartungsmodus.sql im Supabase SQL-Editor ausführen.",
+    };
+  }
+
+  if (error) {
+    console.error("[admin] Wartungsmodus umschalten:", error.message);
+    return { error: "Der Wartungsmodus konnte nicht geändert werden." };
+  }
+
+  revalidatePath("/admin/settings");
+  return {
+    success: aktiv
+      ? "Wartungsmodus eingeschaltet – unregistrierte Besucher sehen jetzt den Wartungsscreen."
+      : "Wartungsmodus ausgeschaltet – der Shop ist wieder für alle sichtbar.",
+  };
+}

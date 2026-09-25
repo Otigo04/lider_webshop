@@ -4,10 +4,13 @@ import { createServerClient } from "@supabase/ssr";
 /**
  * Next 16: `middleware.ts` heißt jetzt `proxy.ts` (Runtime immer nodejs).
  *
- * Zwei Aufgaben:
+ * Drei Aufgaben:
  *  1. Supabase-Session bei jedem Request auffrischen und die rotierten
  *     Auth-Cookies an Request und Response durchreichen.
  *  2. Nicht angemeldete Besucher von geschützten Bereichen auf /login schicken.
+ *  3. Im Wartungsmodus (company_settings.maintenance_mode) unregistrierte
+ *     Besucher auf /wartung umleiten – Bestandskunden und Admin kommen mit
+ *     Sitzung weiterhin überall rein.
  *
  * Die Rollenprüfung (admin vs. customer) passiert NICHT hier, sondern in
  * app/admin/layout.tsx und app/kasse/layout.tsx. Grund: die Rolle steht in
@@ -27,6 +30,24 @@ const PROTECTED_PREFIXES = [
   "/account",
   "/admin",
   "/kasse",
+];
+
+/**
+ * Bleibt auch im Wartungsmodus für anonyme Besucher erreichbar: der
+ * Anmeldeweg (Bestandskunden brauchen /login, /forgot-password,
+ * /reset-password und den Bestätigungslink unter /auth), dazu Impressum und
+ * Datenschutz – Pflichtangaben, die immer erreichbar sein müssen. /register
+ * ist bewusst NICHT dabei: Neuanmeldungen sind während der Wartung
+ * ausgesetzt.
+ */
+const MAINTENANCE_EXEMPT_PREFIXES = [
+  "/wartung",
+  "/login",
+  "/auth",
+  "/forgot-password",
+  "/reset-password",
+  "/impressum",
+  "/datenschutz",
 ];
 
 export async function proxy(request: NextRequest) {
@@ -70,6 +91,26 @@ export async function proxy(request: NextRequest) {
     loginUrl.search = "";
     loginUrl.searchParams.set("redirect", pathname);
     return NextResponse.redirect(loginUrl);
+  }
+
+  // Geschützte Routen sind an dieser Stelle immer mit Sitzung erreicht
+  // (sonst griff der Redirect oben schon), also nie im Wartungsmodus.
+  const istWartungsAusnahme = MAINTENANCE_EXEMPT_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+
+  if (!isProtected && !user && !istWartungsAusnahme) {
+    // rpc() statt Tabellenzugriff: company_settings selbst ist nur für
+    // Angemeldete lesbar, siehe public_maintenance_status() in Migration 041.
+    // Fehlt die Funktion (Migration noch nicht eingespielt), bleibt der Shop
+    // offen statt für alle Besucher zu sperren – fail open.
+    const { data: wartung } = await supabase.rpc("public_maintenance_status");
+    if (wartung === true) {
+      const wartungUrl = request.nextUrl.clone();
+      wartungUrl.pathname = "/wartung";
+      wartungUrl.search = "";
+      return NextResponse.rewrite(wartungUrl);
+    }
   }
 
   return response;

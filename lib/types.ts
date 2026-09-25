@@ -448,6 +448,12 @@ export interface CompanySettings {
    * wird – sonst legte die Automatik ihn sofort wieder an.
    */
   pos_closing_from: string | null;
+  /**
+   * Wartungsmodus (Migration 041): true = unregistrierte Besucher sehen
+   * /wartung statt der echten Seiten. Angemeldete Kunden und Admin sind
+   * davon nie betroffen, siehe proxy.ts.
+   */
+  maintenance_mode: boolean;
 }
 
 export interface AccessRequest {
