@@ -6,6 +6,8 @@ import { Header } from "@/components/header";
 import { ScrollProgress } from "@/components/scroll-progress";
 import { SiteBanner } from "@/components/site-banner";
 import { CartProvider } from "@/lib/cart-context";
+import { getCurrentUser } from "@/lib/auth";
+import { getMaintenanceInfo } from "@/lib/queries/settings";
 import { siteUrl } from "@/lib/site";
 import "./globals.css";
 
@@ -39,7 +41,18 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  // Wartungsmodus (proxy.ts) sperrt für anonyme Besucher schon die Seiten
+  // selbst; Kopfleiste und Hinweisleiste blieben davon bisher unberührt und
+  // zeigten weiter Anmelden/Registrieren, Merkliste & Co. – Wege, die im
+  // Wartungsmodus ohnehin nur wieder auf /wartung landen. Angemeldete
+  // Kunden und Admin sehen die Kopfleiste unverändert.
+  const [user, wartung] = await Promise.all([
+    getCurrentUser(),
+    getMaintenanceInfo(),
+  ]);
+  const wartungAktiv = wartung.enabled && !user;
+
   return (
     // Kein h-full auf html: mit height:100% wächst die Seite auf iOS beim
     // Ein- und Ausblenden der Adressleiste mit und lässt sich weit über den
@@ -70,8 +83,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           >
             Zum Inhalt springen
           </a>
-          <SiteBanner />
-          <Header />
+          {wartungAktiv ? null : <SiteBanner />}
+          {wartungAktiv ? null : <Header />}
           <ScrollProgress />
           <main id="inhalt" tabIndex={-1} className="flex-1">
             {children}
