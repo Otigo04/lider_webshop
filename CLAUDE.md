@@ -1172,10 +1172,10 @@ Verwaltung, Kasse –, läuft weiter über `lib/supabase/server.ts`.
 
 ## 🧭 Schnellleiste und Klappmenü
 
-`components/schnellleiste.tsx` über dem Kopfbereich der Startseite:
-Reduziert, Topseller, Neuheiten, Merkliste, dann die Warengruppen, dann
-Alle Artikel, FAQ, Kontakt. Eine Zeile, seitlich schiebbar – umbrechend
-schöbe sie das Schaufenster aus dem ersten Bild.
+`components/schnellleiste.tsx` über dem Kopfbereich der Startseite: reine
+Textlinks in einer Zeile (Reduziert in Signalrot, Neuheiten, Topseller, dann
+die Warengruppen) – keine Chips, Symbole oder Farbpunkte, die erste Fassung
+damit war überladen. Seitlich schiebbar statt umbrechend.
 
 Merkliste, FAQ und Kontakt stehen im Klappmenü mit `nurMenue: true`: in der
 breiten Leiste ist kein Platz, dort führen Fußzeile und Schnellleiste hin.
