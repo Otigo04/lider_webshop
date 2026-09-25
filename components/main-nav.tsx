@@ -18,8 +18,9 @@ import type { NavLink } from "@/components/mobile-nav";
  * Überfahren ein goldener Balken aus der Mitte auf. Beim aktiven Reiter steht
  * er dauerhaft – Farbe allein soll die Information nicht tragen.
  */
-export function MainNav({ links }: { links: NavLink[] }) {
+export function MainNav({ links: alle }: { links: NavLink[] }) {
   const pfad = usePathname();
+  const links = alle.filter((link) => !link.nurMenue);
 
   /*
    * Aktiv ist nur der spezifischste passende Reiter: auf /shop/reduziert

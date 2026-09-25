@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ImageOff } from "lucide-react";
+import { MerkButton } from "@/components/merk-button";
 import { ProductFlagBadges } from "@/components/product-flag-badges";
 import { RabattBadge, SalePrice } from "@/components/sale-price";
 import { formatPrice } from "@/lib/format";
@@ -24,88 +25,98 @@ export function PublicProductCard({
   // Wie in der Kundenkarte: bei einem Bündel trägt die Kachel den Namen des
   // Angebots, nicht den der Ausführung, die zufällig als Vertreter dasteht.
   const ausfuehrungen = product.ausfuehrungen ?? 1;
-  const titel = ausfuehrungen > 1 ? (product.groupName ?? product.name) : product.name;
+  const titel =
+    ausfuehrungen > 1 ? (product.groupName ?? product.name) : product.name;
 
   return (
-    <Link
-      href={`/shop/product/${product.id}`}
-      className={cn(
-        "card-hover group flex flex-col overflow-hidden rounded-md border border-border bg-card hover:border-foreground/25",
-        className,
-      )}
-    >
-      <div className="relative aspect-4/3 overflow-hidden border-b border-border bg-muted">
-        <ProductFlagBadges product={product} />
-        {rabatt ? (
-          <RabattBadge
-            prozent={rabatt.prozent}
-            className="absolute right-2 top-2 z-10 px-2 py-0.5 shadow-sm"
-          />
-        ) : null}
-        {product.imageUrl ? (
-          <Image
-            src={product.imageUrl}
-            alt={product.name}
-            fill
-            sizes="(min-width: 1024px) 320px, (min-width: 768px) 45vw, 90vw"
-            className="object-contain p-4 transition-transform duration-500 group-hover:scale-[1.04]"
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center text-muted-foreground">
-            <ImageOff className="size-8" aria-hidden />
-            <span className="sr-only">Kein Foto hinterlegt</span>
-          </div>
-        )}
-      </div>
+    // Das Herz steht neben dem Link, nicht darin (siehe MerkButton). Es sitzt
+    // unten rechts auf dem Foto; dessen Höhe folgt der Kartenbreite, deshalb
+    // der Container und cqw statt einer festen Pixelzahl.
+    <div className={cn("card-hover @container relative flex", className)}>
+      <Link
+        href={`/shop/product/${product.id}`}
+        className="group flex w-full flex-col overflow-hidden rounded-md border border-border bg-card hover:border-foreground/25"
+      >
+        <div className="relative aspect-4/3 overflow-hidden border-b border-border bg-muted">
+          <ProductFlagBadges product={product} />
+          {rabatt ? (
+            <RabattBadge
+              prozent={rabatt.prozent}
+              className="absolute right-2 top-2 z-10 px-2 py-0.5 shadow-sm"
+            />
+          ) : null}
+          {product.imageUrl ? (
+            <Image
+              src={product.imageUrl}
+              alt={product.name}
+              fill
+              sizes="(min-width: 1024px) 320px, (min-width: 768px) 45vw, 90vw"
+              className="object-contain p-4 transition-transform duration-500 group-hover:scale-[1.04]"
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center text-muted-foreground">
+              <ImageOff className="size-8" aria-hidden />
+              <span className="sr-only">Kein Foto hinterlegt</span>
+            </div>
+          )}
+        </div>
 
-      <div className="flex flex-1 flex-col p-4">
-        <p className="code text-xs text-muted-foreground">{product.sku}</p>
+        <div className="flex flex-1 flex-col p-4">
+          <p className="code text-xs text-muted-foreground">{product.sku}</p>
 
-        <h3 className="mt-2 font-semibold leading-snug group-hover:underline">
-          {titel}
-        </h3>
+          <h3 className="mt-2 font-semibold leading-snug group-hover:underline">
+            {titel}
+          </h3>
 
-        {ausfuehrungen > 1 ? (
-          <p className="mt-1 text-xs font-medium text-brand">
-            {ausfuehrungen} Ausführungen zur Auswahl
-          </p>
-        ) : null}
+          {ausfuehrungen > 1 ? (
+            <p className="mt-1 text-xs font-medium text-brand">
+              {ausfuehrungen} Ausführungen zur Auswahl
+            </p>
+          ) : null}
 
-        {product.description ? (
-          <p className="mt-1.5 line-clamp-2 text-sm text-muted-foreground">
-            {product.description}
-          </p>
-        ) : null}
+          {product.description ? (
+            <p className="mt-1.5 line-clamp-2 text-sm text-muted-foreground">
+              {product.description}
+            </p>
+          ) : null}
 
-        {/*
+          {/*
           Öffentlich sichtbar ist nur der günstigste Stückpreis. Welche Menge
           zu welchem Preis führt, steht erst nach der Anmeldung.
         */}
-        <div className="mt-auto border-t border-border pt-3">
-          {product.priceFrom !== null ? (
-            <>
-              {rabatt ? (
-                <SalePrice reduktion={rabatt} suffix="/ Stück netto" />
-              ) : (
-                <p className="flex items-baseline gap-1">
-                  <span className="text-xs text-muted-foreground">ab</span>
-                  <span className="text-xl font-bold tabular">
-                    {formatPrice(product.priceFrom)}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    / Stück netto
-                  </span>
+          <div className="mt-auto border-t border-border pt-3">
+            {product.priceFrom !== null ? (
+              <>
+                {rabatt ? (
+                  <SalePrice reduktion={rabatt} suffix="/ Stück netto" />
+                ) : (
+                  <p className="flex items-baseline gap-1">
+                    <span className="text-xs text-muted-foreground">ab</span>
+                    <span className="text-xl font-bold tabular">
+                      {formatPrice(product.priceFrom)}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      / Stück netto
+                    </span>
+                  </p>
+                )}
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  zzgl. USt. · Staffelpreise nach Anmeldung
                 </p>
-              )}
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                zzgl. USt. · Staffelpreise nach Anmeldung
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Preis nach Anmeldung
               </p>
-            </>
-          ) : (
-            <p className="text-sm text-muted-foreground">Preis nach Anmeldung</p>
-          )}
+            )}
+          </div>
         </div>
-      </div>
-    </Link>
+      </Link>
+      <MerkButton
+        productId={product.id}
+        name={product.name}
+        className="absolute right-2 top-[calc(75cqw-2.75rem)] z-10"
+      />
+    </div>
   );
 }

@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { getLogoMarkPath, getLogoWordmarkPath, LOGO_WORDMARK_ASPECT } from "@/lib/logo";
 import { CartLink } from "@/components/cart-link";
 import { MainNav } from "@/components/main-nav";
+import { MerklisteLink } from "@/components/merkliste-link";
 import { MobileNav, type NavLink } from "@/components/mobile-nav";
 import { UserMenu } from "@/components/user-menu";
 
@@ -30,6 +31,11 @@ export async function Header() {
     ...(isAdmin
       ? [{ href: "/kasse", label: "Kasse", hervorgehoben: true }]
       : []),
+    // Nur im Klappmenü: in der breiten Leiste ist kein Platz mehr, dort
+    // stehen sie in der Fußzeile und in der Schnellleiste der Startseite.
+    { href: "/merkliste", label: "Merkliste", nurMenue: true },
+    { href: "/faq", label: "FAQ", nurMenue: true },
+    { href: "/kontakt", label: "Kontakt", nurMenue: true },
   ];
 
   return (
@@ -84,6 +90,10 @@ export async function Header() {
         <MainNav links={links} />
 
         <div className="flex shrink-0 items-center gap-1">
+          {/* Auf dem Handy nur im Klappmenü – die Leiste ist dort voll. */}
+          <div className="hidden sm:block">
+            <MerklisteLink />
+          </div>
           {user ? <CartLink /> : null}
           {user ? (
             <UserMenu

@@ -176,6 +176,8 @@ CREATE TABLE product_images (
 ### **Public Pages:**
 - `/` – Landingpage (Hero, About, CTA)
 - `/login` – Login-Form
+- `/faq` – Häufige Fragen, `/kontakt` – Kontaktdaten aus `company_settings`
+- `/merkliste` – gemerkte Artikel (auch ohne Konto)
 
 ### **Customer Pages (Protected):**
 - `/shop` – Shop-Übersicht (Kategorien, Filter, Grid)
@@ -860,7 +862,7 @@ sechs Signale, hörbar und sichtbar:
 ## 🏠 Aufbau der Startseite
 
 `app/page.tsx`, Daten aus `getLandingData()`. Reihenfolge:
-Kopfbereich (Auslage) → Katalogband → Warengruppen → **Reduziert** →
+Schnellleiste → Kopfbereich (Auslage) → Katalogband → Warengruppen → **Reduziert** →
 Sortiment mit Reitern je Warengruppe → Neu und gefragt (Neuheiten und
 Topseller nebeneinander) → Portalvorteile → Über uns → Kontakt.
 
@@ -1148,3 +1150,32 @@ Supabase-Seite), machte aus einem Anmeldeproblem eine leere Startseite.
 RLS bleibt unverändert: der öffentliche Schlüssel kann nichts, was ein anonymer
 Besucher nicht auch könnte. Alles, was von der Anmeldung abhängt – Shop, Konto,
 Verwaltung, Kasse –, läuft weiter über `lib/supabase/server.ts`.
+
+---
+
+## ❤️ Merkliste
+
+`lib/merkliste.ts` (Regeln), `lib/use-merkliste.ts` (Client-Store),
+`components/merk-button.tsx`, Seite `/merkliste`.
+
+- **Cookie statt localStorage** (`lider_merkliste`, Kennungen mit Punkt
+  getrennt, höchstens 100): die Seite rendert der Server, und der liest nur
+  Cookies. Nur Kennungen, keine Namen oder Bilder – angezeigt wird der
+  aktuelle Katalog, ausgelistete Artikel fallen von selbst heraus.
+- **Keine Datenbank**: merken dürfen auch Besucher ohne Konto. Preis dafür:
+  die Liste gilt je Gerät.
+- **Herz neben dem Link, nicht darin** – ein Knopf in einem `<a>` ist
+  ungültiges HTML. Die Kachel ist deshalb ein `@container`-Rahmen, das Herz
+  sitzt über `cqw` unten rechts auf dem Foto, dessen Höhe der Kartenbreite
+  folgt.
+- In der Kopfleiste ab `sm` als Herz mit Zähler, auf dem Handy im Klappmenü.
+
+## 🧭 Schnellleiste und Klappmenü
+
+`components/schnellleiste.tsx` über dem Kopfbereich der Startseite:
+Reduziert, Topseller, Neuheiten, Merkliste, dann die Warengruppen, dann
+Alle Artikel, FAQ, Kontakt. Eine Zeile, seitlich schiebbar – umbrechend
+schöbe sie das Schaufenster aus dem ersten Bild.
+
+Merkliste, FAQ und Kontakt stehen im Klappmenü mit `nurMenue: true`: in der
+breiten Leiste ist kein Platz, dort führen Fußzeile und Schnellleiste hin.

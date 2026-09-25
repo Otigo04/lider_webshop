@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ImageOff } from "lucide-react";
+import { MerkButton } from "@/components/merk-button";
 import { ProductFlagBadges } from "@/components/product-flag-badges";
 import { RabattBadge, SalePrice } from "@/components/sale-price";
 import { formatPrice } from "@/lib/format";
@@ -23,71 +24,84 @@ export function CatalogCard({
   const rabatt = reduzierung(product.list_price, product.priceFrom);
 
   return (
-    <Link
-      href={`/shop/product/${product.id}`}
-      className={cn(
-        "card-hover group flex flex-col overflow-hidden rounded-md border border-border bg-card hover:border-foreground/30",
-        className,
-      )}
-    >
-      <div className="relative aspect-square overflow-hidden border-b border-border bg-muted">
-        <ProductFlagBadges product={product} />
-        {rabatt ? (
-          <RabattBadge
-            prozent={rabatt.prozent}
-            className="absolute right-2 top-2 z-10 px-2 py-0.5 shadow-sm"
-          />
-        ) : null}
-        {product.imageUrl ? (
-          <Image
-            src={product.imageUrl}
-            alt={product.name}
-            fill
-            sizes="(min-width: 1024px) 260px, (min-width: 768px) 33vw, 60vw"
-            className="object-contain p-4 transition-transform duration-500 group-hover:scale-[1.04]"
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center text-muted-foreground">
-            <ImageOff className="size-6" aria-hidden />
-            <span className="sr-only">Kein Foto hinterlegt</span>
-          </div>
-        )}
-      </div>
-
-      <div className="flex flex-1 flex-col p-4">
-        <p className="code text-xs text-muted-foreground">{product.sku}</p>
-        <p className="mt-2 font-medium leading-snug group-hover:underline">
-          {product.name}
-        </p>
-
-        {/* "Ab"-Preis ohne die Staffeln – die gibt es erst nach Anmeldung. */}
-        <div className="mt-auto pt-3">
-          {product.priceFrom !== null ? (
-            rabatt ? (
-              <SalePrice reduktion={rabatt} groesse="kompakt" suffix="/ Stück netto" />
-            ) : (
-              <p className="flex items-baseline gap-1">
-                <span className="text-xs text-muted-foreground">ab</span>
-                <span className="text-lg font-bold tabular">
-                  {formatPrice(product.priceFrom)}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  / Stück netto
-                </span>
-              </p>
-            )
-          ) : (
-            <p className="text-xs text-muted-foreground">Preis nach Anmeldung</p>
-          )}
-          {/* „Abnahme ab 1 Stück" sagt nichts – der Hinweis erscheint erst,
-              wenn er eine Bedingung ist. */}
-          {product.minOrderQuantity && product.minOrderQuantity > 1 ? (
-            <p className="mt-0.5 text-xs text-muted-foreground tabular">
-              Abnahme ab {product.minOrderQuantity} Stück
-            </p>
+    // Das Herz steht neben dem Link, nicht darin (siehe MerkButton). Es sitzt
+    // unten rechts auf dem Foto; dessen Höhe folgt der Kartenbreite, deshalb
+    // der Container und cqw statt einer festen Pixelzahl.
+    <div className={cn("card-hover @container relative flex", className)}>
+      <Link
+        href={`/shop/product/${product.id}`}
+        className="group flex w-full flex-col overflow-hidden rounded-md border border-border bg-card hover:border-foreground/30"
+      >
+        <div className="relative aspect-square overflow-hidden border-b border-border bg-muted">
+          <ProductFlagBadges product={product} />
+          {rabatt ? (
+            <RabattBadge
+              prozent={rabatt.prozent}
+              className="absolute right-2 top-2 z-10 px-2 py-0.5 shadow-sm"
+            />
           ) : null}
+          {product.imageUrl ? (
+            <Image
+              src={product.imageUrl}
+              alt={product.name}
+              fill
+              sizes="(min-width: 1024px) 260px, (min-width: 768px) 33vw, 60vw"
+              className="object-contain p-4 transition-transform duration-500 group-hover:scale-[1.04]"
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center text-muted-foreground">
+              <ImageOff className="size-6" aria-hidden />
+              <span className="sr-only">Kein Foto hinterlegt</span>
+            </div>
+          )}
         </div>
-      </div>
-    </Link>
+
+        <div className="flex flex-1 flex-col p-4">
+          <p className="code text-xs text-muted-foreground">{product.sku}</p>
+          <p className="mt-2 font-medium leading-snug group-hover:underline">
+            {product.name}
+          </p>
+
+          {/* "Ab"-Preis ohne die Staffeln – die gibt es erst nach Anmeldung. */}
+          <div className="mt-auto pt-3">
+            {product.priceFrom !== null ? (
+              rabatt ? (
+                <SalePrice
+                  reduktion={rabatt}
+                  groesse="kompakt"
+                  suffix="/ Stück netto"
+                />
+              ) : (
+                <p className="flex items-baseline gap-1">
+                  <span className="text-xs text-muted-foreground">ab</span>
+                  <span className="text-lg font-bold tabular">
+                    {formatPrice(product.priceFrom)}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    / Stück netto
+                  </span>
+                </p>
+              )
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Preis nach Anmeldung
+              </p>
+            )}
+            {/* „Abnahme ab 1 Stück" sagt nichts – der Hinweis erscheint erst,
+              wenn er eine Bedingung ist. */}
+            {product.minOrderQuantity && product.minOrderQuantity > 1 ? (
+              <p className="mt-0.5 text-xs text-muted-foreground tabular">
+                Abnahme ab {product.minOrderQuantity} Stück
+              </p>
+            ) : null}
+          </div>
+        </div>
+      </Link>
+      <MerkButton
+        productId={product.id}
+        name={product.name}
+        className="absolute right-2 top-[calc(100cqw-2.75rem)] z-10"
+      />
+    </div>
   );
 }

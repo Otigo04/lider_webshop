@@ -18,6 +18,8 @@ export interface NavLink {
    * Im Klappmenü steht er immer.
    */
   erstAbXl?: boolean;
+  /** Nur im Klappmenü, nie als Reiter der breiten Leiste */
+  nurMenue?: boolean;
 }
 
 /**

@@ -65,6 +65,15 @@ export async function Footer() {
         <div className="mt-8 flex flex-col gap-3 border-t border-surface-dark-border pt-6 text-sm sm:flex-row sm:items-center sm:justify-between">
           <p>© {new Date().getFullYear()} LIDER Groß- und Einzelhandel</p>
           <nav className="flex flex-wrap gap-x-6 gap-y-2">
+            <Link href="/faq" className="hover:text-surface-dark-foreground">
+              FAQ
+            </Link>
+            <Link
+              href="/kontakt"
+              className="hover:text-surface-dark-foreground"
+            >
+              Kontakt
+            </Link>
             <Link
               href="/versand"
               className="hover:text-surface-dark-foreground"

@@ -261,6 +261,8 @@ export async function getProducts(options?: {
   flag?: ProductFlag;
   /** "created_at" liefert die zuletzt aufgenommenen zuerst; sonst nach Name */
   orderBy?: "created_at";
+  /** Nur diese Artikel (Merkliste) */
+  ids?: string[];
 }): Promise<ProductListItem[]> {
   const supabase = await createClient();
 
@@ -278,6 +280,10 @@ export async function getProducts(options?: {
 
   if (options?.categoryId) {
     query = query.eq("category_id", options.categoryId);
+  }
+
+  if (options?.ids) {
+    query = query.in("id", options.ids);
   }
 
   if (options?.flag === "is_new") {
@@ -362,6 +368,8 @@ export async function getPublicProducts(options?: {
   flag?: ProductFlag;
   /** "created_at" liefert die zuletzt aufgenommenen zuerst; sonst nach Name */
   orderBy?: "created_at";
+  /** Nur diese Artikel (Merkliste) */
+  ids?: string[];
 }): Promise<PublicProductListItem[]> {
   const supabase = await createClient();
 
@@ -378,6 +386,10 @@ export async function getPublicProducts(options?: {
 
   if (options?.categoryId) {
     query = query.eq("category_id", options.categoryId);
+  }
+
+  if (options?.ids) {
+    query = query.in("id", options.ids);
   }
 
   if (options?.flag === "is_new") {

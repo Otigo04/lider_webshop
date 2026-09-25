@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronRight } from "lucide-react";
+import { MerkButton } from "@/components/merk-button";
 import { MerkmalListe } from "@/components/merkmal-liste";
 import { ProductGallery } from "@/components/product-gallery";
 import { ProductVariantPicker } from "@/components/product-variant-picker";
@@ -156,6 +157,12 @@ export default async function ProductPage({
             {product.groupName ? (
               <p className="mt-1 text-muted-foreground">{product.name}</p>
             ) : null}
+            <MerkButton
+              productId={product.id}
+              name={product.name}
+              groesse="gross"
+              className="mt-3"
+            />
 
             {product.description ? (
               <p className="mt-5 whitespace-pre-line leading-relaxed text-muted-foreground">
@@ -263,6 +270,12 @@ export default async function ProductPage({
           {product.group ? (
             <p className="mt-1 text-muted-foreground">{product.name}</p>
           ) : null}
+          <MerkButton
+            productId={product.id}
+            name={product.name}
+            groesse="gross"
+            className="mt-3"
+          />
 
           {product.description ? (
             <p className="mt-5 whitespace-pre-line leading-relaxed text-muted-foreground">

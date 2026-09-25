@@ -18,6 +18,7 @@ import { CatalogTicker } from "@/components/catalog-ticker";
 import { CategoryGrid } from "@/components/category-grid";
 import { ProductRail } from "@/components/product-rail";
 import { RabattBadge } from "@/components/sale-price";
+import { Schnellleiste } from "@/components/schnellleiste";
 import { Reveal } from "@/components/reveal";
 import { SortimentTabs, type SortimentReiter } from "@/components/sortiment-tabs";
 import { StatCounter } from "@/components/stat-counter";
@@ -158,6 +159,11 @@ export default async function HomePage() {
 
   return (
     <>
+      {/* Direktwege unter der Hinweisleiste, über dem Kopfbereich */}
+      <Schnellleiste
+        warengruppen={gelistet.map(({ slug, name }) => ({ slug, name }))}
+      />
+
       {/* ---------------------------------------------------------------- Hero */}
       <section className="relative isolate overflow-hidden bg-surface-dark text-surface-dark-foreground">
         <div aria-hidden className="hero-backdrop" />
