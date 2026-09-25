@@ -1172,9 +1172,10 @@ Verwaltung, Kasse –, läuft weiter über `lib/supabase/server.ts`.
 
 ## 🧭 Schnellleiste und Klappmenü
 
-`components/schnellleiste.tsx` über dem Kopfbereich der Startseite: reine
-Textlinks in einer Zeile (Reduziert in Signalrot, Neuheiten, Topseller, dann
-die Warengruppen) – keine Chips, Symbole oder Farbpunkte, die erste Fassung
+`components/schnellleiste.tsx` über dem Kopfbereich der Startseite, in der
+Navy-Fläche von Kopfleiste und Hero: schlichte Knöpfe mit dünnem Rand, gold
+beim Überfahren; Reduziert als einziger rot gefüllt, dann Neuheiten,
+Topseller, Warengruppen. Keine Symbole oder Farbpunkte – die erste Fassung
 damit war überladen. Seitlich schiebbar statt umbrechend.
 
 Merkliste, FAQ und Kontakt stehen im Klappmenü mit `nurMenue: true`: in der
