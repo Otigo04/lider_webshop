@@ -350,6 +350,10 @@ export function PosTerminal({
    * Summen. Rechnet exakt wie create_pos_sale() in der Datenbank – die Anzeige
    * darf sich vom gebuchten Beleg nicht unterscheiden.
    */
+  // Großhandel liefert immer Netto-Staffelpreise, unabhängig von der
+  // Ladenpreis-Einstellung – wie in completePosSale()/create_pos_sale().
+  const effektivBrutto = preisModus === "wholesale" ? false : pricesGross;
+
   const summen = useMemo(() => {
     const positionen = bon.reduce(
       (summe, zeile) => summe + zeile.unitPrice * zeile.quantity,
@@ -357,7 +361,7 @@ export function PosTerminal({
     );
     const runden = (wert: number) => Math.round(wert * 100) / 100;
 
-    if (pricesGross) {
+    if (effektivBrutto) {
       const brutto = runden(positionen);
       const netto = runden(brutto / (1 + vatRate / 100));
       return { netto, ust: runden(brutto - netto), brutto };
@@ -365,7 +369,7 @@ export function PosTerminal({
     const netto = runden(positionen);
     const ust = runden((netto * vatRate) / 100);
     return { netto, ust, brutto: runden(netto + ust) };
-  }, [bon, pricesGross, vatRate]);
+  }, [bon, effektivBrutto, vatRate]);
 
   const stueckzahl = bon.reduce((summe, zeile) => summe + zeile.quantity, 0);
 
@@ -796,7 +800,7 @@ export function PosTerminal({
               Verkauf abschließen
             </Button>
             <p className="mt-2 text-xs text-muted-foreground">
-              {pricesGross
+              {effektivBrutto
                 ? "Eingegebene Preise sind Endpreise inkl. USt."
                 : "Eingegebene Preise sind Nettopreise, die USt. kommt hinzu."}
             </p>
@@ -808,7 +812,7 @@ export function PosTerminal({
         open={freieZeile}
         onOpenChange={setFreieZeile}
         onAdd={freieZeileAufDenBon}
-        pricesGross={pricesGross}
+        pricesGross={effektivBrutto}
       />
 
       <PosNewProductDialog

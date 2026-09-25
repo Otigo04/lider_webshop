@@ -250,6 +250,18 @@ export async function completePosSale(
   }
   const daten = parsed.data;
 
+  /*
+   * Ob die eingesetzten Stückpreise brutto oder netto sind, folgt aus der
+   * Kundenwahl, nicht aus einer eigenen Einstellung: ein Kundenkonto
+   * (Großhandel) bekommt immer die Netto-Staffelpreise aus product_variants,
+   * Laufkundschaft (Einzelhandel) den Ladenpreis in der Lesart aus
+   * company_settings.pos_prices_gross. Käme das als eigenes Feld vom Client,
+   * könnte eine Sitzung mit stehengebliebenem Wert einen Großhandelsverkauf
+   * fälschlich als brutto verbuchen.
+   */
+  const company = await getCompanySettings();
+  const pricesGross = daten.customerId ? false : company.pos_prices_gross;
+
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("create_pos_sale", {
     p_items: daten.items.map((item) => ({
@@ -264,6 +276,7 @@ export async function completePosSale(
     p_customer_label: daten.customerLabel,
     p_payment_method: daten.paymentMethod,
     p_note: daten.note,
+    p_prices_gross: pricesGross,
   });
 
   if (error || !data) {
@@ -314,7 +327,7 @@ async function erzeugeBeleg(saleId: string): Promise<string | null> {
         sale.items ?? [],
         (sale.customer as AppUser | null) ?? null,
         company,
-        company.pos_prices_gross,
+        sale.customer_id ? false : company.pos_prices_gross,
       ),
     );
 
