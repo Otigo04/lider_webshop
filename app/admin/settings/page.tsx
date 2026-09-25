@@ -38,7 +38,11 @@ export default async function AdminSettingsPage() {
           Wartungsscreen für neue Besucher ein- und ausgeschaltet werden.
         </p>
         <div className="mt-6">
-          <MaintenanceModeSettings aktiv={settings.maintenance_mode} />
+          <MaintenanceModeSettings
+            aktiv={settings.maintenance_mode}
+            nachricht={settings.maintenance_message}
+            datum={settings.maintenance_until}
+          />
         </div>
       </div>
 

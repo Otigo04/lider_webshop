@@ -3,8 +3,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { Hammer, Mail, Package, Phone, Sparkles } from "lucide-react";
 import { Reveal } from "@/components/reveal";
+import { formatDate } from "@/lib/format";
 import { getLogoMarkPath } from "@/lib/logo";
-import { getPublicContact } from "@/lib/queries/settings";
+import { getMaintenanceInfo, getPublicContact } from "@/lib/queries/settings";
+
+const STANDARDTEXT =
+  "Unser neuer Webshop für Spielzeug, Multimedia und Handyzubehör ist in Eigenentwicklung. In Kürze sind Staffelpreise, aktuelle Bestände und Ihr Kundenkonto wieder für Sie da.";
 
 export const metadata: Metadata = {
   title: "Wartungsarbeiten",
@@ -17,12 +21,15 @@ export const metadata: Metadata = {
 
 /**
  * Wartungsscreen für unregistrierte Besucher (Migration 041, proxy.ts).
- * Bestandskunden und Admin sehen diese Seite nie – sie melden sich über
- * /login an und kommen direkt in den echten Shop.
+ * Bestandskunden und Admin sehen diese Seite nie – sie haben bereits eine
+ * Sitzung, die den Proxy an jeder Route durchlässt.
  */
 export default async function WartungPage() {
   const logoPath = getLogoMarkPath();
-  const kontakt = await getPublicContact();
+  const [kontakt, wartung] = await Promise.all([
+    getPublicContact(),
+    getMaintenanceInfo(),
+  ]);
 
   return (
     <div className="relative overflow-hidden bg-surface-dark py-20 text-surface-dark-foreground sm:py-28">
@@ -69,10 +76,14 @@ export default async function WartungPage() {
           <span className="heading-bar mx-auto" />
 
           <p className="mt-6 text-lg text-surface-dark-muted">
-            Unser neuer Webshop für Spielzeug, Multimedia und Handyzubehör ist
-            in Eigenentwicklung. In Kürze sind Staffelpreise, aktuelle
-            Bestände und Ihr Kundenkonto wieder für Sie da.
+            {wartung.message || STANDARDTEXT}
           </p>
+
+          {wartung.until ? (
+            <p className="mt-3 text-sm font-medium text-gold-bright">
+              Voraussichtlich verfügbar ab {formatDate(wartung.until)}
+            </p>
+          ) : null}
 
           <div
             className="mt-9 h-1.5 w-56 overflow-hidden rounded-full bg-white/10"

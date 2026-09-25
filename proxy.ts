@@ -33,22 +33,18 @@ const PROTECTED_PREFIXES = [
 ];
 
 /**
- * Bleibt auch im Wartungsmodus für anonyme Besucher erreichbar: der
- * Anmeldeweg (Bestandskunden brauchen /login, /forgot-password,
- * /reset-password und den Bestätigungslink unter /auth), dazu Impressum und
- * Datenschutz – Pflichtangaben, die immer erreichbar sein müssen. /register
- * ist bewusst NICHT dabei: Neuanmeldungen sind während der Wartung
- * ausgesetzt.
+ * Bleibt auch im Wartungsmodus für anonyme Besucher erreichbar: nur
+ * Impressum und Datenschutz (Pflichtangaben) sowie die Wartungsseite selbst.
+ * /login, /register, /forgot-password, /reset-password und /auth sind
+ * bewusst NICHT dabei – während der Wartung kommt niemand ohne bestehende
+ * Sitzung rein, auch keine Bestandskunden.
+ *
+ * Achtung Selbstaussperrung: verliert der Admin seine Sitzung, während der
+ * Schalter aktiv ist, zeigt auch /login den Wartungsscreen – Zurücksetzen
+ * dann nur noch per SQL-Editor (`update company_settings set
+ * maintenance_mode = false`), nicht mehr über die Oberfläche.
  */
-const MAINTENANCE_EXEMPT_PREFIXES = [
-  "/wartung",
-  "/login",
-  "/auth",
-  "/forgot-password",
-  "/reset-password",
-  "/impressum",
-  "/datenschutz",
-];
+const MAINTENANCE_EXEMPT_PREFIXES = ["/wartung", "/impressum", "/datenschutz"];
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -101,11 +97,13 @@ export async function proxy(request: NextRequest) {
 
   if (!isProtected && !user && !istWartungsAusnahme) {
     // rpc() statt Tabellenzugriff: company_settings selbst ist nur für
-    // Angemeldete lesbar, siehe public_maintenance_status() in Migration 041.
-    // Fehlt die Funktion (Migration noch nicht eingespielt), bleibt der Shop
-    // offen statt für alle Besucher zu sperren – fail open.
-    const { data: wartung } = await supabase.rpc("public_maintenance_status");
-    if (wartung === true) {
+    // Angemeldete lesbar, siehe public_maintenance_status() in Migration 041
+    // (Spalten erweitert in 043). Fehlt die Funktion (Migration noch nicht
+    // eingespielt), bleibt der Shop offen statt für alle Besucher zu sperren
+    // – fail open.
+    const { data } = await supabase.rpc("public_maintenance_status");
+    const zeile = Array.isArray(data) ? data[0] : data;
+    if (zeile?.enabled === true) {
       const wartungUrl = request.nextUrl.clone();
       wartungUrl.pathname = "/wartung";
       wartungUrl.search = "";

@@ -26,6 +26,8 @@ const EMPTY_SETTINGS: CompanySettings = {
   pos_receipt_footer: null,
   pos_closing_from: null,
   maintenance_mode: false,
+  maintenance_message: null,
+  maintenance_until: null,
 };
 
 /**
@@ -119,4 +121,33 @@ export async function getPublicContact(): Promise<PublicContact> {
       zusammen.free_shipping_threshold,
     ),
   };
+}
+
+/** Wartungsschalter samt Text und Datum für anonyme Besucher (Migration 043). */
+export interface MaintenanceInfo {
+  enabled: boolean;
+  /** Eigener Text aus /admin/settings. null = /wartung zeigt den Standardtext. */
+  message: string | null;
+  /** "Voraussichtlich verfügbar ab". null = keine Angabe. */
+  until: string | null;
+}
+
+/**
+ * Ohne Sitzung gelesen (proxy.ts entscheidet über die Umleitung, /wartung
+ * zeigt Text und Datum). Fehlt die Funktion (Migration 043 noch nicht
+ * eingespielt), bleibt der Schalter aus – fail open, siehe proxy.ts.
+ */
+export async function getMaintenanceInfo(): Promise<MaintenanceInfo> {
+  const leer: MaintenanceInfo = { enabled: false, message: null, until: null };
+  const { data, error } = await createPublicClient().rpc(
+    "public_maintenance_status",
+  );
+  if (error) {
+    console.error("[einstellungen] Wartungsmodus:", error.message);
+    return leer;
+  }
+  const zeile = (Array.isArray(data) ? data[0] : data) as
+    | Partial<MaintenanceInfo>
+    | undefined;
+  return { ...leer, ...(zeile ?? {}), enabled: zeile?.enabled === true };
 }

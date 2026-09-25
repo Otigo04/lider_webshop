@@ -174,9 +174,65 @@ export async function setMaintenanceMode(
   }
 
   revalidatePath("/admin/settings");
+  revalidatePath("/wartung");
   return {
     success: aktiv
       ? "Wartungsmodus eingeschaltet – unregistrierte Besucher sehen jetzt den Wartungsscreen."
       : "Wartungsmodus ausgeschaltet – der Shop ist wieder für alle sichtbar.",
   };
+}
+
+const maintenanceContentSchema = z.object({
+  // Leer heißt "kein eigener Text" – /wartung zeigt dann den Standardtext.
+  maintenance_message: z.string().trim().max(400).optional(),
+  // z.string().date() prüft das Format YYYY-MM-DD, wie es <input type="date">
+  // liefert. Optional: das Datum ist eine Zusatzangabe, kein Pflichtfeld.
+  maintenance_until: z.string().trim().date().optional(),
+});
+
+/**
+ * Eigener Text und optionales Datum für /wartung (Migration 043). Eigene
+ * Action statt in updateCompanySettings(): ein Formular für zwei Felder soll
+ * nicht am Rest der – deutlich größeren – Firmendaten hängen.
+ */
+export async function updateMaintenanceContent(
+  _prevState: AdminFormState,
+  formData: FormData,
+): Promise<AdminFormState> {
+  await requireAdmin();
+
+  const parsed = maintenanceContentSchema.safeParse({
+    maintenance_message: formData.get("maintenance_message") || undefined,
+    maintenance_until: formData.get("maintenance_until") || undefined,
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0].message };
+  }
+
+  const data = parsed.data;
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("company_settings")
+    .update({
+      maintenance_message: data.maintenance_message || null,
+      maintenance_until: data.maintenance_until || null,
+    })
+    .eq("id", true);
+
+  if (error?.code === "PGRST204" || error?.code === "42703") {
+    return {
+      error:
+        "Die Tabelle kennt Wartungstext und -datum noch nicht. Bitte supabase/migrations/043_wartungsmodus_nachricht.sql im Supabase SQL-Editor ausführen.",
+    };
+  }
+
+  if (error) {
+    console.error("[admin] Wartungstext speichern:", error.message);
+    return { error: "Text und Datum konnten nicht gespeichert werden." };
+  }
+
+  revalidatePath("/admin/settings");
+  revalidatePath("/wartung");
+  return { success: "Wartungstext gespeichert." };
 }
