@@ -40,6 +40,7 @@ export default async function AdminSettingsPage() {
         <div className="mt-6">
           <MaintenanceModeSettings
             aktiv={settings.maintenance_mode}
+            titel={settings.maintenance_title}
             nachricht={settings.maintenance_message}
             datum={settings.maintenance_until}
           />

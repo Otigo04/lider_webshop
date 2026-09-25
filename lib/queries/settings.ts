@@ -26,6 +26,7 @@ const EMPTY_SETTINGS: CompanySettings = {
   pos_receipt_footer: null,
   pos_closing_from: null,
   maintenance_mode: false,
+  maintenance_title: null,
   maintenance_message: null,
   maintenance_until: null,
 };
@@ -123,9 +124,11 @@ export async function getPublicContact(): Promise<PublicContact> {
   };
 }
 
-/** Wartungsschalter samt Text und Datum für anonyme Besucher (Migration 043). */
+/** Wartungsschalter samt Titel, Text und Datum für anonyme Besucher (Migration 043, 044). */
 export interface MaintenanceInfo {
   enabled: boolean;
+  /** Eigene Überschrift aus /admin/settings. null = /wartung zeigt den Standardtitel. */
+  title: string | null;
   /** Eigener Text aus /admin/settings. null = /wartung zeigt den Standardtext. */
   message: string | null;
   /** "Voraussichtlich verfügbar ab". null = keine Angabe. */
@@ -134,11 +137,16 @@ export interface MaintenanceInfo {
 
 /**
  * Ohne Sitzung gelesen (proxy.ts entscheidet über die Umleitung, /wartung
- * zeigt Text und Datum). Fehlt die Funktion (Migration 043 noch nicht
- * eingespielt), bleibt der Schalter aus – fail open, siehe proxy.ts.
+ * zeigt Titel, Text und Datum). Fehlt die Funktion (Migration 043/044 noch
+ * nicht eingespielt), bleibt der Schalter aus – fail open, siehe proxy.ts.
  */
 export async function getMaintenanceInfo(): Promise<MaintenanceInfo> {
-  const leer: MaintenanceInfo = { enabled: false, message: null, until: null };
+  const leer: MaintenanceInfo = {
+    enabled: false,
+    title: null,
+    message: null,
+    until: null,
+  };
   const { data, error } = await createPublicClient().rpc(
     "public_maintenance_status",
   );

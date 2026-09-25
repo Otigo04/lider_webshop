@@ -34,10 +34,12 @@ function SaveButton() {
  */
 export function MaintenanceModeSettings({
   aktiv: initial,
+  titel,
   nachricht,
   datum,
 }: {
   aktiv: boolean;
+  titel: string | null;
   nachricht: string | null;
   datum: string | null;
 }) {
@@ -117,6 +119,20 @@ export function MaintenanceModeSettings({
       </div>
 
       <form action={formAction} className="space-y-3 rounded-md border border-border bg-card px-4 py-3">
+        <div className="space-y-2">
+          <Label htmlFor="maintenance_title">Eigener Titel (optional)</Label>
+          <Input
+            id="maintenance_title"
+            name="maintenance_title"
+            maxLength={80}
+            defaultValue={titel ?? ""}
+            placeholder="Hier entsteht etwas Großes."
+          />
+          <p className="text-xs text-muted-foreground">
+            Leer lassen zeigt den Standardtitel auf /wartung.
+          </p>
+        </div>
+
         <div className="space-y-2">
           <Label htmlFor="maintenance_message">Eigene Nachricht (optional)</Label>
           <Textarea

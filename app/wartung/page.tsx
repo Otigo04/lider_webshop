@@ -7,6 +7,7 @@ import { formatDate } from "@/lib/format";
 import { getLogoMarkPath } from "@/lib/logo";
 import { getMaintenanceInfo, getPublicContact } from "@/lib/queries/settings";
 
+const STANDARDTITEL = "Hier entsteht etwas Großes.";
 const STANDARDTEXT =
   "Unser neuer Webshop für Spielzeug, Multimedia und Handyzubehör ist in Eigenentwicklung. In Kürze sind Staffelpreise, aktuelle Bestände und Ihr Kundenkonto wieder für Sie da.";
 
@@ -71,7 +72,7 @@ export default async function WartungPage() {
 
           <p className="eyebrow mt-8 text-gold-bright">Wartungsarbeiten</p>
           <h1 className="headline mt-3 text-4xl font-bold tracking-tight sm:text-5xl">
-            Hier entsteht etwas Großes.
+            {wartung.title || STANDARDTITEL}
           </h1>
           <span className="heading-bar mx-auto" />
 

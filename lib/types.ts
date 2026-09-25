@@ -454,6 +454,8 @@ export interface CompanySettings {
    * davon nie betroffen, siehe proxy.ts.
    */
   maintenance_mode: boolean;
+  /** Eigene Überschrift auf /wartung (Migration 044). null = Standardtitel. */
+  maintenance_title: string | null;
   /** Eigener Text auf /wartung (Migration 043). null = Standardtext. */
   maintenance_message: string | null;
   /** "Voraussichtlich verfügbar ab" auf /wartung. Optional, null = keine Angabe. */

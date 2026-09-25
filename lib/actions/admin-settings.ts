@@ -183,7 +183,8 @@ export async function setMaintenanceMode(
 }
 
 const maintenanceContentSchema = z.object({
-  // Leer heißt "kein eigener Text" – /wartung zeigt dann den Standardtext.
+  // Leer heißt "kein eigener Titel/Text" – /wartung zeigt dann den Standard.
+  maintenance_title: z.string().trim().max(80).optional(),
   maintenance_message: z.string().trim().max(400).optional(),
   // z.string().date() prüft das Format YYYY-MM-DD, wie es <input type="date">
   // liefert. Optional: das Datum ist eine Zusatzangabe, kein Pflichtfeld.
@@ -191,9 +192,10 @@ const maintenanceContentSchema = z.object({
 });
 
 /**
- * Eigener Text und optionales Datum für /wartung (Migration 043). Eigene
- * Action statt in updateCompanySettings(): ein Formular für zwei Felder soll
- * nicht am Rest der – deutlich größeren – Firmendaten hängen.
+ * Eigener Titel, Text und optionales Datum für /wartung (Migration 043,
+ * 044). Eigene Action statt in updateCompanySettings(): ein Formular für
+ * drei Felder soll nicht am Rest der – deutlich größeren – Firmendaten
+ * hängen.
  */
 export async function updateMaintenanceContent(
   _prevState: AdminFormState,
@@ -202,6 +204,7 @@ export async function updateMaintenanceContent(
   await requireAdmin();
 
   const parsed = maintenanceContentSchema.safeParse({
+    maintenance_title: formData.get("maintenance_title") || undefined,
     maintenance_message: formData.get("maintenance_message") || undefined,
     maintenance_until: formData.get("maintenance_until") || undefined,
   });
@@ -215,6 +218,7 @@ export async function updateMaintenanceContent(
   const { error } = await supabase
     .from("company_settings")
     .update({
+      maintenance_title: data.maintenance_title || null,
       maintenance_message: data.maintenance_message || null,
       maintenance_until: data.maintenance_until || null,
     })
@@ -223,7 +227,7 @@ export async function updateMaintenanceContent(
   if (error?.code === "PGRST204" || error?.code === "42703") {
     return {
       error:
-        "Die Tabelle kennt Wartungstext und -datum noch nicht. Bitte supabase/migrations/043_wartungsmodus_nachricht.sql im Supabase SQL-Editor ausführen.",
+        "Die Tabelle kennt Wartungstitel/-text/-datum noch nicht. Bitte supabase/migrations/043_wartungsmodus_nachricht.sql und 044_wartungsmodus_titel.sql im Supabase SQL-Editor ausführen.",
     };
   }
 
