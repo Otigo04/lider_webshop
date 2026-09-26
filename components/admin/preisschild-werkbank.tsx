@@ -10,11 +10,15 @@ import { PreisschildSymbole } from "@/components/admin/preisschild-symbole";
 import { PreisschildVorschau } from "@/components/admin/preisschild-vorschau";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MODUL_HART, MODUL_MIN, barcode as strichcode } from "@/lib/barcode";
 import { formatPrice } from "@/lib/format";
 import {
+  barcodeMasse,
   formatMass,
   ghCode,
+  labelBreite,
   proBogen,
+  schildMasse,
   schildPreis,
   type LabelOption,
   type Preisschild,
@@ -40,6 +44,9 @@ import type { LabelIcon, PreisschildArtikel } from "@/lib/queries/preisschilder"
 interface Zeile {
   productId: string;
   sku: string;
+  /** Barcode aus dem Artikelstamm; ob er aufs Schild kommt, entscheidet der
+   *  Schalter über der Liste. */
+  barcode: string | null;
   name: string;
   preis: number;
   /** 0 = keine Reduzierung. Das Feld bleibt leerbar, siehe NumericInput. */
@@ -76,6 +83,18 @@ export function PreisschildWerkbank({
   const [kategorie, setKategorie] = useState("");
   const [zeilen, setZeilen] = useState<Zeile[]>([]);
   const [aktiv, setAktiv] = useState<string | null>(null);
+  /*
+   * Strichcode aufs Schild – ein Schalter für den ganzen Bogen, nicht je
+   * Zeile. Die Frage stellt sich für die Schilderserie und nicht für den
+   * einzelnen Artikel: entweder das Regal soll scannbar sein oder nicht.
+   *
+   * **An als Vorgabe.** Ein scannbares Regal spart bei der Inventur das
+   * Abtippen und an der Kasse den Griff zur Ware, wenn deren eigenes Etikett
+   * fehlt oder abgerieben ist. Und es kostet nichts: der Code steht neben der
+   * Artikelnummer, der Preis bleibt gleich groß. Wer ihn nicht will, hakt ihn
+   * ab – das ist die seltenere Entscheidung und darf der Klick sein.
+   */
+  const [mitBarcode, setMitBarcode] = useState(true);
 
   // Eine gerade gelöschte Größe darf die Seite nicht leer lassen.
   const format = formate.find((f) => f.id === formatId) ?? formate[0];
@@ -104,6 +123,44 @@ export function PreisschildWerkbank({
   // Artikel ohne gepflegten Preis: ein Schild mit 0,00 € ist Ausschuss, und
   // das fiele erst nach dem Schneiden auf.
   const ohnePreis = zeilen.filter((z) => z.preis <= 0).length;
+  /*
+   * Nur Hinweise, keine Fehler: ein Artikel ohne lesbaren Code bekommt eben
+   * keinen, der Bogen bleibt druckbar. Unterschieden wird aber, woran es
+   * liegt – „kein Barcode gepflegt" behebt man im Artikelstamm, „kein EAN"
+   * gar nicht, und „passt nicht aufs Format" durch ein größeres Schild.
+   */
+  const ohneBarcode = zeilen.filter((z) => !z.barcode).length;
+  const keinEan = zeilen.filter(
+    (z) => z.barcode && !strichcode(z.barcode),
+  ).length;
+  /** Trägt das gewählte Format überhaupt einen Strichcode? */
+  const formatTraegtCode =
+    !!format && schildMasse(format, { barcode: true }).barcode > 0;
+  /** Reserviert der Bogen Platz – dieselbe Regel wie in buildLabelSheetHtml. */
+  const codePlatz =
+    mitBarcode &&
+    formatTraegtCode &&
+    zeilen.some((z) => z.barcode && strichcode(z.barcode));
+  /*
+   * Schmalste Striche der Liste. Wie schmal sie werden, hängt am längsten
+   * Code und daran, wie viel das Label in derselben Zeile schon wegnimmt.
+   * Unter dem Normmaß druckt ein Bürodrucker sie nicht mehr zuverlässig –
+   * das Schild sieht dann richtig aus und lässt sich trotzdem nicht scannen,
+   * und das merkt man erst an der Kasse.
+   */
+  const striche = (() => {
+    if (!codePlatz || !format) return null;
+    const masse = schildMasse(format, { barcode: true });
+    const werte = zeilen
+      .map((z) => {
+        const code = strichcode(z.barcode);
+        if (!code) return null;
+        return barcodeMasse(code.breite, masse, labelBreite(alsSchild(z).label, masse))
+          .modul;
+      })
+      .filter((v): v is number => v !== null);
+    return werte.length > 0 ? Math.min(...werte) : null;
+  })();
   const kapazitaet = format ? proBogen(format) : 0;
   const boegen = kapazitaet > 0 ? Math.ceil(gesamt / kapazitaet) : 0;
   const frei = boegen * kapazitaet - gesamt;
@@ -128,6 +185,7 @@ export function PreisschildWerkbank({
         {
           productId: a.id,
           sku: a.sku,
+          barcode: a.barcode,
           name: a.name,
           preis: a.preis ?? 0,
           vorher: a.vorher ?? 0,
@@ -167,6 +225,7 @@ export function PreisschildWerkbank({
       prozent,
       sku: z.sku,
       code: ghCode(z.gh),
+      barcode: mitBarcode ? z.barcode : null,
       icon: icon?.url ?? null,
       label: label ? { name: label.name, farbe: label.farbe } : null,
     };
@@ -183,6 +242,7 @@ export function PreisschildWerkbank({
     zeilen: zeilen.map((z) => ({
       name: z.name,
       sku: z.sku,
+      barcode: mitBarcode ? z.barcode : null,
       preis: z.preis,
       vorher: z.vorher || null,
       gh: z.gh || null,
@@ -339,6 +399,62 @@ export function PreisschildWerkbank({
               </div>
             </div>
 
+            <div className="space-y-1.5">
+              <span className="block text-xs font-medium text-muted-foreground">
+                Fußzeile
+              </span>
+              <label className="flex cursor-pointer items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={mitBarcode}
+                  onChange={(event) => setMitBarcode(event.target.checked)}
+                  className="size-4 accent-brand"
+                />
+                Strichcode aufs Schild
+              </label>
+              {!mitBarcode ? (
+                <p className="text-[11px] text-muted-foreground">
+                  scannbarer EAN unten auf dem Schild
+                </p>
+              ) : (
+                <div className="space-y-0.5 text-[11px] text-muted-foreground">
+                  {!formatTraegtCode ? (
+                    <p className="font-medium text-destructive">
+                      Zu klein für einen Strichcode – größeres Format wählen.
+                    </p>
+                  ) : null}
+                  {ohneBarcode > 0 ? (
+                    <p className="tabular">
+                      {ohneBarcode} von {zeilen.length} ohne gepflegten Barcode
+                    </p>
+                  ) : null}
+                  {keinEan > 0 ? (
+                    <p className="tabular">
+                      {keinEan} {keinEan === 1 ? "Nummer ist" : "Nummern sind"} kein
+                      EAN – steht als Text
+                    </p>
+                  ) : null}
+                  {striche !== null && striche < MODUL_HART ? (
+                    <p className="font-medium text-destructive">
+                      Kein Platz für die Striche – breiteres Format wählen oder
+                      Label weglassen.
+                    </p>
+                  ) : striche !== null && striche < MODUL_MIN ? (
+                    <p className="font-medium text-destructive">
+                      Striche nur {striche.toFixed(2)} mm schmal – breiteres
+                      Format wählen, sonst liest sie nicht jeder Scanner.
+                    </p>
+                  ) : null}
+                  {formatTraegtCode &&
+                  ohneBarcode === 0 &&
+                  keinEan === 0 &&
+                  (striche === null || striche >= MODUL_MIN) ? (
+                    <p>EAN-13, EAN-8 und UPC-A werden gedruckt</p>
+                  ) : null}
+                </div>
+              )}
+            </div>
+
             <div className="text-sm">
               <p className="font-medium tabular">
                 {gesamt} {gesamt === 1 ? "Schild" : "Schilder"} · {boegen}{" "}
@@ -392,6 +508,7 @@ export function PreisschildWerkbank({
               <PreisschildVorschau
                 schild={alsSchild(vorschauZeile)}
                 format={format}
+                barcodePlatz={codePlatz}
               />
               <div className="max-w-sm space-y-2 text-xs text-muted-foreground">
                 <p className="text-sm font-medium text-foreground tabular">
@@ -413,6 +530,13 @@ export function PreisschildWerkbank({
                   <span className="tabular">#1299</span>, aus 0,77 €{" "}
                   <span className="tabular">#077</span>. Feld leeren heißt:
                   kein Code auf dem Schild.
+                </p>
+                <p>
+                  „Strichcode aufs Schild“ druckt den Barcode aus dem
+                  Artikelstamm scannbar in die Fußzeile, rechts neben die
+                  Artikelnummer – EAN-13, EAN-8 und UPC-A. Eine Nummer, die
+                  kein EAN ist, steht dort als Ziffernfolge. Ein breites Label
+                  kann dem Strichcode den Platz nehmen; dann bleibt er weg.
                 </p>
               </div>
             </div>
@@ -568,6 +692,7 @@ export function PreisschildWerkbank({
                     <span className="text-muted-foreground">
                       {z.sku}
                       {ghCode(z.gh) ? `#${ghCode(z.gh)}` : ""}
+                      {mitBarcode && z.barcode ? ` · ${z.barcode}` : ""}
                     </span>
                     {z.preis <= 0 ? (
                       <span className="ml-2 font-medium text-destructive">

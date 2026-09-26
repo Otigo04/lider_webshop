@@ -7,6 +7,7 @@
  * Stellen, liefe die Vorschau über kurz oder lang neben dem Papier her.
  */
 
+import { MODUL_HART, MODUL_NENN } from "@/lib/barcode";
 import { toNumber } from "@/lib/format";
 import { reduzierung } from "@/lib/pricing";
 
@@ -24,6 +25,16 @@ export interface Preisschild {
   sku: string;
   /** Großhandelscode hinter dem „#", null = keiner gewünscht */
   code: string | null;
+  /**
+   * Barcode des Artikels, roh aus dem Artikelstamm. null = nicht aufs Schild.
+   *
+   * Gezeichnet wird daraus ein echter Strichcode (`lib/barcode.ts`), damit
+   * der Handscanner das Schild lesen kann – am Regal, bei der Inventur und
+   * an der Kasse, wenn die Ware selbst kein Etikett trägt. Lässt sich der
+   * Wert nicht als EAN lesen (hauseigene Nummer mit Buchstaben), steht er
+   * als Ziffernfolge hinter der Artikelnummer.
+   */
+  barcode: string | null;
   /** Data-URI (Druck) bzw. Signed URL (Vorschau) des Symbols, null = keins */
   icon: string | null;
   /** Farbiges Label in der Fußzeile („Neu", „Topseller", Artikel-Flag), null = keins */
@@ -164,12 +175,19 @@ export function formatMass(format: SchildFormat): string {
  * gelesen, nicht aus fünfzig Zentimetern. Weißraum, der nichts trägt, ist auf
  * einem 40-mm-Schild verschenkte Fläche.
  */
-export function schildMasse(format: SchildFormat) {
+export function schildMasse(
+  format: SchildFormat,
+  optionen: { barcode?: boolean } = {},
+) {
   const luft = klemme(format.hoehe * 0.055, 1.4, 4.5);
   const innenH = format.hoehe - 2 * luft;
   const innenB = format.breite - 2 * luft;
 
-  return {
+  /**
+   * `k` nimmt den Preisblock zurück. Der Strichcode braucht Höhe, und die
+   * kann nur von der Stelle kommen, die am meisten davon hat.
+   */
+  const anteile = (k: number, mitCode: boolean) => ({
     luft,
     innenH,
     innenB,
@@ -181,9 +199,9 @@ export function schildMasse(format: SchildFormat) {
      */
     name: klemme(innenH * 0.1, 1.8, 8),
     /** Wunschgröße des Euro-Betrags – die Breitenprüfung kann sie kürzen. */
-    preis: klemme(innenH * 0.38, 4, 40),
-    vorher: klemme(innenH * 0.125, 1.8, 10),
-    prozent: klemme(innenH * 0.125, 1.8, 10),
+    preis: klemme(innenH * 0.38 * k, 4, 40),
+    vorher: klemme(innenH * 0.125 * k, 1.8, 10),
+    prozent: klemme(innenH * 0.125 * k, 1.8, 10),
     kennung: klemme(innenH * 0.135, 1.8, 11),
     /** Label in der Fußzeile, etwas kleiner als die Artikelnummer. */
     label: klemme(innenH * 0.11, 1.6, 9),
@@ -193,7 +211,38 @@ export function schildMasse(format: SchildFormat) {
     linie: klemme(format.hoehe * 0.008, 0.18, 0.5),
     /** Abstand der Haarlinien nach oben und unten. */
     linienLuft: luft * 0.45,
-  };
+    /**
+     * Höhe der Striche. 0 = kein Strichcode auf diesem Schild.
+     *
+     * Der Code steht in der Fußzeile neben der Artikelnummer und ist deshalb
+     * etwas höher als deren Schrift, aber kein eigener Block mehr. Ein
+     * Handscanner liest auch einen niedrigen Code, solange er gerade
+     * draufhält – und ein Regalschild wird aus dreißig Zentimetern gescannt,
+     * nicht über den Kassentisch gezogen.
+     */
+    barcode: mitCode ? klemme(innenH * 0.13, 2.6, 8) : 0,
+  });
+
+  if (!optionen.barcode) return anteile(1, false);
+
+  /*
+   * Den Preisblock so weit zurücknehmen, bis das voll besetzte Schild mit
+   * Strichcode wieder in seine Höhe passt – statt einer zweiten Anteilstabelle
+   * für „mit Code". hoehenBedarf() rechnet ohnehin schon, was gebraucht wird;
+   * hier wird das Ergebnis endlich benutzt.
+   */
+  for (let k = 1; k >= 0.5; k -= 0.05) {
+    const masse = anteile(k, true);
+    if (hoehenBedarf(masse) <= innenH) return masse;
+  }
+
+  /*
+   * Passt auch mit halbem Preis nicht: dann trägt dieses Format keinen
+   * Strichcode. Lieber gar keiner als einer, der unten abgeschnitten aus dem
+   * Schild läuft – ein halber Strichcode ist nicht „etwas schlechter lesbar",
+   * sondern gar nicht lesbar. Der Aufrufer schreibt die Nummer dann als Text.
+   */
+  return anteile(1, false);
 }
 
 /** Zeilenabstand der Bezeichnung; steht hier, weil die Höhenrechnung ihn braucht. */
@@ -214,12 +263,67 @@ const PROZENT_LUFT = 0.44;
  */
 export function hoehenBedarf(masse: ReturnType<typeof schildMasse>): number {
   const trenner = 2 * (masse.linie + 2 * masse.linienLuft);
-  return (
-    kopfHoehe(masse) +
-    trenner +
-    preiszeilenHoehe(masse) +
-    Math.max(masse.kennung, masse.label * 1.3)
-  );
+  return kopfHoehe(masse) + trenner + preiszeilenHoehe(masse) + fussHoehe(masse);
+}
+
+/**
+ * Höhe der Fußzeile: Artikelnummer, Label und Strichcode stehen dort
+ * nebeneinander, also gibt das höchste von dreien das Maß.
+ */
+export function fussHoehe(masse: ReturnType<typeof schildMasse>): number {
+  return Math.max(masse.kennung, masse.label * 1.3, masse.barcode);
+}
+
+/**
+ * Anteil der Schildbreite, den der Strichcode höchstens bekommt.
+ *
+ * Er steht neben der Artikelnummer und nicht unter ihr: ein eigener Block
+ * kostete Höhe, die der Preis besser braucht, und schob dem Schild einen
+ * vierten Streifen unter. Die andere Hälfte bleibt damit der Nummer –
+ * genug für „110002#077" in lesbarer Größe.
+ */
+const BARCODE_ANTEIL = 0.55;
+
+/**
+ * Anteil der Schildbreite, der der Artikelnummer auf jeden Fall bleibt.
+ *
+ * Ohne diese Reserve nähmen Strichcode und Label ihr die ganze Zeile, und
+ * weil die Zelle überstehenden Inhalt abschneidet, stünde am Regal
+ * „110002#0" – eine Nummer, die es nicht gibt. Lieber kleinere Ziffern als
+ * falsche.
+ */
+const KENNUNG_ANTEIL = 0.28;
+
+/**
+ * Breite des Strichcodes und seiner Module in Millimetern.
+ *
+ * Die Modulbreite folgt aus dem freien Platz und nicht umgekehrt: ein
+ * Strichcode, der breiter wäre als sein Platz, würde beschnitten, und ein
+ * beschnittener Strichcode ist keiner. Nach oben das Nennmaß der Norm – auf
+ * einem 97-mm-Schild müssen die Striche nicht mitwachsen, gelesen wird ohnehin
+ * aus dreißig Zentimetern.
+ *
+ * `modul` unter MODUL_MIN heißt: gedruckt wird er, aber ob jeder Scanner ihn
+ * nimmt, steht dahin – die Werkbank weist darauf hin. Unter MODUL_HART ist es
+ * kein Strichcode mehr, sondern ein grauer Streifen; dann zeichnet der
+ * Aufrufer keinen.
+ */
+export function barcodeMasse(
+  module: number,
+  masse: ReturnType<typeof schildMasse>,
+  /** Breite, die das Label in derselben Zeile schon belegt. */
+  belegt = 0,
+): { breite: number; modul: number } {
+  const frei =
+    masse.innenB - belegt - masse.innenB * KENNUNG_ANTEIL - masse.luft * 0.7;
+  const platz = Math.min(masse.innenB * BARCODE_ANTEIL, frei);
+  const modul = Math.min(MODUL_NENN, Math.max(0, platz) / module);
+  return { breite: modul * module, modul };
+}
+
+/** Taugt der errechnete Strichcode noch etwas, oder besser gar keinen? */
+export function strichcodeTaugt(modul: number): boolean {
+  return modul >= MODUL_HART;
 }
 
 /**
@@ -380,13 +484,19 @@ export const LABEL_LUFT = 0.9;
 /**
  * Breite des Labels in der Fußzeile, in Millimetern. Geschätzt wie der Preis:
  * es muss nur verhindern, dass die Artikelnummer unter das Label läuft.
+ *
+ * 0,72 em je Zeichen, und damit **absichtlich großzügig**: gemessen sind es
+ * rund 0,715 für fette Versalien samt Sperrung. Die Schätzung darf nach oben
+ * daneben liegen – dann steht die Artikelnummer eine Spur kleiner da. Liegt
+ * sie nach unten daneben, schneidet die Zelle die Nummer ab, und am Regal
+ * steht „110002#120" statt „110002#1200".
  */
 export function labelBreite(
   label: SchildLabel | null,
   masse: ReturnType<typeof schildMasse>,
 ): number {
   if (!label) return 0;
-  const em = Array.from(label.name.toUpperCase()).length * 0.68 + LABEL_LUFT;
+  const em = Array.from(label.name.toUpperCase()).length * 0.72 + LABEL_LUFT;
   return em * masse.label + masse.luft * 0.7;
 }
 
@@ -502,11 +612,24 @@ export function preisSchriftgroesse(
 export function kennungSchriftgroesse(
   text: string,
   masse: ReturnType<typeof schildMasse>,
-  /** Vom Label rechts daneben belegte Breite. */
+  /** Von Strichcode und Label rechts daneben belegte Breite. */
   belegt = 0,
 ): number {
-  const breite = Math.max(1, text.length) * 0.56;
-  const frei = Math.max(masse.innenB - belegt, masse.innenB / 2);
+  /*
+   * 0,58 em je Zeichen. Ziffern in halbfetter Groteske messen rund 0,56, das
+   * „#" ist breiter – mit 0,56 lief die Zeile um ein, zwei Pixel über und die
+   * Zelle schnitt die letzte Ziffer ab. Lieber eine Spur kleiner setzen.
+   */
+  const breite = Math.max(1, text.length) * 0.58;
+  /*
+   * Kein großzügiger Mindestplatz mehr: seit der Strichcode in derselben
+   * Zeile steht, wäre eine Untergrenze über dem tatsächlich freien Platz
+   * genau das, was die Zelle abschneidet – die Schrift wäre für eine Breite
+   * gesetzt, die es nicht gibt. Die Reserve steckt stattdessen in
+   * barcodeMasse(): der Code nimmt sich nur, was die Nummer übrig lässt.
+   * Der Rest hier ist nur ein Riegel gegen Division durch fast null.
+   */
+  const frei = Math.max(masse.innenB - belegt, masse.innenB * 0.1);
   return Math.min(masse.kennung, frei / breite);
 }
 
@@ -540,9 +663,26 @@ export function ghCode(preis: number | string | null | undefined): string | null
   return String(cent).padStart(CODE_STELLEN, "0");
 }
 
-/** Artikelnummer und Code, wie sie zusammen auf dem Schild stehen. */
-export function schildKennung(sku: string, code: string | null): string {
-  return code ? `${sku}#${code}` : sku;
+/**
+ * Fußzeile des Schilds als reiner Text: Artikelnummer, verdeckter Code und –
+ * nur als Rückfall – die Barcodenummer im Klartext.
+ *
+ * Der Klartext steht hier ausschließlich dann, wenn aus dem Barcode **kein**
+ * Strichbild wurde (hauseigene Nummer, die kein EAN ist, oder ein Format, auf
+ * dem der Code keinen Platz hat). Wo Striche stehen, steht die Nummer schon
+ * darunter; zweimal wäre sie Platzverschwendung auf dem Schild, das am
+ * wenigsten davon hat.
+ *
+ * Wird zum Messen der Schriftgröße gebraucht – gezeichnet wird die Zeile in
+ * mehreren Teilen, weil der verdeckte Code eine eigene Farbe trägt.
+ */
+export function schildKennung(
+  sku: string,
+  code: string | null,
+  klartext?: string | null,
+): string {
+  const links = code ? `${sku}#${code}` : sku;
+  return klartext ? `${links} · ${klartext}` : links;
 }
 
 // --- Preis und Reduzierung ---------------------------------------------------

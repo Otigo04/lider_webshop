@@ -1,5 +1,6 @@
 "use client";
 
+import { barcode as strichcode } from "@/lib/barcode";
 import { formatPrice } from "@/lib/format";
 import {
   AKTIONSROT,
@@ -9,6 +10,8 @@ import {
   NAME_GEWICHT,
   NAME_ZEILE,
   SCHRIFT,
+  barcodeMasse,
+  fussHoehe,
   istReduziert,
   kennungSchriftgroesse,
   kopfHoehe,
@@ -21,6 +24,7 @@ import {
   preisTeile,
   schildKennung,
   schildMasse,
+  strichcodeTaugt,
   type Preisschild,
   type SchildFormat,
 } from "@/lib/preisschild";
@@ -53,15 +57,33 @@ function messen(text: string): number {
 export function PreisschildVorschau({
   schild,
   format,
+  barcodePlatz = false,
 }: {
   schild: Preisschild;
   format: SchildFormat;
+  /**
+   * Hält der Bogen Platz für Strichcodes frei? Die Entscheidung fällt für den
+   * ganzen Bogen (siehe buildLabelSheetHtml) – hätte die Vorschau sie für
+   * dieses eine Schild getroffen, zeigte sie bei einem Artikel ohne Barcode
+   * einen größeren Preis als der Drucker liefert.
+   */
+  barcodePlatz?: boolean;
 }) {
-  const m = schildMasse(format);
+  const m = schildMasse(format, { barcode: barcodePlatz });
   const rot = istReduziert(schild);
   const { euro, cent } = preisTeile(schild.preis);
-  const kennung = schildKennung(schild.sku, schild.code);
   const satz = nameSatz(schild.name, nameBreite(m, !!schild.icon), m.name, messen);
+
+  // Breitenaufteilung der Fußzeile – dieselbe Reihenfolge wie im Druckbogen:
+  // Label behält sein Maß, Strichcode nimmt den Rest bis zur Reserve der
+  // Artikelnummer, und zu schmal heißt: lieber keiner.
+  const labelB = labelBreite(schild.label, m);
+  const roh = m.barcode > 0 ? strichcode(schild.barcode) : null;
+  const balken = roh ? barcodeMasse(roh.breite, m, labelB) : null;
+  const code = balken && strichcodeTaugt(balken.modul) ? roh : null;
+  // Klartext nur bei einer Nummer, die kein EAN ist – siehe Druckbogen.
+  const kennung = schildKennung(schild.sku, schild.code, roh ? null : schild.barcode);
+  const belegtRechts = labelB + (code && balken ? balken.breite + m.luft * 0.7 : 0);
 
   const trenner: React.CSSProperties = {
     height: `${m.linie}mm`,
@@ -240,24 +262,27 @@ export function PreisschildVorschau({
 
       <div style={trenner} />
 
+      {/* Fußzeile: Artikelnummer, Strichcode, Label. Feste Höhe, damit ein
+          Schild ohne Code neben einem mit Code gleich hoch bleibt. */}
       <div
         style={{
           display: "flex",
           alignItems: "center",
-          justifyContent: "space-between",
           gap: `${m.luft * 0.7}mm`,
+          height: `${fussHoehe(m)}mm`,
           flex: "none",
         }}
       >
         <span
           style={{
-            fontSize: `${kennungSchriftgroesse(kennung, m, labelBreite(schild.label, m))}mm`,
+            fontSize: `${kennungSchriftgroesse(kennung, m, belegtRechts)}mm`,
             fontWeight: 600,
             lineHeight: 1,
             fontVariantNumeric: "tabular-nums",
             letterSpacing: "0.01em",
             whiteSpace: "nowrap",
             overflow: "hidden",
+            flex: 1,
             minWidth: 0,
           }}
         >
@@ -265,7 +290,41 @@ export function PreisschildVorschau({
           {schild.code ? (
             <span style={{ color: rot ? "#000" : CODEROT }}>#{schild.code}</span>
           ) : null}
+          {/* Rückfall nur bei einer Nummer, die kein EAN ist. */}
+          {!roh && schild.barcode ? (
+            <span style={{ opacity: 0.7, fontWeight: 500 }}>
+              {" · "}
+              {schild.barcode}
+            </span>
+          ) : null}
         </span>
+
+        {/* Ohne Hintergrund, auch auf dem roten Schild – siehe Druckbogen. */}
+        {code && balken ? (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "stretch",
+              flex: "none",
+              width: `${balken.breite}mm`,
+              height: `${m.barcode}mm`,
+            }}
+          >
+            {code.abschnitte.map((a, i) => (
+              <span
+                key={i}
+                style={{
+                  display: "block",
+                  height: "100%",
+                  flex: "none",
+                  width: `${a.module * balken.modul}mm`,
+                  background: a.strich ? "#000" : "transparent",
+                }}
+              />
+            ))}
+          </div>
+        ) : null}
+
         {schild.label ? (
           <span
             style={{

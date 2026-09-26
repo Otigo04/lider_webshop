@@ -25,6 +25,8 @@ export interface PreisschildArtikel {
   id: string;
   sku: string;
   name: string;
+  /** Barcode des Artikels, null = keiner gepflegt. Optional aufs Schild. */
+  barcode: string | null;
   kategorie: string | null;
   /**
    * Preis fürs Regal. Der Ladenpreis, denn ein Regalschild spricht die
@@ -43,6 +45,7 @@ interface ProductZeile {
   id: string;
   sku: string;
   name: string;
+  barcode: string | null;
   retail_price: number | string | null;
   list_price: number | string | null;
   stock_available: number;
@@ -66,7 +69,7 @@ export async function getPreisschildArtikel(
   let query = supabase
     .from("products")
     .select(
-      `id, sku, name, retail_price, list_price, stock_available,
+      `id, sku, name, barcode, retail_price, list_price, stock_available,
        category:categories (name),
        variants:product_variants (id, min_quantity, max_quantity, unit_price)`,
     )
@@ -91,6 +94,7 @@ export async function getPreisschildArtikel(
       id: row.id,
       sku: row.sku,
       name: row.name,
+      barcode: row.barcode?.trim() || null,
       kategorie: row.category?.name ?? null,
       preis: laden ?? staffel,
       grosshandel: staffel,

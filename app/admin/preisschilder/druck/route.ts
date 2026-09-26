@@ -27,6 +27,8 @@ const MAX_SCHILDER = 1000;
 const zeileSchema = z.object({
   name: z.string().trim().min(1).max(120),
   sku: z.string().trim().max(40),
+  /** Barcode; null heißt „nicht aufs Schild", nicht „keiner gepflegt". */
+  barcode: z.string().trim().max(40).nullable().optional(),
   preis: z.coerce.number().min(0).max(1_000_000),
   /** Streichpreis; ob daraus eine Reduzierung wird, entscheidet schildPreis(). */
   vorher: z.coerce.number().min(0).max(1_000_000).nullable(),
@@ -119,6 +121,7 @@ export async function POST(request: Request) {
       prozent,
       sku: zeile.sku,
       code: ghCode(zeile.gh),
+      barcode: zeile.barcode || null,
       icon: zeile.iconId ? (symbole.get(zeile.iconId) ?? null) : null,
       label: zeile.label ?? null,
     };

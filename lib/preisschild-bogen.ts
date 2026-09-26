@@ -1,4 +1,5 @@
 import "server-only";
+import { barcode as strichcode, type Barcode } from "@/lib/barcode";
 import { formatPrice } from "@/lib/format";
 import {
   AKTIONSROT,
@@ -10,6 +11,8 @@ import {
   RAND,
   SCHRIFT,
   SEITE,
+  barcodeMasse,
+  fussHoehe,
   istReduziert,
   kennungSchriftgroesse,
   kopfHoehe,
@@ -23,6 +26,7 @@ import {
   raster,
   schildKennung,
   schildMasse,
+  strichcodeTaugt,
   type Preisschild,
   type SchildFormat,
 } from "@/lib/preisschild";
@@ -90,12 +94,33 @@ function schnittlinien(format: SchildFormat): string {
  * hängen von der Länge ihres Textes ab, damit ein vierstelliger Preis oder
  * eine lange Artikelnummer nicht über den Rand läuft.
  */
-function schild(s: Preisschild, format: SchildFormat): string {
-  const masse = schildMasse(format);
+function schild(s: Preisschild, format: SchildFormat, mitCode: boolean): string {
+  const masse = schildMasse(format, { barcode: mitCode });
   const rot = istReduziert(s);
   const { euro, cent } = preisTeile(s.preis);
-  const kennung = schildKennung(s.sku, s.code);
+  // Striche nur, wenn der Wert ein EAN ist und das Format Platz dafür hat –
+  // sonst wandert die Nummer als Text in die Fußzeile.
   const belegt = nebenblockBreite(s.vorher, s.prozent, masse);
+
+  /*
+   * Fußzeile von rechts nach links aufgeteilt: das Label behält sein Maß,
+   * der Strichcode nimmt sich davon, was bis zur Reserve der Artikelnummer
+   * übrig ist, und die Nummer bekommt den Rest. Bleibt für den Code zu wenig,
+   * gibt es keinen – die Nummer steht dann im Klartext da.
+   */
+  const labelB = labelBreite(s.label, masse);
+  const roh = masse.barcode > 0 ? strichcode(s.barcode) : null;
+  const balken = roh ? barcodeMasse(roh.breite, masse, labelB) : null;
+  const code = balken && strichcodeTaugt(balken.modul) ? roh : null;
+  /*
+   * Klartext nur, wenn die Nummer **kein** EAN ist. Wurde der Code bloß aus
+   * Platzmangel weggelassen, hülfe die Ziffernfolge niemandem: sie ist
+   * dreizehnstellig, und in der Breite, die übrig war, stünde sie in
+   * Ameisengröße da und nähme der Artikelnummer auch noch den Rest.
+   */
+  const kennung = schildKennung(s.sku, s.code, roh ? null : s.barcode);
+  const belegtRechts =
+    labelB + (code && balken ? balken.breite + masse.luft * 0.7 : 0);
 
   const neben =
     s.vorher !== null || s.prozent !== null
@@ -128,14 +153,46 @@ function schild(s: Preisschild, format: SchildFormat): string {
     </div>
     <div class="trenner"></div>
     <div class="fuss">
-      <span class="kennung" style="font-size:${mm(kennungSchriftgroesse(kennung, masse, labelBreite(s.label, masse)))}">${
-        s.code
-          ? `${esc(s.sku)}<span class="code">#${esc(s.code)}</span>`
-          : esc(kennung)
+      <span class="kennung" style="font-size:${mm(kennungSchriftgroesse(kennung, masse, belegtRechts))}">${
+        esc(s.sku)
+      }${s.code ? `<span class="code">#${esc(s.code)}</span>` : ""}${
+        !roh && s.barcode ? `<span class="barcode">${esc(s.barcode)}</span>` : ""
       }</span>
+      ${strichbild(code, balken, masse)}
       ${label}
     </div>
   </div>`;
+}
+
+/**
+ * Strichcode in der Fußzeile, rechts neben der Artikelnummer.
+ *
+ * **Ohne weiße Fläche.** Die Striche stehen direkt auf dem Schild, auch auf
+ * dem roten: ein weißer Kasten mitten auf einem Aktionsschild ist ein Fleck,
+ * und das Schild soll ruhig aussehen. Für einen Laserscanner ändert das
+ * nichts – rotes Licht sieht Rot wie Weiß; ein Kamerascanner hat auf Rot
+ * immer noch rund 4:1 Kontrast zu Schwarz.
+ *
+ * Die Ruhezonen links und rechts stecken als helle Module in der Breite und
+ * sind hier eben rot statt weiß. Der Abstand zur Artikelnummer kommt aus der
+ * Fußzeile selbst dazu.
+ */
+function strichbild(
+  code: Barcode | null,
+  balken: { breite: number; modul: number } | null,
+  masse: ReturnType<typeof schildMasse>,
+): string {
+  if (masse.barcode <= 0 || !code || !balken) return "";
+
+  const { breite, modul } = balken;
+  const striche = code.abschnitte
+    .map(
+      (a) =>
+        `<i class="${a.strich ? "b" : "l"}" style="width:${mm(a.module * modul)}"></i>`,
+    )
+    .join("");
+
+  return `<div class="bc" style="width:${mm(breite)};height:${mm(masse.barcode)}">${striche}</div>`;
 }
 
 export interface BogenOptions {
@@ -156,14 +213,21 @@ export function buildLabelSheetHtml(
   schilder: Preisschild[],
   { format, autoPrint = true }: BogenOptions,
 ): string {
-  const m = schildMasse(format);
+  /*
+   * Ein Bogen entscheidet einmal, ob er Strichcodes trägt – nicht jedes
+   * Schild für sich. Sonst stünde der Preis auf den Schildern mit Code kleiner
+   * als auf denen ohne, und nebeneinander auf einem Blatt sähe das aus wie ein
+   * Fehler.
+   */
+  const mitCode = schilder.some((s) => strichcode(s.barcode) !== null);
+  const m = schildMasse(format, { barcode: mitCode });
   const r = raster(format);
 
   const seiten: string[] = [];
   for (let start = 0; start < schilder.length; start += r.proBogen) {
     const teil = schilder.slice(start, start + r.proBogen);
     seiten.push(`<section class="bogen">
-      <div class="raster">${teil.map((s) => schild(s, format)).join("")}</div>
+      <div class="raster">${teil.map((s) => schild(s, format, mitCode)).join("")}</div>
       <div class="linien" aria-hidden="true">${schnittlinien(format)}</div>
     </section>`);
   }
@@ -370,14 +434,19 @@ export function buildLabelSheetHtml(
     white-space: nowrap;
   }
 
-  /* Fußzeile: Artikelnummer links, Label rechts. */
+  /* Fußzeile: Artikelnummer links, daneben der Strichcode, Label ganz rechts.
+     Feste Höhe, damit ein Schild ohne Strichcode auf einem Bogen mit Codes
+     genauso hoch bleibt – sonst stünden die Preise nebeneinander auf
+     verschiedenen Höhen. */
   .fuss {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: ${mm(m.luft * 0.7)};
+    height: ${mm(fussHoehe(m))};
     flex: none;
   }
+  /* Die Nummer nimmt, was übrig ist; Strichcode und Label behalten ihr Maß. */
+  .fuss .kennung { flex: 1; }
 
   .label {
     font-size: ${mm(m.label)};
@@ -402,6 +471,30 @@ export function buildLabelSheetHtml(
   }
   .kennung .code { color: ${CODEROT}; }
   .zelle.rot .kennung .code { color: #000; }
+
+  /* Rückfall für Nummern, aus denen kein EAN wird: als Ziffernfolge hinter
+     einem Mittelpunkt, damit sie nicht wie eine Verlängerung der
+     Artikelnummer gelesen wird. */
+  .kennung .barcode { opacity: 0.7; font-weight: 500; }
+  .kennung .barcode::before { content: " · "; opacity: 0.6; }
+
+  /* --- Strichcode ---------------------------------------------------- */
+
+  /* Kein Hintergrund: die Striche stehen direkt auf dem Schild, auf weißem
+     wie auf rotem. Ein weißer Kasten mitten auf einem Aktionsschild wäre ein
+     Fleck. Kein Innenabstand: die Ruhezonen stecken bereits als helle Module
+     in der Breite (lib/barcode.ts), und ein Polster würde bei border-box vom
+     Platz der Striche abgezogen – der Code käme gestaucht aus dem Drucker. */
+  .bc {
+    display: flex;
+    align-items: stretch;
+    flex: none;
+  }
+  /* flex:none, damit kein Strich weggerechnet wird: die Breiten stehen auf
+     dem Zehntelmillimeter aus barcodeMasse(), und ein geschrumpfter Strich
+     ist ein anderer Code. */
+  .bc i { display: block; height: 100%; flex: none; }
+  .bc i.b { background: #000; }
 
   .leer { padding: 20mm; font-size: 12pt; }
 
