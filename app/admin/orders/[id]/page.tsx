@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCompanySettings } from "@/lib/queries/settings";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, FileText, Printer } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { CreateInvoiceButton } from "@/components/admin/create-invoice-button";
 import { NotifyReadyButton } from "@/components/admin/notify-ready-button";
 import { OrderStatusSelect } from "@/components/admin/order-status-select";
@@ -174,22 +175,64 @@ export default async function AdminOrderDetailPage({
       ) : null}
 
       <section className="mt-8 rounded-md border border-border p-4">
-        <h2 className="font-medium">Rechnung</h2>
-        {invoice ? (
-          <div className="mt-3 flex flex-wrap items-center gap-4 text-sm">
-            <span className="tabular">{invoice.invoice_number}</span>
-            {invoiceUrl ? (
+        <h2 className="font-medium">Papiere</h2>
+
+        {/*
+          Ein Klick für den ganzen Vorgang: Rechnung und Lieferschein liegen in
+          einer Datei, der Betrachter geht auf und Strg+P druckt beide Blätter.
+          Getrennt heruntergeladen wären es zwei Dateien, zwei Druckdialoge und
+          die Frage, ob auch das zweite Blatt rausgekommen ist.
+        */}
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {invoice ? (
+            <Button asChild size="sm">
               <a
-                href={invoiceUrl}
+                href={`/admin/orders/${order.id}/dokumente?art=beides`}
                 target="_blank"
                 rel="noreferrer"
-                className="text-foreground underline underline-offset-2 hover:no-underline"
               >
-                PDF herunterladen
+                <Printer className="size-4" aria-hidden />
+                Rechnung + Lieferschein
               </a>
-            ) : (
+            </Button>
+          ) : null}
+          <Button asChild size="sm" variant="outline">
+            <a
+              href={`/admin/orders/${order.id}/dokumente?art=lieferschein`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <FileText className="size-4" aria-hidden />
+              Nur Lieferschein
+            </a>
+          </Button>
+          {invoice ? (
+            <Button asChild size="sm" variant="outline">
+              <a
+                href={
+                  invoiceUrl ?? `/admin/orders/${order.id}/dokumente?art=rechnung`
+                }
+                target="_blank"
+                rel="noreferrer"
+              >
+                <FileText className="size-4" aria-hidden />
+                Nur Rechnung
+              </a>
+            </Button>
+          ) : null}
+        </div>
+
+        <p className="mt-2 text-xs text-muted-foreground">
+          Der Lieferschein trägt Positionen und Mengen, aber keine Preise – er
+          reist mit der Ware.
+        </p>
+
+        {invoice ? (
+          <div className="mt-4 flex flex-wrap items-center gap-4 border-t border-border pt-3 text-sm">
+            <span className="tabular">{invoice.invoice_number}</span>
+            {invoiceUrl ? null : (
               <span className="text-muted-foreground">
-                PDF wird noch erzeugt …
+                PDF wird noch erzeugt – der Knopf oben zeichnet sie neu.
               </span>
             )}
             <InvoiceStatusSelect
@@ -199,7 +242,7 @@ export default async function AdminOrderDetailPage({
             />
           </div>
         ) : (
-          <div className="mt-2 space-y-3">
+          <div className="mt-4 space-y-3 border-t border-border pt-3">
             <p className="text-sm text-muted-foreground">
               Noch keine Rechnung vorhanden. Sie wird sonst beim Anlegen der
               Bestellung erzeugt und dem Kunden zugeschickt.

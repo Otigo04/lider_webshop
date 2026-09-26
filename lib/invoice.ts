@@ -74,6 +74,15 @@ export interface InvoicePdfData {
    * jemand nach und kommt auf eine andere Summe.
    */
   itemPricesGross?: boolean;
+  /**
+   * Beleg ohne Preise – der Lieferschein.
+   *
+   * Ein Lieferschein trägt Positionen und Mengen, aber keine Beträge: er reist
+   * mit der Ware und landet beim Auspacken oft in fremden Händen, und was die
+   * Ware kostet, steht auf der Rechnung. Statt des Summenblocks stehen unten
+   * Positionszahl, Gesamtmenge und zwei Linien zum Quittieren.
+   */
+  hidePrices?: boolean;
   /** Freie Schlusszeile, z. B. die Bon-Fußzeile aus den Einstellungen */
   footerNote?: string | null;
   /** Ersetzt das Zahlungsziel, wenn schon bezahlt wurde ("Bar bezahlt") */
@@ -148,10 +157,62 @@ export function buildPosReceiptPdfData(
   };
 }
 
+/**
+ * Anschrift, an die die Ware geht – mehrzeilig, oder null, wenn sie sich mit
+ * der Rechnungsanschrift deckt.
+ *
+ * Nur eine wirklich abweichende Anschrift ist eine Angabe wert: deckt sie sich
+ * mit der Rechnungsanschrift, stünde sie zweimal auf dem Blatt. Der
+ * Lieferschein braucht sie auch dann, wenn sie sich deckt – deshalb der
+ * Schalter, statt zwei ähnliche Funktionen.
+ */
+function lieferanschriftZeilen(
+  order: Order,
+  options: { immer?: boolean } = {},
+): string | null {
+  const customer = order.customer;
+  const abholung = order.delivery_method === "pickup";
+
+  const abweichend =
+    !abholung &&
+    Boolean(order.delivery_street) &&
+    (order.delivery_street !== customer?.billing_street ||
+      order.delivery_zip !== customer?.billing_zip ||
+      order.delivery_city !== customer?.billing_city);
+
+  if (!abweichend && !options.immer) return null;
+
+  const zeilen = abweichend
+    ? [
+        order.delivery_name,
+        order.delivery_street,
+        [order.delivery_zip, order.delivery_city].filter(Boolean).join(" "),
+        order.delivery_country &&
+        order.delivery_country.toLowerCase() !== "deutschland"
+          ? order.delivery_country
+          : null,
+      ]
+    : [
+        customer?.company_name || customer?.full_name,
+        customer?.billing_street,
+        [customer?.billing_zip, customer?.billing_city].filter(Boolean).join(" "),
+      ];
+
+  const gesetzt = zeilen.filter(Boolean) as string[];
+  return gesetzt.length > 0 ? gesetzt.join("\n") : null;
+}
+
 export function buildOrderInvoicePdfData(
   order: Order,
   invoiceNumber: string,
   company: CompanySettings,
+  /**
+   * Ausstellungsdatum. Vorgabe ist „jetzt" – beim Stellen der Rechnung ist das
+   * richtig. Wird eine bereits gestellte Rechnung nachgedruckt, muss das
+   * Datum von der Rechnungszeile kommen: ein zweiter Ausdruck mit heutigem
+   * Datum wäre ein anderes Dokument unter derselben Nummer.
+   */
+  issuedAt?: string,
 ): InvoicePdfData {
   const customer = order.customer;
   const netto = toNumber(order.total_amount);
@@ -170,32 +231,11 @@ export function buildOrderInvoicePdfData(
         ? "Zahlung per Karte bei Abholung."
         : null;
 
-  // Nur eine wirklich abweichende Anschrift ist eine Angabe wert. Deckt sie
-  // sich mit der Rechnungsanschrift, stünde sie zweimal auf dem Blatt.
-  const lieferAbweichend =
-    order.delivery_method === "shipping" &&
-    Boolean(order.delivery_street) &&
-    (order.delivery_street !== customer?.billing_street ||
-      order.delivery_zip !== customer?.billing_zip ||
-      order.delivery_city !== customer?.billing_city);
-
-  const lieferanschrift = lieferAbweichend
-    ? [
-        order.delivery_name,
-        order.delivery_street,
-        [order.delivery_zip, order.delivery_city].filter(Boolean).join(" "),
-        order.delivery_country &&
-        order.delivery_country.toLowerCase() !== "deutschland"
-          ? order.delivery_country
-          : null,
-      ]
-        .filter(Boolean)
-        .join("\n")
-    : null;
+  const lieferanschrift = lieferanschriftZeilen(order);
 
   return {
     invoiceNumber,
-    issuedAt: new Date().toISOString(),
+    issuedAt: issuedAt ?? new Date().toISOString(),
     reference: `Bestellung ${order.order_number}`,
     customerName: customer?.company_name || customer?.full_name || "–",
     customerStreet: customer?.billing_street,
@@ -218,6 +258,72 @@ export function buildOrderInvoicePdfData(
         ? [{ rate: betraege.satz, net: betraege.netto, vat: betraege.steuer }]
         : undefined,
     paymentNote: zahlvermerk,
+    company,
+  };
+}
+
+/**
+ * Lieferschein zu einer Bestellung.
+ *
+ * Dieselbe Vorlage wie die Rechnung, nur ohne Beträge (`hidePrices`). Ein
+ * eigenes Layout hätte bedeutet, Briefkopf, Fußzeile mit den Pflichtangaben und
+ * die Positionstabelle ein zweites Mal zu pflegen – und dann liefen sie
+ * auseinander, sobald sich eine Anschrift ändert.
+ *
+ * Nummer ist die Bestellnummer, kein eigener Nummernkreis: ein Lieferschein
+ * gehört zu genau einer Bestellung und wird nicht fortlaufend nummeriert
+ * geführt. Ein dritter Zähler neben Rechnung und Kassenbeleg wäre eine Reihe,
+ * die lückenlos bleiben müsste, ohne dass es dafür einen Grund gibt.
+ *
+ * Empfänger im Anschriftenfeld ist, wer die Ware bekommt – anders als auf der
+ * Rechnung, wo der Zahlungspflichtige steht. Der Zettel liegt im Karton und
+ * wird beim Auspacken gelesen, nicht in der Buchhaltung.
+ */
+export function buildDeliveryNotePdfData(
+  order: Order,
+  company: CompanySettings,
+  /** Rechnungsnummer, falls schon gestellt – als Verweis in der Bezugszeile. */
+  invoiceNumber?: string | null,
+): InvoicePdfData {
+  const customer = order.customer;
+  const abholung = order.delivery_method === "pickup";
+  const lieferanschrift = lieferanschriftZeilen(order, { immer: true });
+  const empfaenger = (lieferanschrift ?? "").split("\n");
+
+  const bezug = [
+    `Bestellung ${order.order_number} vom ${formatDate(order.created_at)}`,
+    invoiceNumber ? `Rechnung ${invoiceNumber}` : null,
+    abholung ? "Selbstabholung" : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  return {
+    documentTitle: "Lieferschein",
+    invoiceNumber: order.order_number,
+    issuedAt: new Date().toISOString(),
+    reference: bezug,
+    customerName: empfaenger[0] || customer?.company_name || customer?.full_name || "–",
+    customerStreet: empfaenger[1] ?? null,
+    customerCity: empfaenger[2] ?? null,
+    items: (order.items ?? []).map((item) => ({
+      description: item.product_name,
+      sku: item.product_sku,
+      quantity: toNumber(item.quantity),
+      // Preise stehen im Lieferschein nicht, die Felder bleiben aber Teil der
+      // gemeinsamen Form – hidePrices entscheidet, ob sie gezeichnet werden.
+      unitPrice: 0,
+      subtotal: 0,
+    })),
+    netTotal: 0,
+    vatTotal: 0,
+    grossTotal: 0,
+    hidePrices: true,
+    // Der Lieferschein ist keine Zahlungsaufforderung: ohne diesen Vermerk
+    // stünde im Eckdatenkasten ein Fälligkeitsdatum.
+    paymentNote: invoiceNumber
+      ? `Die Abrechnung erfolgt mit Rechnung ${invoiceNumber}. Dieser Lieferschein ist keine Rechnung.`
+      : "Dieser Lieferschein ist keine Rechnung; die Abrechnung erfolgt gesondert.",
     company,
   };
 }
@@ -452,12 +558,44 @@ function absenderEinzeilig(company: CompanySettings): string {
     .join(" · ");
 }
 
+/**
+ * Mehrere PDFs zu einem zusammenfassen – Rechnung und Lieferschein in einer
+ * Datei.
+ *
+ * Ein Dokument statt zwei, weil am Tresen der Druckdialog einmal aufgeht: zwei
+ * Dateien hießen zweimal öffnen, zweimal drucken und zweimal die Frage, ob
+ * beide Blätter im Fach liegen.
+ */
+export async function mergePdfs(teile: Buffer[]): Promise<Buffer> {
+  const vorhanden = teile.filter((teil) => teil.length > 0);
+  // Ein PDF ohne Seiten lässt sich speichern, aber von keinem Betrachter
+  // öffnen – dann lieber ein Fehler, der im Log steht.
+  if (vorhanden.length === 0) throw new Error("Keine PDF-Teile zum Zusammenfassen.");
+  if (vorhanden.length === 1) return vorhanden[0];
+
+  const ziel = await PDFDocument.create();
+  for (const teil of vorhanden) {
+    const quelle = await PDFDocument.load(teil);
+    const seiten = await ziel.copyPages(quelle, quelle.getPageIndices());
+    for (const seite of seiten) ziel.addPage(seite);
+  }
+  return Buffer.from(await ziel.save());
+}
+
 export async function generateInvoicePdf(data: InvoicePdfData): Promise<Buffer> {
   const pdf = await PDFDocument.create();
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const company = data.company;
   const titel = data.documentTitle ?? "Rechnung";
+  /** Lieferschein: Positionen und Mengen, keine Beträge. */
+  const ohnePreise = data.hidePrices === true;
+  /** Breite der Bezeichnungsspalte – ohne Preisspalten bleibt viel mehr übrig. */
+  const nameBreite = ohnePreise
+    ? SPALTE.summeR - 60 - SPALTE.name
+    : SPALTE.nameBreite;
+  /** Rechte Kante der Mengenspalte. Ohne Preise steht sie am Satzrand. */
+  const mengeR = ohnePreise ? SPALTE.summeR : SPALTE.mengeR;
 
   const logoBytes = await ladeLogo();
   let logo: PDFImage | null = null;
@@ -612,13 +750,15 @@ export async function generateInvoicePdf(data: InvoicePdfData): Promise<Buffer> 
     const opt = { size: 8, useFont: bold, color: WEISS, y: y + 0.5 };
     text("POS.", SPALTE.pos, opt);
     text("BEZEICHNUNG", SPALTE.name, opt);
-    text("MENGE", SPALTE.mengeR, { ...opt, rechts: true });
-    text(
-      data.itemPricesGross ? "PREIS BRUTTO" : "PREIS NETTO",
-      SPALTE.preisR,
-      { ...opt, rechts: true },
-    );
-    text("GESAMT", SPALTE.summeR, { ...opt, rechts: true });
+    text("MENGE", mengeR, { ...opt, rechts: true });
+    if (!ohnePreise) {
+      text(
+        data.itemPricesGross ? "PREIS BRUTTO" : "PREIS NETTO",
+        SPALTE.preisR,
+        { ...opt, rechts: true },
+      );
+      text("GESAMT", SPALTE.summeR, { ...opt, rechts: true });
+    }
     y -= 22;
   }
 
@@ -692,7 +832,7 @@ export async function generateInvoicePdf(data: InvoicePdfData): Promise<Buffer> 
   // Ein Zahlungsziel gibt es nur auf Rechnung. Ein bar bezahlter Kassenbeleg
   // trägt stattdessen den Zahlungsvermerk und darf kein Fälligkeitsdatum
   // zeigen – das läse sich wie eine offene Forderung.
-  const aufRechnung = !data.paymentNote;
+  const aufRechnung = !data.paymentNote && !ohnePreise;
   const faelligAm = new Date(data.issuedAt);
   faelligAm.setDate(faelligAm.getDate() + (company.payment_terms_days ?? 14));
   if (aufRechnung) {
@@ -779,25 +919,60 @@ export async function generateInvoicePdf(data: InvoicePdfData): Promise<Buffer> 
     }
   }
 
-  // Abweichende Lieferanschrift. Sie steht hier und nicht im Anschriftenfeld:
-  // dort gehört der Rechnungsempfänger hin, und der bleibt derselbe, auch wenn
-  // die Ware an eine Baustelle oder Filiale geht.
+  /*
+   * Abweichende Lieferanschrift. Sie steht hier und nicht im Anschriftenfeld:
+   * dort gehört der Rechnungsempfänger hin, und der bleibt derselbe, auch wenn
+   * die Ware an eine Baustelle oder Filiale geht.
+   *
+   * Deutlich größer gesetzt als der übrige Kleintext, mit eigenem Kasten und
+   * goldener Kante: die abweichende Anschrift ist die Angabe, nach der im
+   * Versand gegriffen wird. In Fußnotengröße unter dem Belegtitel wurde sie
+   * beim Packen überlesen, und dann ging die Ware an die Rechnungsadresse.
+   */
   if (data.deliveryAddress) {
-    y -= 4;
-    text("Lieferanschrift", MARGIN, { size: 8, useFont: bold, color: MUTED });
-    y -= 11;
-    for (const zeile of data.deliveryAddress.split("\n")) {
-      text(zeile, MARGIN, { size: 9.5, color: INK });
-      y -= 12;
+    const kastenB = 300;
+    // Eine lange Firmenzeile („… GmbH – Filiale Nord, Halle 3") lief sonst
+    // rechts aus dem Kasten heraus.
+    const zeilen = data.deliveryAddress
+      .split("\n")
+      .filter(Boolean)
+      .flatMap((zeile) => umbrechen(zeile, kastenB - 24, 11.5, bold));
+    const kastenH = 16 + zeilen.length * 13 + 8;
+
+    y -= 8;
+    page.drawRectangle({
+      x: MARGIN,
+      y: y - kastenH + 12,
+      width: kastenB,
+      height: kastenH,
+      color: BRAND_SOFT,
+    });
+    page.drawRectangle({
+      x: MARGIN,
+      y: y - kastenH + 12,
+      width: 3,
+      height: kastenH,
+      color: GOLD,
+    });
+
+    text("LIEFERANSCHRIFT", MARGIN + 12, {
+      size: 8,
+      useFont: bold,
+      color: BRAND,
+    });
+    y -= 14;
+    for (const zeile of zeilen) {
+      text(zeile, MARGIN + 12, { size: 11.5, useFont: bold, color: INK });
+      y -= 13;
     }
     /*
      * Luft bis zur Positionstabelle. Der Kopfbalken der Tabelle beginnt bei
      * `y - 5` und ist 18 pt hoch, reicht also 13 pt über den Satzspiegel
-     * hinaus. Die letzte Adresszeile liegt nur 12 pt darüber – ohne diesen
-     * Abstand schnitt der Balken ihr die untere Hälfte ab, und auf der
-     * Rechnung stand eine halbe Lieferanschrift.
+     * hinaus. Die Unterkante des Kastens liegt kaum tiefer als die letzte
+     * Zeile – ohne diesen Abstand stieße der Balken direkt an den Kasten, und
+     * Lieferanschrift und Tabellenkopf klebten aneinander.
      */
-    y -= 10;
+    y -= 20;
   }
 
   // ------------------------------------------------------- Positionstabelle
@@ -806,7 +981,7 @@ export async function generateInvoicePdf(data: InvoicePdfData): Promise<Buffer> 
   tabellenkopf();
 
   data.items.forEach((item, index) => {
-    const zeilen = umbrechen(item.description, SPALTE.nameBreite, 9, font);
+    const zeilen = umbrechen(item.description, nameBreite, 9, font);
     const zusatz = item.sku ? `Art.-Nr. ${item.sku}` : null;
     const hoehe = zeilen.length * 11 + (zusatz ? 9 : 0) + 7;
 
@@ -826,16 +1001,21 @@ export async function generateInvoicePdf(data: InvoicePdfData): Promise<Buffer> 
     // Bezeichnung darunter weiterläuft – sonst rutschen Menge und Preis bei
     // langen Namen optisch zur nächsten Position.
     text(String(index + 1), SPALTE.pos, { size: 9, color: MUTED });
-    text(formatQuantity(item.quantity), SPALTE.mengeR, {
+    text(formatQuantity(item.quantity), mengeR, {
       size: 9,
+      // Auf dem Lieferschein ist die Menge die Aussage des Blattes – dort wird
+      // abgezählt, ob die Kiste stimmt.
+      useFont: ohnePreise ? bold : font,
       rechts: true,
     });
-    text(formatPrice(item.unitPrice), SPALTE.preisR, { size: 9, rechts: true });
-    text(formatPrice(item.subtotal), SPALTE.summeR, {
-      size: 9,
-      useFont: bold,
-      rechts: true,
-    });
+    if (!ohnePreise) {
+      text(formatPrice(item.unitPrice), SPALTE.preisR, { size: 9, rechts: true });
+      text(formatPrice(item.subtotal), SPALTE.summeR, {
+        size: 9,
+        useFont: bold,
+        rechts: true,
+      });
+    }
 
     for (const zeile of zeilen) {
       text(zeile, SPALTE.name, { size: 9 });
@@ -848,7 +1028,7 @@ export async function generateInvoicePdf(data: InvoicePdfData): Promise<Buffer> 
     y -= 7;
   });
 
-  // -------------------------------------------------------------- Summenblock
+  // ------------------------------------------- Summenblock bzw. Mengenbilanz
 
   // Der Block bleibt zusammen: Netto, Steuer und Endbetrag auf zwei Seiten zu
   // verteilen macht die Rechnung unlesbar.
@@ -860,7 +1040,45 @@ export async function generateInvoicePdf(data: InvoicePdfData): Promise<Buffer> 
   const beschriftungR = SPALTE.preisR;
   const wertR = SPALTE.summeR;
 
-  if (data.vatTotal > 0) {
+  if (ohnePreise) {
+    /*
+     * Lieferschein: statt Beträgen die Zahlen, mit denen die Sendung geprüft
+     * wird – wie viele Positionen, wie viele Stück insgesamt. Wer auspackt,
+     * zählt gegen diese beiden Zahlen, und ohne sie müsste er die Zeilen
+     * selbst addieren.
+     */
+    const stueck = data.items.reduce((summe, item) => summe + item.quantity, 0);
+    text("Positionen", beschriftungR, { size: 9.5, color: MUTED, rechts: true });
+    text(String(data.items.length), wertR, { size: 9.5, rechts: true });
+    y -= 15;
+    text("Gesamtmenge", beschriftungR, { size: 10, useFont: bold, rechts: true });
+    text(formatQuantity(stueck), wertR, { size: 11, useFont: bold, rechts: true });
+    y -= 26;
+
+    /*
+     * Zwei Linien zum Quittieren. Ein Lieferschein wird bei der Übergabe
+     * unterschrieben; ohne vorgezeichnete Linien schreibt jeder woanders hin,
+     * und auf dem zurückkommenden Blatt fehlt dann das Datum.
+     */
+    platzPruefen(56);
+    const spaltenBreite = (CONTENT_R - MARGIN) / 2;
+    const unterschriften = [
+      "Datum, Unterschrift Lager",
+      "Datum, Unterschrift Empfänger",
+    ];
+    y -= 22;
+    unterschriften.forEach((beschriftung, index) => {
+      const x = MARGIN + index * spaltenBreite;
+      page.drawLine({
+        start: { x, y: y + 12 },
+        end: { x: x + spaltenBreite - 30, y: y + 12 },
+        thickness: 0.6,
+        color: LINE,
+      });
+      text(beschriftung, x, { size: 8, color: MUTED });
+    });
+    y -= 26;
+  } else if (data.vatTotal > 0) {
     text("Zwischensumme netto", beschriftungR, {
       size: 9.5,
       color: MUTED,
@@ -889,30 +1107,33 @@ export async function generateInvoicePdf(data: InvoicePdfData): Promise<Buffer> 
   // Endbetrag in einem blauen Balken: die eine Zahl, die jeder sucht. Der
   // Balken ragt über seine Grundlinie hinaus – der Abstand nach oben muss
   // deshalb größer sein als ein Zeilenabstand, sonst deckt er die Steuerzeile
-  // zur Hälfte zu.
-  y -= 16;
-  const balkenX = 320;
-  page.drawRectangle({
-    x: balkenX,
-    y: y - 7,
-    width: CONTENT_R - balkenX,
-    height: 26,
-    color: BRAND,
-  });
-  text(data.vatTotal > 0 ? "Gesamtbetrag brutto" : "Gesamtbetrag", balkenX + 14, {
-    size: 10,
-    useFont: bold,
-    color: WEISS,
-    y: y + 2,
-  });
-  text(formatPrice(data.grossTotal), wertR, {
-    size: 12,
-    useFont: bold,
-    color: WEISS,
-    y: y + 1,
-    rechts: true,
-  });
-  y -= 34;
+  // zur Hälfte zu. Auf dem Lieferschein gibt es keinen Betrag, also auch
+  // keinen Balken.
+  if (!ohnePreise) {
+    y -= 16;
+    const balkenX = 320;
+    page.drawRectangle({
+      x: balkenX,
+      y: y - 7,
+      width: CONTENT_R - balkenX,
+      height: 26,
+      color: BRAND,
+    });
+    text(data.vatTotal > 0 ? "Gesamtbetrag brutto" : "Gesamtbetrag", balkenX + 14, {
+      size: 10,
+      useFont: bold,
+      color: WEISS,
+      y: y + 2,
+    });
+    text(formatPrice(data.grossTotal), wertR, {
+      size: 12,
+      useFont: bold,
+      color: WEISS,
+      y: y + 1,
+      rechts: true,
+    });
+    y -= 34;
+  }
 
   // ------------------------------------------------- Zahlungshinweis, Notiz
 

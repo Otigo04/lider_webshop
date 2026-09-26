@@ -1,6 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
-import type { Invoice, Order, OrderItem, OrderStatus } from "@/lib/types";
+import type { AppUser, Invoice, Order, OrderItem, OrderStatus } from "@/lib/types";
 
 /**
  * Bestellungen des angemeldeten Kunden. Die Eingrenzung macht RLS
@@ -59,6 +59,36 @@ export async function getOrder(id: string): Promise<OrderWithItems | null> {
     return null;
   }
   return (data as unknown as OrderWithItems) ?? null;
+}
+
+/**
+ * Bestellung samt vollständigem Kundenprofil.
+ *
+ * getOrder() lädt den Kunden bewusst nicht mit – im Checkout steht er schon
+ * fest und wird übergeben. Rechnung und Lieferschein brauchen dagegen die
+ * Rechnungsanschrift und die USt-IdNr. aus dem Profil, und beide werden lange
+ * nach dem Checkout gedruckt.
+ */
+export interface OrderWithCustomer extends Omit<OrderWithItems, "customer"> {
+  /** null, wenn das Profil gelöscht wurde – Order selbst hat es optional. */
+  customer: AppUser | null;
+}
+
+export async function getOrderWithCustomer(
+  id: string,
+): Promise<OrderWithCustomer | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("orders")
+    .select(`${ORDER_COLUMNS}, customer:users (*)`)
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[bestellungen] Detail mit Kunde:", error.message);
+    return null;
+  }
+  return (data as unknown as OrderWithCustomer) ?? null;
 }
 
 /**
