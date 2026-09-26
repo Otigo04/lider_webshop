@@ -221,6 +221,13 @@ export function schildMasse(
      * nicht über den Kassentisch gezogen.
      */
     barcode: mitCode ? klemme(innenH * 0.13, 2.6, 8) : 0,
+    /**
+     * Rand um die Striche. Auf dem roten Aktionsschild liegt darunter die
+     * weiße Fläche, die der Scanner braucht; auf weißem Schild ist er
+     * schlicht Abstand. Er wird auf beiden reserviert, damit rote und weiße
+     * Schilder desselben Bogens gleich aufgebaut bleiben.
+     */
+    barcodeRand: mitCode ? klemme(innenH * 0.012, 0.3, 1.2) : 0,
   });
 
   if (!optionen.barcode) return anteile(1, false);
@@ -271,7 +278,29 @@ export function hoehenBedarf(masse: ReturnType<typeof schildMasse>): number {
  * nebeneinander, also gibt das höchste von dreien das Maß.
  */
 export function fussHoehe(masse: ReturnType<typeof schildMasse>): number {
-  return Math.max(masse.kennung, masse.label * 1.3, masse.barcode);
+  return Math.max(
+    masse.kennung,
+    masse.label * 1.3,
+    barcodeKasten(masse).hoehe,
+  );
+}
+
+/**
+ * Außenmaße des Strichcodekastens: die Striche plus ihr Rand. Auf farbigem
+ * Grund ist dieser Kasten die weiße Fläche.
+ */
+export function barcodeKasten(
+  masse: ReturnType<typeof schildMasse>,
+  /** Breite der Striche selbst, aus barcodeMasse(). */
+  striche = 0,
+): { breite: number; hoehe: number; rand: number } {
+  if (masse.barcode <= 0) return { breite: 0, hoehe: 0, rand: 0 };
+  const rand = masse.barcodeRand;
+  return {
+    breite: striche > 0 ? striche + 2 * rand : 0,
+    hoehe: masse.barcode + 2 * rand,
+    rand,
+  };
 }
 
 /**
@@ -315,7 +344,11 @@ export function barcodeMasse(
   belegt = 0,
 ): { breite: number; modul: number } {
   const frei =
-    masse.innenB - belegt - masse.innenB * KENNUNG_ANTEIL - masse.luft * 0.7;
+    masse.innenB -
+    belegt -
+    masse.innenB * KENNUNG_ANTEIL -
+    masse.luft * 0.7 -
+    2 * masse.barcodeRand;
   const platz = Math.min(masse.innenB * BARCODE_ANTEIL, frei);
   const modul = Math.min(MODUL_NENN, Math.max(0, platz) / module);
   return { breite: modul * module, modul };

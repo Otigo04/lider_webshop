@@ -11,6 +11,7 @@ import {
   RAND,
   SCHRIFT,
   SEITE,
+  barcodeKasten,
   barcodeMasse,
   fussHoehe,
   istReduziert,
@@ -120,7 +121,10 @@ function schild(s: Preisschild, format: SchildFormat, mitCode: boolean): string 
    */
   const kennung = schildKennung(s.sku, s.code, roh ? null : s.barcode);
   const belegtRechts =
-    labelB + (code && balken ? balken.breite + masse.luft * 0.7 : 0);
+    labelB +
+    (code && balken
+      ? barcodeKasten(masse, balken.breite).breite + masse.luft * 0.7
+      : 0);
 
   const neben =
     s.vorher !== null || s.prozent !== null
@@ -158,7 +162,7 @@ function schild(s: Preisschild, format: SchildFormat, mitCode: boolean): string 
       }${s.code ? `<span class="code">#${esc(s.code)}</span>` : ""}${
         !roh && s.barcode ? `<span class="barcode">${esc(s.barcode)}</span>` : ""
       }</span>
-      ${strichbild(code, balken, masse)}
+      ${strichbild(code, balken, masse, rot)}
       ${label}
     </div>
   </div>`;
@@ -167,32 +171,37 @@ function schild(s: Preisschild, format: SchildFormat, mitCode: boolean): string 
 /**
  * Strichcode in der Fußzeile, rechts neben der Artikelnummer.
  *
- * **Ohne weiße Fläche.** Die Striche stehen direkt auf dem Schild, auch auf
- * dem roten: ein weißer Kasten mitten auf einem Aktionsschild ist ein Fleck,
- * und das Schild soll ruhig aussehen. Für einen Laserscanner ändert das
- * nichts – rotes Licht sieht Rot wie Weiß; ein Kamerascanner hat auf Rot
- * immer noch rund 4:1 Kontrast zu Schwarz.
+ * **Auf farbigem Grund liegt er auf Weiß.** Der Versuch, die Striche direkt
+ * aufs rote Aktionsschild zu setzen, ist in der Praxis durchgefallen: die
+ * Handscanner im Laden lesen ihn dort nicht. Die Theorie – rotes Laserlicht
+ * sieht Rot wie Weiß – hilft nicht, wenn das Gerät ein Kamerascanner ist,
+ * und die rund 4:1 Helligkeitsunterschied zu Schwarz reichen ihm nicht.
  *
- * Die Ruhezonen links und rechts stecken als helle Module in der Breite und
- * sind hier eben rot statt weiß. Der Abstand zur Artikelnummer kommt aus der
- * Fußzeile selbst dazu.
+ * Auf weißem Schild bleibt die Fläche weg; dort ist der Rand nur Abstand.
+ * Reserviert wird er trotzdem auf beiden, damit rote und weiße Schilder
+ * desselben Bogens gleich aufgebaut sind.
+ *
+ * Der Rand liegt **außen** um die Striche: die Ruhezonen stecken bereits als
+ * helle Module in deren Breite, und ein Innenabstand würde bei border-box von
+ * ihrem Platz abgezogen – der Code käme gestaucht aus dem Drucker.
  */
 function strichbild(
   code: Barcode | null,
   balken: { breite: number; modul: number } | null,
   masse: ReturnType<typeof schildMasse>,
+  rot: boolean,
 ): string {
   if (masse.barcode <= 0 || !code || !balken) return "";
 
-  const { breite, modul } = balken;
+  const kasten = barcodeKasten(masse, balken.breite);
   const striche = code.abschnitte
     .map(
       (a) =>
-        `<i class="${a.strich ? "b" : "l"}" style="width:${mm(a.module * modul)}"></i>`,
+        `<i class="${a.strich ? "b" : "l"}" style="width:${mm(a.module * balken.modul)}"></i>`,
     )
     .join("");
 
-  return `<div class="bc" style="width:${mm(breite)};height:${mm(masse.barcode)}">${striche}</div>`;
+  return `<div class="bc${rot ? " auf-farbe" : ""}" style="width:${mm(kasten.breite)};height:${mm(kasten.hoehe)};padding:${mm(kasten.rand)}">${striche}</div>`;
 }
 
 export interface BogenOptions {
@@ -480,16 +489,15 @@ export function buildLabelSheetHtml(
 
   /* --- Strichcode ---------------------------------------------------- */
 
-  /* Kein Hintergrund: die Striche stehen direkt auf dem Schild, auf weißem
-     wie auf rotem. Ein weißer Kasten mitten auf einem Aktionsschild wäre ein
-     Fleck. Kein Innenabstand: die Ruhezonen stecken bereits als helle Module
-     in der Breite (lib/barcode.ts), und ein Polster würde bei border-box vom
-     Platz der Striche abgezogen – der Code käme gestaucht aus dem Drucker. */
+  /* Auf weißem Schild trägt der Kasten keine Farbe – dort ist sein Rand nur
+     Abstand. Auf farbigem Grund ist er die weiße Fläche, ohne die die
+     Handscanner den Code nicht lesen. */
   .bc {
     display: flex;
     align-items: stretch;
     flex: none;
   }
+  .bc.auf-farbe { background: #fff; }
   /* flex:none, damit kein Strich weggerechnet wird: die Breiten stehen auf
      dem Zehntelmillimeter aus barcodeMasse(), und ein geschrumpfter Strich
      ist ein anderer Code. */

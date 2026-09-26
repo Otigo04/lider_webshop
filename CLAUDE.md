@@ -810,10 +810,16 @@ nicht als Bild.
   braucht, und machte aus einem ruhigen Schild ein volles. Die Striche sind
   so hoch wie die Artikelnummer daneben; ein Handscanner liest auch einen
   niedrigen Code, solange er gerade draufhält.
-- **Ohne Hintergrund**, auch auf dem roten Aktionsschild: ein weißer Kasten
-  mitten darauf wäre ein Fleck. Für einen Laserscanner ändert das nichts –
-  rotes Licht sieht Rot wie Weiß; ein Kamerascanner hat auf Rot immer noch
-  rund 4:1 Kontrast zu Schwarz.
+- **Auf farbigem Grund liegt er auf Weiß** (`barcodeKasten()`), auf weißem
+  Schild gar nicht. Die Striche direkt aufs rote Aktionsschild zu setzen ist
+  in der Praxis durchgefallen: die Handscanner im Laden lesen sie dort nicht.
+  Die Theorie – rotes Laserlicht sieht Rot wie Weiß – hilft nicht, wenn das
+  Gerät ein Kamerascanner ist, und die rund 4:1 Helligkeitsunterschied zu
+  Schwarz reichen ihm nicht. Der Rand wird auf beiden Schildarten reserviert,
+  damit rote und weiße Schilder desselben Bogens gleich aufgebaut sind.
+- **Der Rand liegt außen** um die Striche. Ein Innenabstand würde bei
+  `box-sizing: border-box` vom Platz der Striche abgezogen, und der Code käme
+  gestaucht aus dem Drucker.
 - **Module statt Bild.** Wie breit ein Modul auf dem Papier wird, entscheidet
   erst das Schild (`barcodeMasse()`), nach oben begrenzt aufs Nennmaß
   `MODUL_NENN` (0,33 mm). Ein fertiges PNG müsste skaliert werden, und ein auf
@@ -822,9 +828,7 @@ nicht als Bild.
   trotzdem; unter `MODUL_HART` (0,16 mm) gar nicht mehr, dort verschmelzen
   benachbarte Striche schon im Druckbild.
 - **Ruhezonen gehören zum Code**, nicht zum Rand: sie stecken als helle
-  Module in `Barcode.breite`. Deshalb kein Innenabstand am Strichblock – ein
-  Polster würde bei `box-sizing: border-box` vom Platz der Striche abgezogen,
-  und der Code käme gestaucht aus dem Drucker.
+  Module in `Barcode.breite` und sind damit Teil der weißen Fläche.
 - **Breitenaufteilung der Fußzeile**: das Label behält sein Maß, der
   Strichcode nimmt sich davon höchstens `BARCODE_ANTEIL` (55 %) und nie so
   viel, dass der Artikelnummer weniger als `KENNUNG_ANTEIL` (28 %) bleibt.

@@ -10,6 +10,7 @@ import {
   NAME_GEWICHT,
   NAME_ZEILE,
   SCHRIFT,
+  barcodeKasten,
   barcodeMasse,
   fussHoehe,
   istReduziert,
@@ -83,7 +84,9 @@ export function PreisschildVorschau({
   const code = balken && strichcodeTaugt(balken.modul) ? roh : null;
   // Klartext nur bei einer Nummer, die kein EAN ist – siehe Druckbogen.
   const kennung = schildKennung(schild.sku, schild.code, roh ? null : schild.barcode);
-  const belegtRechts = labelB + (code && balken ? balken.breite + m.luft * 0.7 : 0);
+  const kasten = balken ? barcodeKasten(m, balken.breite) : null;
+  const belegtRechts =
+    labelB + (code && kasten ? kasten.breite + m.luft * 0.7 : 0);
 
   const trenner: React.CSSProperties = {
     height: `${m.linie}mm`,
@@ -299,15 +302,18 @@ export function PreisschildVorschau({
           ) : null}
         </span>
 
-        {/* Ohne Hintergrund, auch auf dem roten Schild – siehe Druckbogen. */}
-        {code && balken ? (
+        {/* Weiße Fläche nur auf farbigem Grund – siehe Druckbogen. */}
+        {code && balken && kasten ? (
           <div
             style={{
               display: "flex",
               alignItems: "stretch",
               flex: "none",
-              width: `${balken.breite}mm`,
-              height: `${m.barcode}mm`,
+              boxSizing: "border-box",
+              width: `${kasten.breite}mm`,
+              height: `${kasten.hoehe}mm`,
+              padding: `${kasten.rand}mm`,
+              background: rot ? "#fff" : "transparent",
             }}
           >
             {code.abschnitte.map((a, i) => (
