@@ -3,6 +3,7 @@ import Link from "next/link";
 import {
   ArrowRight,
   ArrowUpRight,
+  ChevronDown,
   Layers,
   PackageCheck,
   Percent,
@@ -16,6 +17,7 @@ import { CatalogCard } from "@/components/catalog-card";
 import { CatalogRow } from "@/components/catalog-row";
 import { CatalogTicker } from "@/components/catalog-ticker";
 import { CategoryGrid } from "@/components/category-grid";
+import { FaqListe } from "@/components/faq-liste";
 import { ProductRail } from "@/components/product-rail";
 import { RabattBadge } from "@/components/sale-price";
 import { Schnellleiste } from "@/components/schnellleiste";
@@ -25,6 +27,8 @@ import { StatCounter } from "@/components/stat-counter";
 import { Button } from "@/components/ui/button";
 import { accentIndex } from "@/lib/accent-colors";
 import { getCurrentUser } from "@/lib/auth";
+import { faqGruppen } from "@/lib/faq";
+import { formatPrice } from "@/lib/format";
 import { reduzierung } from "@/lib/pricing";
 import { getLandingData } from "@/lib/queries/products";
 import { getPublicContact } from "@/lib/queries/settings";
@@ -145,6 +149,27 @@ export default async function HomePage() {
       })),
   ];
 
+  /*
+   * Häufige Fragen: auf der Startseite die Fragen, die vor dem ersten Klick
+   * anfallen, der Rest hinter einem Aufklapper. Vollständig stünde hier eine
+   * zweite FAQ-Seite mit dem Sortiment darüber – gekürzt ohne Aufklapper
+   * müsste man für jede weitere Frage die Seite wechseln.
+   */
+  const faq = faqGruppen(versandFreiAb);
+  const faqWichtig = faq.flatMap((gruppe) =>
+    gruppe.fragen.filter((frage) => frage.wichtig),
+  );
+  const faqRest = faq
+    .map((gruppe) => ({
+      ...gruppe,
+      fragen: gruppe.fragen.filter((frage) => !frage.wichtig),
+    }))
+    .filter((gruppe) => gruppe.fragen.length > 0);
+  const faqRestAnzahl = faqRest.reduce(
+    (summe, gruppe) => summe + gruppe.fragen.length,
+    0,
+  );
+
   const kontakt = [
     { label: "Telefon", wert: firma.phone ?? "[TELEFON]" },
     { label: "E-Mail", wert: firma.email ?? "[E-MAIL]" },
@@ -238,7 +263,7 @@ export default async function HomePage() {
                   >
                     <Link
                       href={`/shop/product/${product.id}`}
-                      className="group relative block aspect-square overflow-hidden rounded-lg border border-white/10 bg-white shadow-2xl shadow-black/30 transition-transform duration-500 hover:-translate-y-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+                      className="group relative flex aspect-square flex-col overflow-hidden rounded-lg border border-white/10 bg-white shadow-2xl shadow-black/30 transition-transform duration-500 hover:-translate-y-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
                     >
                       {rabatt ? (
                         <RabattBadge
@@ -246,15 +271,52 @@ export default async function HomePage() {
                           className="absolute right-2 top-2 z-10 px-2 py-0.5 shadow-sm"
                         />
                       ) : null}
-                      <Image
-                        src={product.imageUrl!}
-                        alt={product.name}
-                        fill
-                        sizes="(min-width: 1024px) 240px, 45vw"
-                        className="object-contain p-5 transition-transform duration-500 group-hover:scale-[1.08]"
-                      />
-                      <span className="absolute inset-x-0 bottom-0 translate-y-full truncate bg-surface-dark/90 px-3 py-1.5 text-xs font-medium text-surface-dark-foreground transition-transform duration-300 group-hover:translate-y-0 group-focus-visible:translate-y-0">
-                        {product.name}
+                      <span className="relative min-h-0 flex-1 overflow-hidden">
+                        <Image
+                          src={product.imageUrl!}
+                          alt={product.name}
+                          fill
+                          sizes="(min-width: 1024px) 240px, 45vw"
+                          className="object-contain p-5 pb-2 transition-transform duration-500 group-hover:scale-[1.08]"
+                        />
+                      </span>
+                      {/*
+                        Bezeichnung und Preis stehen fest unter dem Foto, nicht
+                        erst beim Draufzeigen: ein Händler entscheidet am Bild,
+                        ob das Sortiment passt – und am Preis, ob es sich für
+                        ihn rechnet. Auf dem Telefon gibt es kein Draufzeigen,
+                        dort war die Angabe vorher gar nicht zu sehen.
+                      */}
+                      <span className="flex flex-none flex-col gap-0.5 border-t border-black/10 px-3 py-2">
+                        <span className="truncate text-[11px] leading-tight text-muted-foreground">
+                          {product.name}
+                        </span>
+                        {rabatt ? (
+                          <span className="flex items-baseline gap-1.5">
+                            <span className="text-sm font-bold tabular text-signal">
+                              {formatPrice(rabatt.jetzt)}
+                            </span>
+                            <span className="text-[10px] tabular text-muted-foreground line-through">
+                              {formatPrice(rabatt.vorher)}
+                            </span>
+                          </span>
+                        ) : product.priceFrom !== null ? (
+                          <span className="flex items-baseline gap-1">
+                            <span className="text-[10px] text-muted-foreground">
+                              ab
+                            </span>
+                            <span className="text-sm font-bold tabular text-foreground">
+                              {formatPrice(product.priceFrom)}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground">
+                              netto
+                            </span>
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-muted-foreground">
+                            Preis nach Anmeldung
+                          </span>
+                        )}
                       </span>
                     </Link>
                   </div>
@@ -523,6 +585,66 @@ export default async function HomePage() {
               </Reveal>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* --------------------------------------------------------------- FAQ */}
+      <section id="faq" className="border-t border-border bg-background">
+        <div className="mx-auto max-w-3xl px-4 py-16">
+          <Reveal>
+            <Kopf
+              eyebrow="Kurz beantwortet"
+              titel="Häufige Fragen"
+              link={{ href: "/faq", label: "Alle Fragen" }}
+            />
+          </Reveal>
+
+          <Reveal delay={80} className="mt-8">
+            <FaqListe fragen={faqWichtig} />
+
+            {faqRestAnzahl > 0 ? (
+              // Aufklapper statt Seitenwechsel: die nächste Frage ist meist
+              // eine von diesen, und für eine einzelne Antwort soll niemand
+              // die Startseite verlassen müssen. <details> braucht dafür kein
+              // Skript und hält die Antworten für die Browsersuche lesbar.
+              <details className="group/mehr mt-4">
+                <summary className="flex cursor-pointer list-none items-center justify-center gap-2 rounded-lg border border-border bg-card px-4 py-3 text-sm font-semibold transition-colors hover:bg-muted [&::-webkit-details-marker]:hidden">
+                  <span className="group-open/mehr:hidden">
+                    Weitere {faqRestAnzahl} Fragen anzeigen
+                  </span>
+                  <span className="hidden group-open/mehr:inline">
+                    Weitere Fragen einklappen
+                  </span>
+                  <ChevronDown
+                    className="size-4 transition-transform group-open/mehr:rotate-180"
+                    aria-hidden
+                  />
+                </summary>
+
+                <div className="mt-6 space-y-8">
+                  {faqRest.map((gruppe) => (
+                    <div key={gruppe.titel}>
+                      <h3 className="text-sm font-semibold text-muted-foreground">
+                        {gruppe.titel}
+                      </h3>
+                      <FaqListe fragen={gruppe.fragen} className="mt-3" />
+                    </div>
+                  ))}
+                </div>
+              </details>
+            ) : null}
+
+            <p className="mt-6 text-sm text-muted-foreground">
+              Frage nicht dabei?{" "}
+              <Link
+                href="/kontakt"
+                className="font-medium text-brand hover:underline"
+              >
+                Rufen Sie uns an oder schreiben Sie uns
+              </Link>
+              .
+            </p>
+          </Reveal>
         </div>
       </section>
 

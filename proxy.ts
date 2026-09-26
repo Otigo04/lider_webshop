@@ -33,8 +33,14 @@ const PROTECTED_PREFIXES = [
 ];
 
 /**
- * Bleibt auch im Wartungsmodus für anonyme Besucher erreichbar: nur
- * Impressum und Datenschutz (Pflichtangaben) sowie die Wartungsseite selbst.
+ * Bleibt auch im Wartungsmodus für anonyme Besucher erreichbar: die
+ * Wartungsseite selbst, Impressum und Datenschutz (Pflichtangaben) sowie die
+ * Auskunftsseiten, die in der Fußzeile verlinkt sind – FAQ, Kontakt und
+ * Versand. Die Fußzeile steht auch während der Wartung unter dem Screen; ohne
+ * diese Ausnahme führte jeder ihrer Links zurück auf die Wartungsseite und
+ * sah damit aus wie ein toter Link. Preise, Bestände und Konten gibt keine
+ * dieser Seiten heraus.
+ *
  * /login, /register, /forgot-password, /reset-password und /auth sind
  * bewusst NICHT dabei – während der Wartung kommt niemand ohne bestehende
  * Sitzung rein, auch keine Bestandskunden.
@@ -44,7 +50,14 @@ const PROTECTED_PREFIXES = [
  * dann nur noch per SQL-Editor (`update company_settings set
  * maintenance_mode = false`), nicht mehr über die Oberfläche.
  */
-const MAINTENANCE_EXEMPT_PREFIXES = ["/wartung", "/impressum", "/datenschutz"];
+const MAINTENANCE_EXEMPT_PREFIXES = [
+  "/wartung",
+  "/impressum",
+  "/datenschutz",
+  "/faq",
+  "/kontakt",
+  "/versand",
+];
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });

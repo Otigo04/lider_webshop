@@ -448,6 +448,11 @@ bringen ihre Quelle vorher auf dieselbe `InvoicePdfData`-Form.
 - **Zahlungsziel** nur auf Rechnung. Setzt der Aufrufer `paymentNote`
   (Kassenbeleg: „bar erhalten"), entfällt das Fälligkeitsdatum – sonst läse
   sich ein bezahlter Bon wie eine offene Forderung.
+- **Abweichende Lieferanschrift** steht in einem eigenen Kasten zwischen
+  Belegtitel und Positionstabelle, in 11,5 pt fett mit goldener Kante. Nach
+  ihr wird beim Packen gegriffen; in Fußnotengröße wurde sie überlesen, und
+  dann ging die Ware an die Rechnungsadresse. Nur, wenn sie wirklich abweicht –
+  sonst stünde dieselbe Anschrift zweimal auf dem Blatt.
 - **Farbe** kommt aus dem Logo: Wappenblau trägt Tabellenkopf und Endbetrag,
   Gold die Trennlinien. Kein Schmuck ohne Funktion.
 - **Umlaute und fremde Schriftzeichen**: `sicher()` entschärft jeden Text vor
@@ -456,6 +461,35 @@ bringen ihre Quelle vorher auf dieselbe `InvoicePdfData`-Form.
 - **Kontaktdaten** der Fußzeile (`owner_name`, `phone`, `email`, `website`)
   stehen in `company_settings` (Migration 019) und werden unter
   `/admin/settings` gepflegt.
+
+---
+
+## 📄 Lieferschein
+
+`buildDeliveryNotePdfData()` in `lib/invoice.ts`, ausgeliefert über
+`/admin/orders/[id]/dokumente`. Dieselbe Vorlage wie die Rechnung, nur mit
+`hidePrices` – ein eigenes Layout hieße Briefkopf, Pflichtfußzeile und
+Positionstabelle ein zweites Mal pflegen.
+
+- **Keine Beträge.** Der Zettel reist mit der Ware und wird beim Auspacken
+  gelesen, womöglich vom Personal des Kunden. Statt des Summenblocks stehen
+  unten Positionszahl, Gesamtmenge und zwei Linien zum Quittieren – das sind
+  die Zahlen, gegen die abgezählt wird.
+- **Empfänger ist, wer die Ware bekommt**, nicht der Zahlungspflichtige: im
+  Anschriftenfeld steht die Lieferanschrift, ersatzweise die
+  Rechnungsanschrift (`lieferanschriftZeilen(order, { immer: true })`).
+- **Nummer ist die Bestellnummer**, kein eigener Nummernkreis. Ein dritter
+  Zähler neben Rechnung und Kassenbeleg müsste lückenlos bleiben, ohne dass es
+  dafür einen Grund gibt.
+- **Route Handler mit `Content-Disposition: inline`**: `?art=beides`
+  (Vorgabe) legt Rechnung und Lieferschein in **ein** PDF, `?art=rechnung`
+  und `?art=lieferschein` je eines. Am Tresen geht der Druckdialog damit
+  einmal auf; zwei Dateien hießen zweimal öffnen und zweimal drucken.
+- Die Rechnung kommt, wenn vorhanden, als **gespeicherte Datei** aus dem
+  Bucket – Blatt für Blatt dasselbe Dokument, das der Kunde per Mail bekam.
+  Fehlt sie, wird sie neu gezeichnet, dann aber mit `invoices.issued_at`:
+  ein zweiter Ausdruck mit heutigem Datum wäre ein anderes Dokument unter
+  derselben Nummer.
 
 ---
 
@@ -716,6 +750,14 @@ setzen, drucken – A4 mit Schnittlinien.
   schwarz. Ob rot, entscheidet `reduzierung()` wie im Shop: ein Cent
   Unterschied ist kein Angebot. Die Fläche ist `#e2001a` und nicht das
   Markenrot `#a02020`, weil schwarze Ziffern darauf lesbar bleiben müssen.
+- **Strichcode** in der Fußzeile rechts neben der Artikelnummer, scannbar
+  (`lib/barcode.ts`, Schalter „Strichcode aufs Schild", **Vorgabe an** – ein
+  scannbares Regal spart Abtippen, und der Code kostet weder Höhe noch
+  Preisgröße). Ein
+  Schalter für den **ganzen Bogen**, nicht je Zeile: die Fußzeile bekommt
+  dadurch auf allen Schildern dieselbe Höhe, und nebeneinander auf einem Blatt
+  stehen die Preise sonst auf verschiedenen Höhen. Eigener Abschnitt weiter
+  unten.
 - **Der verdeckte Großhandelspreis** steht als Anhängsel hinter der
   Artikelnummer: `123123#1299` für 12,99 € Einkauf (`ghCode()` – Cent, kein
   Euro-Zeichen, kein Trennzeichen). **Mindestens dreistellig**: 0,77 € ergäbe
@@ -749,6 +791,65 @@ setzen, drucken – A4 mit Schnittlinien.
   Artikel-Flags aus den Einstellungen, farbig unten rechts in der Fußzeile.
   Angelegt werden sie nicht hier, nur ihre Farbe wird gewählt und gespeichert.
   Schriftfarbe schwarz/weiß nach Leuchtdichte (`labelSchrift()`).
+
+---
+
+## ▮▯ Strichcode auf dem Preisschild
+
+`lib/barcode.ts`. EAN-13, EAN-8 und UPC-A, gezeichnet als Modulfolge und
+nicht als Bild.
+
+- **Eigener Encoder, keine Bibliothek.** Die Schilder entstehen an zwei
+  Stellen – Druckbogen auf dem Server, Vorschau im Browser –, eine Bibliothek
+  müsste in beide Bündel. Drei Symbologien sind drei Tabellen à zehn Zeilen.
+  Die Ausgabe ist gegen die Decoder aus `@zxing/library` geprüft, und zwar
+  bis zurück aus dem gerenderten DOM: die gemessenen Strichbreiten ergeben
+  wieder dieselbe Nummer.
+- **In der Fußzeile, rechts neben der Artikelnummer** – kein eigener Block
+  unter dem Schild. Ein vierter Streifen kostete Höhe, die der Preis besser
+  braucht, und machte aus einem ruhigen Schild ein volles. Die Striche sind
+  so hoch wie die Artikelnummer daneben; ein Handscanner liest auch einen
+  niedrigen Code, solange er gerade draufhält.
+- **Ohne Hintergrund**, auch auf dem roten Aktionsschild: ein weißer Kasten
+  mitten darauf wäre ein Fleck. Für einen Laserscanner ändert das nichts –
+  rotes Licht sieht Rot wie Weiß; ein Kamerascanner hat auf Rot immer noch
+  rund 4:1 Kontrast zu Schwarz.
+- **Module statt Bild.** Wie breit ein Modul auf dem Papier wird, entscheidet
+  erst das Schild (`barcodeMasse()`), nach oben begrenzt aufs Nennmaß
+  `MODUL_NENN` (0,33 mm). Ein fertiges PNG müsste skaliert werden, und ein auf
+  krumme Faktoren skalierter Strichcode ist genau das, was Scanner nicht mehr
+  lesen. Unter `MODUL_MIN` (0,26 mm) warnt die Werkbank – gedruckt wird
+  trotzdem; unter `MODUL_HART` (0,16 mm) gar nicht mehr, dort verschmelzen
+  benachbarte Striche schon im Druckbild.
+- **Ruhezonen gehören zum Code**, nicht zum Rand: sie stecken als helle
+  Module in `Barcode.breite`. Deshalb kein Innenabstand am Strichblock – ein
+  Polster würde bei `box-sizing: border-box` vom Platz der Striche abgezogen,
+  und der Code käme gestaucht aus dem Drucker.
+- **Breitenaufteilung der Fußzeile**: das Label behält sein Maß, der
+  Strichcode nimmt sich davon höchstens `BARCODE_ANTEIL` (55 %) und nie so
+  viel, dass der Artikelnummer weniger als `KENNUNG_ANTEIL` (28 %) bleibt.
+  Die Zelle schneidet Überstehendes ab, und eine abgeschnittene Artikelnummer
+  ist eine falsche Artikelnummer. Ein breites Label („TOPSELLER") lässt
+  deshalb auf kleinen Formaten keinen Code übrig – dann steht keiner da.
+- **`labelBreite()` und `kennungSchriftgroesse()` schätzen absichtlich nach
+  oben** (0,72 bzw. 0,58 em je Zeichen). Beide Schätzungen entscheiden, wie
+  groß die Artikelnummer gesetzt wird; liegen sie zu niedrig, steht am Regal
+  „110002#120" statt „110002#1200".
+- **Falsche Prüfziffer wird nicht berichtigt**, sondern der Code weggelassen:
+  sonst stünde eine andere Nummer auf dem Schild als im Artikelstamm. Eine
+  ganz fehlende Prüfziffer (12 bzw. 7 Ziffern) wird ergänzt – das ist keine
+  Änderung, sondern dieselbe Nummer vollständig.
+- **Klartext-Rückfall nur bei einer Nummer, die kein EAN ist.** Wurde der Code
+  bloß aus Platzmangel weggelassen, hilft die Ziffernfolge niemandem: sie ist
+  dreizehnstellig und stünde in der Restbreite in Ameisengröße da.
+- **Platz kommt notfalls vom Preis.** `schildMasse(format, { barcode: true })`
+  nimmt den Preisblock schrittweise zurück, bis `hoehenBedarf()` wieder in die
+  Schildhöhe passt. In der Praxis greift das nicht mehr, seit der Code in der
+  Fußzeile steht – die Bremse bleibt für frei eingegebene Maße.
+- **Kein Code 128.** Die Ware im Laden trägt EAN; eine 107-Zeilen-Tabelle,
+  die niemand nachrechnet, wäre ein Risiko für den einen Artikel mit
+  Buchstaben im Feld. Was kein EAN ist, steht wie bisher als Ziffernfolge
+  hinter der Artikelnummer (`schildKennung()`).
 
 ---
 
@@ -864,7 +965,8 @@ sechs Signale, hörbar und sichtbar:
 `app/page.tsx`, Daten aus `getLandingData()`. Reihenfolge:
 Schnellleiste → Kopfbereich (Auslage) → Katalogband → Warengruppen → **Reduziert** →
 Sortiment mit Reitern je Warengruppe → Neu und gefragt (Neuheiten und
-Topseller nebeneinander) → Portalvorteile → Über uns → Kontakt.
+Topseller nebeneinander) → Portalvorteile → **Häufige Fragen** → Über uns →
+Kontakt.
 
 - **Jeder Abschnitt eine eigene Fläche** (Navy, Blau getönt, Rot getönt,
   Weiß, Gold getönt …). Eine durchgehend weiße Seite ließ die Abschnitte
@@ -880,6 +982,10 @@ Topseller nebeneinander) → Portalvorteile → Über uns → Kontakt.
   zweimal Leerraum.
 - **Angemeldete Kunden** sehen statt Registrierungsaufrufen „Meine
   Bestellungen" und „Zum Warenkorb".
+- **Häufige Fragen** stehen vor „Über uns": die wichtigsten acht offen, der
+  Rest hinter einem Aufklapper, darunter der Weg zu `/faq`. Die nächste Frage
+  eines Besuchers ist meist eine von diesen, und für eine einzelne Antwort
+  soll niemand die Startseite verlassen müssen.
 - **Bewegung** in `app/globals.css` (Abschnitt „Startseite und
   Hinweisleiste"): wandernde Farbfelder und schwebende Auslage im Kopf,
   Goldstrich unter Überschriften, Puls am Prozentzeichen, gestaffelter
@@ -916,6 +1022,29 @@ passen die Reiter nicht neben das Benutzermenü).
 
 Aktiv ist in der Kopfleiste immer nur der **spezifischste** Reiter: auf
 `/shop/reduziert` leuchtet nicht zusätzlich „Sortiment".
+
+---
+
+## ❓ Häufige Fragen
+
+Die Fragen stehen **einmal** in `lib/faq.tsx` und werden an zwei Orten
+gezeigt: `/faq` vollständig, die Startseite gekürzt auf die mit
+`wichtig: true`. Zwei gepflegte Listen liefen auseinander – eine Änderung am
+Zahlungsziel hätte man an einer Stelle nachgezogen und an der anderen
+vergessen, und dann widersprächen sich zwei Seiten derselben Website.
+
+- **`components/faq-liste.tsx`** rendert beide. Aufgeklappt wird über
+  `<details>`: kein Skript, läuft ohne JavaScript, und die Browsersuche findet
+  auch zugeklappte Antworten.
+- **Benannte Tailwind-Gruppe** (`group/frage`): auf der Startseite steckt die
+  Liste selbst in einem `<details>`. Mit einer namenlosen `group` drehte dessen
+  offener Zustand auch alle Pfeile darin, und zugeklappte Fragen sähen offen
+  aus.
+- **Im Wartungsmodus erreichbar**: `/faq`, `/kontakt` und `/versand` stehen in
+  `MAINTENANCE_EXEMPT_PREFIXES` (proxy.ts). Die Fußzeile bleibt unter dem
+  Wartungsscreen stehen; ohne die Ausnahme führte jeder ihrer Links zurück auf
+  die Wartungsseite und sah aus wie ein toter Link. Preise, Bestände und
+  Konten gibt keine dieser Seiten heraus.
 
 ---
 
@@ -964,6 +1093,11 @@ gemischt** (Fisher-Yates in `lib/queries/products.ts`, nicht
   keine daraus, verliert der Artikel seinen Vorrang und rutscht in den
   Auffüllteil.
 - Ohne Foto taugt ein Artikel nicht fürs Schaufenster.
+- **Bezeichnung und Preis stehen fest unter dem Foto**, nicht erst beim
+  Draufzeigen: ein Händler entscheidet am Bild, ob das Sortiment passt, und am
+  Preis, ob es sich rechnet. Auf dem Telefon gibt es kein Draufzeigen – dort
+  war die Angabe vorher gar nicht zu sehen. Reduzierte Artikel zeigen den
+  Signalpreis mit Streichpreis, sonst „ab … netto".
 
 ---
 
