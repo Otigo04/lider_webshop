@@ -67,6 +67,11 @@ export interface PublicProductListItem {
    * Werbeaussage und gehört nach außen.
    */
   list_price: number | null;
+  /**
+   * Ladenpreis als Bezug der Reduzierung (Migration 045). Nur bei Artikeln
+   * mit Vorher-Preis gefüllt – alle anderen Ladenpreise bleiben intern.
+   */
+  retail_price: number | null;
   /** Artikelgruppe (Migration 033), null bei einem Artikel ohne Ausführungen */
   group_id: string | null;
   /**
@@ -103,6 +108,8 @@ let viewFehltGemeldet = false;
 interface PriceRangeRow {
   min_unit_price: number;
   min_order_quantity: number;
+  /** Ladenpreis reduzierter Artikel, sonst null (Migration 045) */
+  sale_base: number | null;
 }
 
 /**
@@ -116,10 +123,22 @@ async function priceRangesFor(
 ): Promise<Map<string, PriceRangeRow>> {
   if (ids.length === 0) return new Map();
 
-  const { data, error } = await supabase
-    .from("product_price_range")
-    .select("product_id, min_unit_price, min_order_quantity")
-    .in("product_id", ids);
+  const abfrage = async (spalten: string) => {
+    const { data, error } = await supabase
+      .from("product_price_range")
+      .select(spalten)
+      .in("product_id", ids);
+    return { data: data as Record<string, unknown>[] | null, error };
+  };
+
+  let { data, error } = await abfrage(
+    "product_id, min_unit_price, min_order_quantity, sale_base",
+  );
+  // Ohne Migration 045 fehlt sale_base. Die Ab-Preise sollen deshalb nicht
+  // wegfallen – die Reduzierung rechnet dann nur gegen den Großhandelspreis.
+  if (error?.code === "42703") {
+    ({ data, error } = await abfrage("product_id, min_unit_price, min_order_quantity"));
+  }
 
   if (error) {
     // Fehlt die View noch, wäre das sonst ein Fehler pro Seitenaufruf.
@@ -142,6 +161,8 @@ async function priceRangesFor(
       {
         min_unit_price: Number(row.min_unit_price),
         min_order_quantity: Number(row.min_order_quantity),
+        // undefined ohne Migration 045, null bei Artikeln ohne Streichpreis
+        sale_base: row.sale_base == null ? null : Number(row.sale_base),
       },
     ]),
   );
@@ -438,6 +459,7 @@ export async function getPublicProducts(options?: {
       priceFrom: preis?.min_unit_price ?? null,
       minOrderQuantity: preis?.min_order_quantity ?? null,
       list_price: (row.list_price as number | null) ?? null,
+      retail_price: preis?.sale_base ?? null,
     };
   });
 }
@@ -666,6 +688,7 @@ export async function getLandingData(perSection = 8): Promise<LandingData> {
       priceFrom: preis?.min_unit_price ?? null,
       minOrderQuantity: preis?.min_order_quantity ?? null,
       list_price: (row.list_price as number | null) ?? null,
+      retail_price: preis?.sale_base ?? null,
     };
   };
 
@@ -683,7 +706,7 @@ export async function getLandingData(perSection = 8): Promise<LandingData> {
   const hatVorrang = (product: PublicProductListItem) =>
     istNeu(product) ||
     product.is_topseller ||
-    reduzierung(product.list_price, product.priceFrom) !== null;
+    reduzierung(product.list_price, product.priceFrom, product.retail_price) !== null;
   const schaufenster = [
     ...schaufensterArtikel.filter(hatVorrang),
     ...schaufensterArtikel.filter((product) => !hatVorrang(product)),
@@ -710,7 +733,7 @@ export async function getLandingData(perSection = 8): Promise<LandingData> {
     .map(zuArtikel)
     .map((product) => ({
       product,
-      rabatt: reduzierung(product.list_price, product.priceFrom),
+      rabatt: reduzierung(product.list_price, product.priceFrom, product.retail_price),
     }))
     .filter((eintrag) => eintrag.rabatt !== null)
     .sort((a, b) => b.rabatt!.prozent - a.rabatt!.prozent)
@@ -803,6 +826,7 @@ export async function getPublicProduct(id: string): Promise<PublicProductDetail 
     priceFrom: preis?.min_unit_price ?? null,
     minOrderQuantity: preis?.min_order_quantity ?? null,
     list_price: row.list_price,
+    retail_price: preis?.sale_base ?? null,
   };
 }
 

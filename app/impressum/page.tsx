@@ -1,21 +1,20 @@
 import type { Metadata } from "next";
 import Image from "next/image";
+import { fuelleImpressum } from "@/lib/impressum";
 import { getLogoPath } from "@/lib/logo";
-import { getPublicContact } from "@/lib/queries/settings";
+import { getPublicImpressum } from "@/lib/queries/settings";
 
 export const metadata: Metadata = { title: "Impressum" };
 
 /**
- * Pflichtangaben nach § 5 DDG. Firmenname, Anschrift, Vertretung, Kontakt und
- * USt-IdNr. kommen aus den Firmendaten (/admin/settings) über
- * getPublicContact() – ein Platzhalter unten heißt also "in den
- * Einstellungen nicht gepflegt", nicht "im Code vergessen". Registergericht
- * und Registernummer gibt es als Einstellung nicht (nicht jeder Betrieb ist
- * im Handelsregister eingetragen) und bleiben deshalb von Hand einzutragen.
+ * Pflichtangaben nach § 5 DDG. Aufbau und Text kommen aus den Einstellungen
+ * (lib/impressum.ts, Migration 045), die Firmendaten über Platzhalter.
+ * Nicht gepflegte Angaben stehen als „[Registergericht]" da – erfundene
+ * Angaben wären hier eine Abmahnung wert, eine sichtbare Lücke fällt auf.
  */
 export default async function ImpressumPage() {
   const logoPath = getLogoPath();
-  const firma = await getPublicContact();
+  const { abschnitte, daten } = await getPublicImpressum();
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-16">
@@ -35,50 +34,18 @@ export default async function ImpressumPage() {
       <h1 className="text-2xl font-semibold tracking-tight">Impressum</h1>
 
       <div className="mt-8 space-y-8 text-sm leading-relaxed">
-        <section>
-          <h2 className="font-medium">Angaben gemäß § 5 DDG</h2>
-          <p className="mt-2 text-muted-foreground">
-            {firma.company_name ?? "LIDER Groß- und Einzelhandel"}
-            <br />
-            {firma.address_street ?? "[STRASSE]"}
-            <br />
-            {firma.address_zip && firma.address_city
-              ? `${firma.address_zip} ${firma.address_city}`
-              : "[PLZ ORT]"}
-          </p>
-        </section>
-
-        <section>
-          <h2 className="font-medium">Vertreten durch</h2>
-          <p className="mt-2 text-muted-foreground">
-            {firma.owner_name ?? "[GESCHÄFTSFÜHRUNG]"}
-          </p>
-        </section>
-
-        <section>
-          <h2 className="font-medium">Kontakt</h2>
-          <p className="mt-2 text-muted-foreground">
-            Telefon: {firma.phone ?? "[TELEFON]"}
-            <br />
-            E-Mail: {firma.email ?? "[E-MAIL]"}
-          </p>
-        </section>
-
-        <section>
-          <h2 className="font-medium">Registereintrag</h2>
-          <p className="mt-2 text-muted-foreground">
-            Registergericht: [AMTSGERICHT]
-            <br />
-            Registernummer: [HRB]
-          </p>
-        </section>
-
-        <section>
-          <h2 className="font-medium">Umsatzsteuer-Identifikationsnummer</h2>
-          <p className="mt-2 text-muted-foreground">
-            gemäß § 27 a UStG: {firma.vat_id ?? "[USt-IdNr.]"}
-          </p>
-        </section>
+        {abschnitte.map((abschnitt, index) => (
+          <section key={index}>
+            {abschnitt.titel ? (
+              <h2 className="font-medium">{abschnitt.titel}</h2>
+            ) : null}
+            {abschnitt.text ? (
+              <p className="mt-2 whitespace-pre-line text-muted-foreground">
+                {fuelleImpressum(abschnitt.text, daten)}
+              </p>
+            ) : null}
+          </section>
+        ))}
       </div>
     </div>
   );

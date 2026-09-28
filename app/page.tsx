@@ -123,7 +123,11 @@ export default async function HomePage() {
 
   // reduziert ist nach Ersparnis absteigend sortiert – vorn steht die größte.
   const hoechsterRabatt = reduziert[0]
-    ? (reduzierung(reduziert[0].list_price, reduziert[0].priceFrom)?.prozent ?? 0)
+    ? (reduzierung(
+          reduziert[0].list_price,
+          reduziert[0].priceFrom,
+          reduziert[0].retail_price,
+        )?.prozent ?? 0)
     : 0;
 
   const reiter: SortimentReiter[] = [
@@ -255,7 +259,11 @@ export default async function HomePage() {
           {heroBilder.length === 4 ? (
             <div className="enter enter-2 grid grid-cols-2 gap-3 sm:gap-4">
               {heroBilder.map((product, index) => {
-                const rabatt = reduzierung(product.list_price, product.priceFrom);
+                const rabatt = reduzierung(
+                  product.list_price,
+                  product.priceFrom,
+                  product.retail_price,
+                );
                 return (
                   <div
                     key={product.id}

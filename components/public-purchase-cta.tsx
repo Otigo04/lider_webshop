@@ -13,13 +13,16 @@ export function PublicPurchaseCta({
   priceFrom,
   minOrderQuantity,
   listPrice = null,
+  retailPrice = null,
 }: {
   priceFrom: number | null;
   minOrderQuantity: number | null;
   /** Vorher-Preis für die Rabattanzeige (Migration 023) */
   listPrice?: number | null;
+  /** Ladenpreis reduzierter Artikel – Bezug der Reduzierung (Migration 045) */
+  retailPrice?: number | null;
 }) {
-  const rabatt = reduzierung(listPrice, priceFrom);
+  const rabatt = reduzierung(listPrice, priceFrom, retailPrice);
 
   return (
     <div className="rounded-md border border-border">

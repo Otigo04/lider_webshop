@@ -160,6 +160,26 @@ export function CompanySettingsForm({ settings }: { settings: CompanySettings })
               maxLength={60}
             />
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="register_court">Registergericht</Label>
+            <Input
+              id="register_court"
+              name="register_court"
+              defaultValue={settings.register_court ?? ""}
+              maxLength={120}
+              placeholder="z. B. Amtsgericht Charlottenburg"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="register_number">Registernummer</Label>
+            <Input
+              id="register_number"
+              name="register_number"
+              defaultValue={settings.register_number ?? ""}
+              maxLength={60}
+              placeholder="z. B. HRB 12345 B"
+            />
+          </div>
           <div className="space-y-2 sm:col-span-2">
             <Label htmlFor="bank_name">Bank</Label>
             <Input

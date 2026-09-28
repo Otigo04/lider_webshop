@@ -68,7 +68,11 @@ function trifftZu(product: AdminProductRow, filter: LagerFilter): boolean {
       return lowestUnitPrice(product.variants) === null;
     case "reduziert":
       return (
-        reduzierung(product.list_price, lowestUnitPrice(product.variants)) !== null
+        reduzierung(
+          product.list_price,
+          lowestUnitPrice(product.variants),
+          product.retail_price,
+        ) !== null
       );
   }
 }

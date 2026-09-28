@@ -5,6 +5,11 @@ import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import type { AdminFormState } from "@/lib/actions/admin-categories";
+import {
+  IMPRESSUM_MAX_ABSCHNITTE,
+  IMPRESSUM_MAX_TEXT,
+  IMPRESSUM_MAX_TITEL,
+} from "@/lib/impressum";
 
 const settingsSchema = z.object({
   company_name: z.string().trim().max(160).optional(),
@@ -26,6 +31,8 @@ const settingsSchema = z.object({
   website: z.string().trim().max(160).optional(),
   tax_number: z.string().trim().max(60).optional(),
   vat_id: z.string().trim().max(60).optional(),
+  register_court: z.string().trim().max(120).optional(),
+  register_number: z.string().trim().max(60).optional(),
   bank_name: z.string().trim().max(120).optional(),
   iban: z.string().trim().max(60).optional(),
   bic: z.string().trim().max(20).optional(),
@@ -60,6 +67,8 @@ export async function updateCompanySettings(
     website: formData.get("website") || undefined,
     tax_number: formData.get("tax_number") || undefined,
     vat_id: formData.get("vat_id") || undefined,
+    register_court: formData.get("register_court") || undefined,
+    register_number: formData.get("register_number") || undefined,
     bank_name: formData.get("bank_name") || undefined,
     iban: formData.get("iban") || undefined,
     bic: formData.get("bic") || undefined,
@@ -89,6 +98,8 @@ export async function updateCompanySettings(
     website: data.website || null,
     tax_number: data.tax_number || null,
     vat_id: data.vat_id || null,
+    register_court: data.register_court || null,
+    register_number: data.register_number || null,
     bank_name: data.bank_name || null,
     iban: data.iban || null,
     bic: data.bic || null,
@@ -105,7 +116,7 @@ export async function updateCompanySettings(
     .eq("id", true);
 
   /*
-   * Spalte fehlt, weil Migration 037 noch nicht eingespielt ist. Zwei Codes,
+   * Spalte fehlt, weil Migration 037 oder 045 noch nicht eingespielt ist. Zwei Codes,
    * weil zwei Schichten meckern können: PGRST204 kommt von PostgREST („nicht
    * im Schema-Cache"), 42703 von Postgres selbst. Beim Schreiben ist es in
    * aller Regel PGRST204 – die Anfrage scheitert schon an der Übersetzung.
@@ -116,14 +127,21 @@ export async function updateCompanySettings(
    */
   if (error?.code === "PGRST204" || error?.code === "42703") {
     console.warn(
-      "[admin] Spalte company_settings.free_shipping_threshold fehlt – " +
-        "Migration 037 noch nicht eingespielt. Versandgrenze wird nicht gespeichert.",
+      "[admin] Spalten aus Migration 037/045 fehlen – Versandgrenze und " +
+        "Registerangaben werden nicht gespeichert.",
     );
-    const { free_shipping_threshold: _weg, ...ohneGrenze } = felder;
-    void _weg;
+    const {
+      free_shipping_threshold: _grenze,
+      register_court: _gericht,
+      register_number: _nummer,
+      ...ohneNeue
+    } = felder;
+    void _grenze;
+    void _gericht;
+    void _nummer;
     ({ error } = await supabase
       .from("company_settings")
-      .update(ohneGrenze)
+      .update(ohneNeue)
       .eq("id", true));
   }
 
@@ -139,6 +157,7 @@ export async function updateCompanySettings(
   revalidatePath("/versand");
   revalidatePath("/cart");
   revalidatePath("/checkout");
+  revalidatePath("/impressum");
   return { success: "Firmendaten gespeichert." };
 }
 
@@ -239,4 +258,66 @@ export async function updateMaintenanceContent(
   revalidatePath("/admin/settings");
   revalidatePath("/wartung");
   return { success: "Wartungstext gespeichert." };
+}
+
+const impressumSchema = z
+  .array(
+    z.object({
+      titel: z.string().trim().max(IMPRESSUM_MAX_TITEL, "Überschrift zu lang"),
+      text: z.string().trim().max(IMPRESSUM_MAX_TEXT, "Abschnitt zu lang"),
+    }),
+  )
+  .max(IMPRESSUM_MAX_ABSCHNITTE, "Zu viele Abschnitte");
+
+/**
+ * Impressum speichern (Migration 045). Die Liste kommt als JSON aus einem
+ * versteckten Feld – Reihenfolge und Anzahl der Abschnitte sind frei, das
+ * passt in keine feste Formularstruktur. Ganz leere Abschnitte fallen weg.
+ *
+ * `zuruecksetzen` schreibt NULL: dann gilt wieder die Vorlage aus
+ * lib/impressum.ts. Eine leere Liste wäre etwas anderes – ein Impressum ohne
+ * Inhalt.
+ */
+export async function updateImpressum(
+  _prevState: AdminFormState,
+  formData: FormData,
+): Promise<AdminFormState> {
+  await requireAdmin();
+
+  let wert: { titel: string; text: string }[] | null = null;
+  if (formData.get("zuruecksetzen") !== "1") {
+    let roh: unknown;
+    try {
+      roh = JSON.parse(String(formData.get("abschnitte") ?? "[]"));
+    } catch {
+      return { error: "Das Impressum konnte nicht gelesen werden." };
+    }
+    const parsed = impressumSchema.safeParse(roh);
+    if (!parsed.success) {
+      return { error: parsed.error.issues[0].message };
+    }
+    wert = parsed.data.filter((a) => a.titel !== "" || a.text !== "");
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("company_settings")
+    .update({ impressum: wert })
+    .eq("id", true);
+
+  if (error) {
+    console.error("[admin] Impressum speichern:", error.message);
+    return {
+      error:
+        error.code === "PGRST204" || error.code === "42703"
+          ? "Migration 045 fehlt noch – bitte zuerst im Supabase SQL-Editor ausführen."
+          : "Das Impressum konnte nicht gespeichert werden.",
+    };
+  }
+
+  revalidatePath("/admin/settings");
+  revalidatePath("/impressum");
+  return {
+    success: wert === null ? "Vorlage wiederhergestellt." : "Impressum gespeichert.",
+  };
 }

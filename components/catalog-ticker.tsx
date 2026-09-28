@@ -62,7 +62,11 @@ function TickerCard({
   product: PublicProductListItem;
   kopie?: boolean;
 }) {
-  const rabatt = reduzierung(product.list_price, product.priceFrom);
+  const rabatt = reduzierung(
+    product.list_price,
+    product.priceFrom,
+    product.retail_price,
+  );
 
   const inhalt = (
     <>

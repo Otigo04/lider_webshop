@@ -46,7 +46,7 @@ const KUNDE: FilterAdapter<ProductListItem> = {
   minQuantity: (p) => minOrderQuantity(p.variants),
   isNew: (p) => istNeu(p),
   isTopseller: (p) => p.is_topseller,
-  isReduced: (p) => reduzierung(p.list_price, lowestUnitPrice(p.variants)) !== null,
+  isReduced: (p) => reduzierung(p.list_price, lowestUnitPrice(p.variants), p.retail_price) !== null,
   stock: (p) => freeStock(p),
 };
 
@@ -56,7 +56,7 @@ const BESUCHER: FilterAdapter<PublicProductListItem> = {
   minQuantity: (p) => p.minOrderQuantity,
   isNew: (p) => istNeu(p),
   isTopseller: (p) => p.is_topseller,
-  isReduced: (p) => reduzierung(p.list_price, p.priceFrom) !== null,
+  isReduced: (p) => reduzierung(p.list_price, p.priceFrom, p.retail_price) !== null,
   // Bestände sind ohne Login nicht sichtbar – der Filter entfällt dort.
   stock: () => null,
 };

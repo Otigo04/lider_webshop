@@ -853,7 +853,9 @@ export function schildKennung(
  * stünde am Regal ein rotes Schild für einen Cent Unterschied.
  */
 export function schildPreis(preis: number, listPrice: number | null | undefined) {
-  const r = reduzierung(listPrice, preis);
+  // Der Schildpreis ist schon der Ladenpreis (ersatzweise die Staffel) – er
+  // ist Anzeige und Bezug zugleich.
+  const r = reduzierung(listPrice, preis, preis);
   return {
     preis,
     vorher: r?.vorher ?? null,

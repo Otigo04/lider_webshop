@@ -186,6 +186,7 @@ export default async function ProductPage({
                 priceFrom={product.priceFrom}
                 minOrderQuantity={product.minOrderQuantity}
                 listPrice={product.list_price}
+                retailPrice={product.retail_price}
               />
             </div>
           </div>
@@ -299,6 +300,7 @@ export default async function ProductPage({
               tiers={product.variants}
               freeStock={free}
               listPrice={product.list_price}
+              retailPrice={product.retail_price}
               imagePath={firstImagePath(product.images)}
               vatRate={company.pos_vat_rate}
             />

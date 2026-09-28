@@ -20,7 +20,11 @@ export function PublicProductCard({
   product: PublicProductListItem;
   className?: string;
 }) {
-  const rabatt = reduzierung(product.list_price, product.priceFrom);
+  const rabatt = reduzierung(
+    product.list_price,
+    product.priceFrom,
+    product.retail_price,
+  );
 
   // Wie in der Kundenkarte: bei einem Bündel trägt die Kachel den Namen des
   // Angebots, nicht den der Ausführung, die zufällig als Vertreter dasteht.

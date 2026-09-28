@@ -2,6 +2,12 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { createPublicClient } from "@/lib/supabase/public";
 import { FREE_SHIPPING_THRESHOLD, freeShippingThreshold } from "@/lib/shipping";
+import {
+  IMPRESSUM_VORLAGE,
+  leseImpressum,
+  type ImpressumAbschnitt,
+  type ImpressumDaten,
+} from "@/lib/impressum";
 import type { CompanySettings } from "@/lib/types";
 
 const EMPTY_SETTINGS: CompanySettings = {
@@ -16,6 +22,9 @@ const EMPTY_SETTINGS: CompanySettings = {
   website: null,
   tax_number: null,
   vat_id: null,
+  register_court: null,
+  register_number: null,
+  impressum: null,
   bank_name: null,
   iban: null,
   bic: null,
@@ -158,4 +167,54 @@ export async function getMaintenanceInfo(): Promise<MaintenanceInfo> {
     | Partial<MaintenanceInfo>
     | undefined;
   return { ...leer, ...(zeile ?? {}), enabled: zeile?.enabled === true };
+}
+
+export interface PublicImpressum {
+  abschnitte: ImpressumAbschnitt[];
+  daten: ImpressumDaten;
+}
+
+/**
+ * Impressum für jeden Besucher (Migration 045). Wie die Kontaktangaben über
+ * eine eigene Funktion, weil company_settings auch Bankdaten trägt. Fehlt
+ * die Funktion noch, zeigt die Seite die Vorlage mit den Kontaktangaben aus
+ * Migration 036 – ein Impressum darf nicht ausfallen.
+ */
+export async function getPublicImpressum(): Promise<PublicImpressum> {
+  const { data, error } = await createPublicClient().rpc("public_impressum");
+  const zeile = (Array.isArray(data) ? data[0] : data) as
+    | (Partial<ImpressumDaten> & { impressum?: unknown })
+    | undefined;
+
+  if (error || !zeile) {
+    if (error) console.error("[einstellungen] Impressum:", error.message);
+    const kontakt = await getPublicContact();
+    return {
+      abschnitte: IMPRESSUM_VORLAGE,
+      daten: {
+        ...kontakt,
+        address_country: null,
+        register_court: null,
+        register_number: null,
+      },
+    };
+  }
+
+  return {
+    abschnitte: leseImpressum(zeile.impressum) ?? IMPRESSUM_VORLAGE,
+    daten: {
+      company_name: zeile.company_name ?? null,
+      owner_name: zeile.owner_name ?? null,
+      address_street: zeile.address_street ?? null,
+      address_zip: zeile.address_zip ?? null,
+      address_city: zeile.address_city ?? null,
+      address_country: zeile.address_country ?? null,
+      phone: zeile.phone ?? null,
+      email: zeile.email ?? null,
+      website: zeile.website ?? null,
+      vat_id: zeile.vat_id ?? null,
+      register_court: zeile.register_court ?? null,
+      register_number: zeile.register_number ?? null,
+    },
+  };
 }

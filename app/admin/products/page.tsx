@@ -372,7 +372,7 @@ export default async function AdminProductsPage({
             <tbody>
               {products.map((product) => {
                 const ab = lowestUnitPrice(product.variants ?? []);
-                const rabatt = reduzierung(product.list_price, ab);
+                const rabatt = reduzierung(product.list_price, ab, product.retail_price);
                 return (
                   <tr
                     key={product.id}

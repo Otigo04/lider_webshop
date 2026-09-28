@@ -27,7 +27,7 @@ export function ProductCard({
   const free = freeStock(product);
   // Bezug ist der günstigste erreichbare Stückpreis: gegen den rechnet der
   // Kunde, wenn er die Karte überfliegt.
-  const rabatt = reduzierung(product.list_price, range?.from);
+  const rabatt = reduzierung(product.list_price, range?.from, product.retail_price);
 
   /*
    * Gehört der Artikel zu einer Gruppe, steht deren Name auf der Karte und

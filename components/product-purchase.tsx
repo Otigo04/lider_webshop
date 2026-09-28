@@ -29,6 +29,8 @@ interface ProductPurchaseProps {
   freeStock: number;
   /** Vorher-Preis für die Rabattanzeige (Migration 023) */
   listPrice: number | null;
+  /** Ladenpreis – Bezug der Reduzierung (lib/pricing.ts, reduzierung()) */
+  retailPrice: number | null;
   /**
    * Storage-Pfad des Titelbilds. Wandert in den Warenkorb, damit dort ein Foto
    * neben der Position steht – die fertige URL wäre nach Stunden abgelaufen.
@@ -49,6 +51,7 @@ export function ProductPurchase({
   tiers,
   freeStock,
   listPrice,
+  retailPrice,
   imagePath,
   vatRate,
 }: ProductPurchaseProps) {
@@ -61,12 +64,14 @@ export function ProductPurchase({
   const noPrices = tiers.length === 0;
   const activeTier = resolveTier(tiers, quantity);
 
-  // Bezug ist der Preis, der bei der eingestellten Menge tatsächlich gilt –
-  // die Ersparnis wandert mit der Staffel mit. Ohne passende Staffel die
-  // kleinste, damit die Angabe nie ins Leere läuft.
+  // Der Prozentsatz kommt aus Vorher- und Ladenpreis; angezeigt wird er am
+  // Preis, der bei der eingestellten Menge tatsächlich gilt – der Streichpreis
+  // wandert mit der Staffel mit. Ohne passende Staffel die kleinste, damit die
+  // Angabe nie ins Leere läuft.
   const rabatt = reduzierung(
     listPrice,
     activeTier ? Number(activeTier.unit_price) : baseUnitPrice(tiers),
+    retailPrice,
   );
 
   const betraege = steuer(lineTotal(tiers, quantity), vatRate);

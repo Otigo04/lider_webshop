@@ -520,9 +520,20 @@ Staffel. `reduzierung()` in `lib/pricing.ts` entscheidet, ob daraus eine
 Anzeige wird – nur wenn der Wert über dem aktuellen Preis liegt und gerundet
 mehr als 0 % Ersparnis übrig bleiben. Ein Cent Unterschied ist kein Angebot.
 
-- **Bezugspreis** ist der günstigste erreichbare: in der Karte `range.from`,
-  auf der Artikelseite der Preis der eingestellten Menge – die Ersparnis
-  wandert mit der Staffel mit.
+- **Der Vorher-Preis ist ein Ladenpreis** (Migration 045). Ob und wie stark
+  reduziert ist, entscheidet der Vergleich mit `retail_price` – vorher wurde
+  gegen den Großhandelspreis gerechnet, und aus 9,99 → 8,99 im Laden wurde im
+  Shop „−55 %". Ohne gepflegten Ladenpreis gilt der angezeigte Preis als
+  Bezug (wie an der Kasse). `reduzierung(list, angezeigt, laden)` – der
+  dritte Parameter ist Pflicht, damit kein Aufrufer ihn vergisst.
+- **Im Shop wird der Prozentsatz übertragen**: angezeigt wird der
+  Großhandelspreis, der Streichpreis ist derselbe Preis vor der Reduzierung
+  (`jetzt × list / laden`). In der Karte `range.from`, auf der Artikelseite
+  der Preis der eingestellten Menge – der Streichpreis wandert mit der
+  Staffel mit.
+- Das Schaufenster bekommt den Ladenpreis über `product_price_range.sale_base`
+  – **nur** bei Artikeln mit Streichpreis (der steht ohnehin rot am Regal).
+  Alle anderen Ladenpreise bleiben intern.
 - **Darstellung** über `components/sale-price.tsx`: neuer Preis in Signalrot,
   alter durchgestrichen, Prozentbadge. Drei Angaben, nicht nur Farbe – rot
   allein wäre für Farbfehlsichtige kein Unterschied.
@@ -1049,6 +1060,25 @@ vergessen, und dann widersprächen sich zwei Seiten derselben Website.
   Wartungsscreen stehen; ohne die Ausnahme führte jeder ihrer Links zurück auf
   die Wartungsseite und sah aus wie ein toter Link. Preise, Bestände und
   Konten gibt keine dieser Seiten heraus.
+
+---
+
+## ⚖️ Impressum
+
+`/impressum`, gepflegt unter `/admin/settings`
+(`components/forms/impressum-settings.tsx`), Regeln in `lib/impressum.ts`,
+Grundlage Migration 045.
+
+- **Abschnittsliste** in `company_settings.impressum` (JSONB,
+  `[{titel, text}]`): frei anlegen, umstellen, löschen. `NULL` heißt „nie
+  gepflegt" → `IMPRESSUM_VORLAGE`; eine leere Liste ist etwas anderes.
+- **Platzhalter** wie `{firma}`, `{anschrift}`, `{ustid}`,
+  `{registergericht}` füllt `fuelleImpressum()` aus den Firmendaten – eine
+  Anschrift wird einmal gepflegt, nicht in Rechnung *und* Impressum. Fehlt
+  ein Wert, steht `[Registergericht]` da: eine Lücke muss auffallen.
+- Registergericht und -nummer sind eigene Felder in `company_settings`.
+- Gelesen über `public_impressum()` (SECURITY DEFINER): gibt USt-IdNr. frei,
+  Steuernummer und Bankdaten nicht.
 
 ---
 

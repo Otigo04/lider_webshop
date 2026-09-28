@@ -134,16 +134,22 @@ export function ProductForm({
       : [{ key: crypto.randomUUID(), min_quantity: "1", max_quantity: "", unit_price: "" }],
   );
 
-  // Vorschau der Reduzierung. Bezug ist der günstigste Staffelpreis – genau
-  // der Preis, gegen den der Shop den Vorher-Preis später rechnet.
+  // Vorschau der Reduzierung. Der Vorher-Preis ist ein Ladenpreis und wird
+  // gegen den Ladenpreis gerechnet (so steht es am Regal); der Shop überträgt
+  // den Prozentsatz auf den günstigsten Staffelpreis.
   const guenstigsterPreis = tiers
     .map((tier) => Number(tier.unit_price))
     .filter((preis) => Number.isFinite(preis) && preis > 0)
     .sort((a, b) => a - b)[0];
-  const rabattVorschau = reduzierung(
-    listPrice.trim() === "" ? null : Number(listPrice),
-    guenstigsterPreis ?? null,
+  const vorherWert = listPrice.trim() === "" ? null : Number(listPrice);
+  const ladenWert =
+    retailPrice.trim() === "" ? null : Number(retailPrice.replace(",", "."));
+  const ladenVorschau = reduzierung(
+    vorherWert,
+    ladenWert ?? guenstigsterPreis ?? null,
+    ladenWert,
   );
+  const shopVorschau = reduzierung(vorherWert, guenstigsterPreis ?? null, ladenWert);
 
   const [images, setImages] = useState<ImageRow[]>(() =>
     (product?.images ?? []).map((image, index) => ({
@@ -423,9 +429,11 @@ export function ProductForm({
       <section className="rounded-lg border-2 border-signal/30 bg-signal-soft/50 p-5">
         <h2 className="font-medium">Reduzierung · Vorher-Preis</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Der frühere Preis. Liegt er über dem aktuellen, zeigt der Shop ihn
-          durchgestrichen neben dem neuen Preis und rechnet die Ersparnis in
-          Prozent aus. Leer lassen, solange der Artikel nicht reduziert ist.
+          Der frühere Ladenpreis. Liegt er über dem aktuellen Ladenpreis, wird
+          die Ersparnis in Prozent daraus gerechnet: am Regal steht er
+          durchgestrichen, im Shop gilt derselbe Prozentsatz auf den
+          Großhandelspreis. Ohne Ladenpreis zählt der Großhandelspreis. Leer
+          lassen, solange der Artikel nicht reduziert ist.
         </p>
 
         <div className="mt-4 flex flex-wrap items-end gap-3">
@@ -445,15 +453,25 @@ export function ProductForm({
               placeholder="—"
             />
           </div>
-          {rabattVorschau ? (
-            <p className="pb-2 text-sm font-medium text-signal tabular">
-              {formatPrice(rabattVorschau.vorher)} →{" "}
-              {formatPrice(rabattVorschau.jetzt)} · −{rabattVorschau.prozent} %
-            </p>
+          {ladenVorschau ? (
+            <div className="space-y-0.5 pb-2 text-sm font-medium text-signal tabular">
+              <p>
+                {ladenWert !== null ? "Laden" : "Preis"}:{" "}
+                {formatPrice(ladenVorschau.vorher)} →{" "}
+                {formatPrice(ladenVorschau.jetzt)} · −{ladenVorschau.prozent} %
+              </p>
+              {ladenWert !== null && shopVorschau ? (
+                <p className="text-xs font-normal text-muted-foreground">
+                  Shop: {formatPrice(shopVorschau.vorher)} →{" "}
+                  {formatPrice(shopVorschau.jetzt)} netto
+                </p>
+              ) : null}
+            </div>
           ) : listPrice ? (
             <p className="pb-2 text-sm text-muted-foreground">
-              Liegt nicht über dem aktuellen Preis – es wird keine Reduzierung
-              angezeigt.
+              Liegt nicht über dem aktuellen{" "}
+              {ladenWert !== null ? "Ladenpreis" : "Preis"} – es wird keine
+              Reduzierung angezeigt.
             </p>
           ) : null}
         </div>

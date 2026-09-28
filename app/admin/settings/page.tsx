@@ -5,6 +5,8 @@ import { ProductAttributesSettings } from "@/components/forms/product-attributes
 import { ProductFlagsSettings } from "@/components/forms/product-flags-settings";
 import { SiteBannersSettings } from "@/components/forms/site-banners-settings";
 import { getAllBanners } from "@/lib/queries/banners";
+import { ImpressumSettings } from "@/components/forms/impressum-settings";
+import { IMPRESSUM_VORLAGE, leseImpressum } from "@/lib/impressum";
 import { getCompanySettings } from "@/lib/queries/settings";
 import { getProductAttributes } from "@/lib/queries/attributes";
 import { getProductFlags } from "@/lib/queries/product-flags";
@@ -18,6 +20,8 @@ export default async function AdminSettingsPage() {
     getProductAttributes(),
     getAllBanners(),
   ]);
+  const impressum = leseImpressum(settings.impressum);
+  const impressumAbschnitte = impressum ?? IMPRESSUM_VORLAGE;
 
   return (
     <div>
@@ -43,6 +47,25 @@ export default async function AdminSettingsPage() {
             titel={settings.maintenance_title}
             nachricht={settings.maintenance_message}
             datum={settings.maintenance_until}
+          />
+        </div>
+      </div>
+
+      <div className="mt-12 max-w-2xl border-t border-border pt-8">
+        <h2 className="text-lg font-semibold tracking-tight">Impressum</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Die Pflichtangaben unter /impressum. Abschnitte frei anlegen und
+          umstellen; Firmendaten kommen über Platzhalter aus den Feldern oben
+          und müssen nicht doppelt gepflegt werden.
+        </p>
+        <div className="mt-6">
+          {/* key: nach dem Speichern oder Zurücksetzen neu aufbauen, sonst
+              hielte der Editor seinen alten Stand fest. */}
+          <ImpressumSettings
+            key={JSON.stringify(impressumAbschnitte)}
+            abschnitte={impressumAbschnitte}
+            gepflegt={impressum !== null}
+            daten={settings}
           />
         </div>
       </div>

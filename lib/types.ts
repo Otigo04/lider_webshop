@@ -421,6 +421,14 @@ export interface CompanySettings {
   website: string | null;
   tax_number: string | null;
   vat_id: string | null;
+  /** Registergericht und -nummer fürs Impressum (Migration 045) */
+  register_court: string | null;
+  register_number: string | null;
+  /**
+   * Impressum als Abschnittsliste mit Platzhaltern (lib/impressum.ts).
+   * null = nie gepflegt, die Seite zeigt die Vorlage.
+   */
+  impressum: unknown;
   bank_name: string | null;
   iban: string | null;
   bic: string | null;
@@ -449,7 +457,7 @@ export interface CompanySettings {
    */
   pos_closing_from: string | null;
   /**
-   * Wartungsmodus (Migration 041): true = unregistrierte Besucher sehen
+   * Wartungsmodus (Migration 045): true = unregistrierte Besucher sehen
    * /wartung statt der echten Seiten. Angemeldete Kunden und Admin sind
    * davon nie betroffen, siehe proxy.ts.
    */

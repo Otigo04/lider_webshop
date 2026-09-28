@@ -21,7 +21,11 @@ export function CatalogCard({
   product: PublicProductListItem;
   className?: string;
 }) {
-  const rabatt = reduzierung(product.list_price, product.priceFrom);
+  const rabatt = reduzierung(
+    product.list_price,
+    product.priceFrom,
+    product.retail_price,
+  );
 
   return (
     // Das Herz steht neben dem Link, nicht darin (siehe MerkButton). Es sitzt

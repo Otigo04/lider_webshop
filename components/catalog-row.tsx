@@ -22,7 +22,11 @@ export function CatalogRow({
   rang?: number;
   className?: string;
 }) {
-  const rabatt = reduzierung(product.list_price, product.priceFrom);
+  const rabatt = reduzierung(
+    product.list_price,
+    product.priceFrom,
+    product.retail_price,
+  );
 
   return (
     <Link
