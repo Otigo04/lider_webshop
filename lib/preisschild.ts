@@ -7,7 +7,7 @@
  * Stellen, liefe die Vorschau über kurz oder lang neben dem Papier her.
  */
 
-import { MODUL_HART, MODUL_NENN } from "@/lib/barcode";
+import { MODUL_HART, MODUL_NENN, barcode, type Barcode } from "@/lib/barcode";
 import { toNumber } from "@/lib/format";
 import { reduzierung } from "@/lib/pricing";
 
@@ -199,7 +199,7 @@ export function schildMasse(
      */
     name: klemme(innenH * 0.1, 1.8, 8),
     /** Wunschgröße des Euro-Betrags – die Breitenprüfung kann sie kürzen. */
-    preis: klemme(innenH * 0.38 * k, 4, 40),
+    preis: klemme(innenH * 0.44 * k, 4, 40),
     vorher: klemme(innenH * 0.125 * k, 1.8, 10),
     prozent: klemme(innenH * 0.125 * k, 1.8, 10),
     kennung: klemme(innenH * 0.135, 1.8, 11),
@@ -304,22 +304,41 @@ export function barcodeKasten(
 }
 
 /**
+ * Rangfolge in der Fußzeile: Artikelnummer, Strichcode, Label.
+ *
+ * Die Zeile trägt drei Dinge, die nicht alle zugleich ihre Wunschbreite
+ * bekommen können. Die Reihenfolge ist keine Geschmacksfrage:
+ *
+ *  1. **Artikelnummer samt verdecktem Großhandelspreis.** Danach wird im
+ *     Laden nachgeschlagen und danach kalkuliert; eine abgeschnittene Nummer
+ *     ist eine falsche Nummer.
+ *  2. **Strichcode.** Er muss scannbar sein, sonst ist er nichts – eine
+ *     halbe Breite gibt es nicht, nur richtig oder weg.
+ *  3. **Label.** „Neu" oder „Topseller" ist Werbung. Sie darf schrumpfen und
+ *     zur Not entfallen; die beiden darüber dürfen es nicht.
+ *
+ * Wichtig dabei: Größe der Nummer und Breite des Codes werden **ohne** das
+ * Label gerechnet. Ein gesetztes Label darf am übrigen Schild nichts
+ * verändern, sonst stünde dieselbe Artikelnummer je nach Werbeaufkleber in
+ * zwei verschiedenen Größen auf dem Bogen.
+ */
+
+/**
  * Anteil der Schildbreite, den der Strichcode höchstens bekommt.
  *
  * Er steht neben der Artikelnummer und nicht unter ihr: ein eigener Block
  * kostete Höhe, die der Preis besser braucht, und schob dem Schild einen
- * vierten Streifen unter. Die andere Hälfte bleibt damit der Nummer –
- * genug für „110002#077" in lesbarer Größe.
+ * vierten Streifen unter. Der Rest bleibt der Nummer – genug für
+ * „110002#077" in lesbarer Größe.
  */
 const BARCODE_ANTEIL = 0.55;
 
 /**
  * Anteil der Schildbreite, der der Artikelnummer auf jeden Fall bleibt.
  *
- * Ohne diese Reserve nähmen Strichcode und Label ihr die ganze Zeile, und
- * weil die Zelle überstehenden Inhalt abschneidet, stünde am Regal
- * „110002#0" – eine Nummer, die es nicht gibt. Lieber kleinere Ziffern als
- * falsche.
+ * Ohne diese Reserve nähme der Strichcode ihr die ganze Zeile, und weil die
+ * Zelle überstehenden Inhalt abschneidet, stünde am Regal „110002#0" – eine
+ * Nummer, die es nicht gibt. Lieber kleinere Ziffern als falsche.
  */
 const KENNUNG_ANTEIL = 0.28;
 
@@ -332,6 +351,8 @@ const KENNUNG_ANTEIL = 0.28;
  * einem 97-mm-Schild müssen die Striche nicht mitwachsen, gelesen wird ohnehin
  * aus dreißig Zentimetern.
  *
+ * Kennt das Label nicht: siehe Rangfolge oben.
+ *
  * `modul` unter MODUL_MIN heißt: gedruckt wird er, aber ob jeder Scanner ihn
  * nimmt, steht dahin – die Werkbank weist darauf hin. Unter MODUL_HART ist es
  * kein Strichcode mehr, sondern ein grauer Streifen; dann zeichnet der
@@ -340,12 +361,9 @@ const KENNUNG_ANTEIL = 0.28;
 export function barcodeMasse(
   module: number,
   masse: ReturnType<typeof schildMasse>,
-  /** Breite, die das Label in derselben Zeile schon belegt. */
-  belegt = 0,
 ): { breite: number; modul: number } {
   const frei =
     masse.innenB -
-    belegt -
     masse.innenB * KENNUNG_ANTEIL -
     masse.luft * 0.7 -
     2 * masse.barcodeRand;
@@ -357,6 +375,84 @@ export function barcodeMasse(
 /** Taugt der errechnete Strichcode noch etwas, oder besser gar keinen? */
 export function strichcodeTaugt(modul: number): boolean {
   return modul >= MODUL_HART;
+}
+
+/** Was in der Fußzeile steht und wie breit es ist. */
+export interface FussAufteilung {
+  /** Artikelnummer samt verdecktem Code, ggf. mit Klartext-Rückfall. */
+  kennung: string;
+  kennungGroesse: number;
+  /**
+   * Die Barcodenummer als Text, weil sie kein EAN ist – sonst null. Steckt
+   * bereits in `kennung`; die Aufrufer zeichnen sie als eigenes Element, weil
+   * sie zurückgenommen gesetzt wird.
+   */
+  klartext: string | null;
+  /** Strichcode, falls einer gezeichnet wird. */
+  code: Barcode | null;
+  balken: { breite: number; modul: number } | null;
+  kasten: { breite: number; hoehe: number; rand: number } | null;
+  /** Schriftgröße des Labels. 0 = kein Platz, es entfällt. */
+  labelGroesse: number;
+  /** Label ist gesetzt, passt aber nicht mehr. */
+  labelEntfaellt: boolean;
+}
+
+/**
+ * Die ganze Fußzeile in einem Rutsch – Rangfolge inklusive.
+ *
+ * Druckbogen, Vorschau und Werkbank brauchen dieselben Zahlen: der Bogen zum
+ * Zeichnen, die Vorschau, damit sie dasselbe zeigt, und die Werkbank, um zu
+ * warnen. Dreimal dieselbe Reihenfolge von Hand hieße, dass sie beim nächsten
+ * Eingriff an zwei von drei Stellen nachgezogen wird.
+ */
+export function fussAufteilung(
+  schild: Pick<Preisschild, "sku" | "code" | "barcode" | "label">,
+  masse: ReturnType<typeof schildMasse>,
+): FussAufteilung {
+  const roh = masse.barcode > 0 ? barcode(schild.barcode) : null;
+  const balken = roh ? barcodeMasse(roh.breite, masse) : null;
+  const code = balken && strichcodeTaugt(balken.modul) ? roh : null;
+  const kasten = code && balken ? barcodeKasten(masse, balken.breite) : null;
+  const belegt = kasten ? kasten.breite + masse.luft * 0.7 : 0;
+
+  /*
+   * Klartext der Barcodenummer nur, wenn sie **kein** EAN ist. Wurde der Code
+   * bloß aus Platzmangel weggelassen, hülfe die Ziffernfolge niemandem: sie
+   * ist dreizehnstellig und stünde in Ameisengröße da.
+   */
+  const klartext = roh ? null : (schild.barcode ?? null);
+  const kennung = schildKennung(schild.sku, schild.code, klartext);
+  const kennungGroesse = kennungSchriftgroesse(kennung, masse, belegt);
+  const groesse = labelGroesse(
+    schild.label,
+    masse,
+    masse.innenB - kennungBreite(kennung, kennungGroesse) - belegt,
+  );
+
+  return {
+    kennung,
+    kennungGroesse,
+    code,
+    balken,
+    kasten,
+    labelGroesse: groesse,
+    labelEntfaellt: Boolean(schild.label) && groesse <= 0,
+  };
+}
+
+/**
+ * Breite eines Zeichens der Fußzeile in em.
+ *
+ * 0,58: Ziffern in halbfetter Groteske messen rund 0,56, das „#" ist breiter.
+ * Mit 0,56 lief die Zeile um ein, zwei Pixel über und die Zelle schnitt die
+ * letzte Ziffer ab. Lieber eine Spur kleiner setzen.
+ */
+export const KENNUNG_EM = 0.58;
+
+/** Breite der Artikelnummer bei gegebener Schriftgröße, in Millimetern. */
+export function kennungBreite(text: string, groesse: number): number {
+  return Math.max(1, text.length) * KENNUNG_EM * groesse;
 }
 
 /**
@@ -515,22 +611,43 @@ export function labelSchrift(farbe: string): "#000" | "#fff" {
 export const LABEL_LUFT = 0.9;
 
 /**
- * Breite des Labels in der Fußzeile, in Millimetern. Geschätzt wie der Preis:
- * es muss nur verhindern, dass die Artikelnummer unter das Label läuft.
+ * Breite eines Labels bei gegebener Schriftgröße, in Millimetern.
  *
  * 0,72 em je Zeichen, und damit **absichtlich großzügig**: gemessen sind es
  * rund 0,715 für fette Versalien samt Sperrung. Die Schätzung darf nach oben
- * daneben liegen – dann steht die Artikelnummer eine Spur kleiner da. Liegt
- * sie nach unten daneben, schneidet die Zelle die Nummer ab, und am Regal
- * steht „110002#120" statt „110002#1200".
+ * daneben liegen – dann bleibt neben dem Label etwas Luft. Liegt sie nach
+ * unten daneben, schneidet die Zelle ab, was nicht mehr hineinpasst.
  */
 export function labelBreite(
   label: SchildLabel | null,
+  groesse: number,
   masse: ReturnType<typeof schildMasse>,
+): number {
+  if (!label || groesse <= 0) return 0;
+  const em = Array.from(label.name.toUpperCase()).length * 0.72 + LABEL_LUFT;
+  return em * groesse + masse.luft * 0.7;
+}
+
+/**
+ * Schriftgröße des Labels, auf den übrig gebliebenen Platz begrenzt.
+ *
+ * Das Label ist das Letzte in der Rangfolge (siehe dort): Artikelnummer und
+ * Strichcode haben ihre Breite schon genommen, hier wird verteilt, was noch
+ * da ist. Bleibt weniger als die halbe Wunschgröße, gibt es kein Label – ein
+ * „TOPSELLER" in Ameisengröße liest am Regal niemand, es nähme der
+ * Artikelnummer aber weiter Platz weg.
+ */
+export function labelGroesse(
+  label: SchildLabel | null,
+  masse: ReturnType<typeof schildMasse>,
+  /** Restbreite der Fußzeile, Abstand eingerechnet. */
+  frei: number,
 ): number {
   if (!label) return 0;
   const em = Array.from(label.name.toUpperCase()).length * 0.72 + LABEL_LUFT;
-  return em * masse.label + masse.luft * 0.7;
+  const passend = (frei - masse.luft * 0.7) / em;
+  if (passend >= masse.label) return masse.label;
+  return passend >= masse.label * 0.5 ? passend : 0;
 }
 
 function klemme(wert: number, min: number, max: number): number {
@@ -607,8 +724,18 @@ export function nebenblockBreite(
     const em = 0.62 + emBreite(String(prozent)) + 0.3 + 0.62 + 0.8;
     breite = Math.max(breite, em * masse.prozent);
   }
-  return breite + masse.luft * 0.7;
+  return breite + PREIS_ABSTAND * masse.luft;
 }
+
+/**
+ * Abstand zwischen Preis und Nebenblock, als Vielfaches der Schildluft.
+ *
+ * Großzügiger als die übrigen Abstände: der Streichpreis stand mit dem
+ * Eurozeichen des gültigen Preises fast auf Tuchfühlung, und beim
+ * Vorbeigehen verschmolz das zu einer einzigen langen Zahl. Der Abstand ist
+ * hier keine Zierde, sondern die Trennung zweier Preise.
+ */
+export const PREIS_ABSTAND = 1.1;
 
 /**
  * Schriftgröße des Preises, auf die freie Schildbreite begrenzt.
@@ -645,15 +772,13 @@ export function preisSchriftgroesse(
 export function kennungSchriftgroesse(
   text: string,
   masse: ReturnType<typeof schildMasse>,
-  /** Von Strichcode und Label rechts daneben belegte Breite. */
+  /**
+   * Vom Strichcode rechts daneben belegte Breite. Das Label zählt hier
+   * **nicht** mit – es kommt nach der Nummer dran, siehe Rangfolge.
+   */
   belegt = 0,
 ): number {
-  /*
-   * 0,58 em je Zeichen. Ziffern in halbfetter Groteske messen rund 0,56, das
-   * „#" ist breiter – mit 0,56 lief die Zeile um ein, zwei Pixel über und die
-   * Zelle schnitt die letzte Ziffer ab. Lieber eine Spur kleiner setzen.
-   */
-  const breite = Math.max(1, text.length) * 0.58;
+  const breite = Math.max(1, text.length) * KENNUNG_EM;
   /*
    * Kein großzügiger Mindestplatz mehr: seit der Strichcode in derselben
    * Zeile steht, wäre eine Untergrenze über dem tatsächlich freien Platz

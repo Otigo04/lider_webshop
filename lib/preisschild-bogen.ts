@@ -1,5 +1,5 @@
 import "server-only";
-import { barcode as strichcode, type Barcode } from "@/lib/barcode";
+import { barcode as strichcode } from "@/lib/barcode";
 import { formatPrice } from "@/lib/format";
 import {
   AKTIONSROT,
@@ -8,16 +8,14 @@ import {
   LABEL_LUFT,
   NAME_GEWICHT,
   NAME_ZEILE,
+  PREIS_ABSTAND,
   RAND,
   SCHRIFT,
   SEITE,
-  barcodeKasten,
-  barcodeMasse,
+  fussAufteilung,
   fussHoehe,
   istReduziert,
-  kennungSchriftgroesse,
   kopfHoehe,
-  labelBreite,
   labelSchrift,
   nameBreite,
   nameSatz,
@@ -25,9 +23,8 @@ import {
   preisSchriftgroesse,
   preisTeile,
   raster,
-  schildKennung,
   schildMasse,
-  strichcodeTaugt,
+  type FussAufteilung,
   type Preisschild,
   type SchildFormat,
 } from "@/lib/preisschild";
@@ -103,28 +100,9 @@ function schild(s: Preisschild, format: SchildFormat, mitCode: boolean): string 
   // sonst wandert die Nummer als Text in die Fußzeile.
   const belegt = nebenblockBreite(s.vorher, s.prozent, masse);
 
-  /*
-   * Fußzeile von rechts nach links aufgeteilt: das Label behält sein Maß,
-   * der Strichcode nimmt sich davon, was bis zur Reserve der Artikelnummer
-   * übrig ist, und die Nummer bekommt den Rest. Bleibt für den Code zu wenig,
-   * gibt es keinen – die Nummer steht dann im Klartext da.
-   */
-  const labelB = labelBreite(s.label, masse);
-  const roh = masse.barcode > 0 ? strichcode(s.barcode) : null;
-  const balken = roh ? barcodeMasse(roh.breite, masse, labelB) : null;
-  const code = balken && strichcodeTaugt(balken.modul) ? roh : null;
-  /*
-   * Klartext nur, wenn die Nummer **kein** EAN ist. Wurde der Code bloß aus
-   * Platzmangel weggelassen, hülfe die Ziffernfolge niemandem: sie ist
-   * dreizehnstellig, und in der Breite, die übrig war, stünde sie in
-   * Ameisengröße da und nähme der Artikelnummer auch noch den Rest.
-   */
-  const kennung = schildKennung(s.sku, s.code, roh ? null : s.barcode);
-  const belegtRechts =
-    labelB +
-    (code && balken
-      ? barcodeKasten(masse, balken.breite).breite + masse.luft * 0.7
-      : 0);
+  // Fußzeile nach Rangfolge: Artikelnummer, Strichcode, Label – gerechnet in
+  // fussAufteilung(), damit Bogen, Vorschau und Werkbank dieselbe Zeile sehen.
+  const fuss = fussAufteilung(s, masse);
 
   const neben =
     s.vorher !== null || s.prozent !== null
@@ -134,9 +112,10 @@ function schild(s: Preisschild, format: SchildFormat, mitCode: boolean): string 
         </div>`
       : "";
 
-  const label = s.label
-    ? `<span class="label" style="background:${esc(s.label.farbe)};color:${labelSchrift(s.label.farbe)}">${esc(s.label.name)}</span>`
-    : "";
+  const label =
+    s.label && fuss.labelGroesse > 0
+      ? `<span class="label" style="font-size:${mm(fuss.labelGroesse)};background:${esc(s.label.farbe)};color:${labelSchrift(s.label.farbe)}">${esc(s.label.name)}</span>`
+      : "";
 
   // Die Bezeichnung setzt das Skript am Ende des Bogens in zwei Zeilen
   // (nameSatz()): messen kann erst der Browser, der die Schrift hat. Bis
@@ -157,12 +136,12 @@ function schild(s: Preisschild, format: SchildFormat, mitCode: boolean): string 
     </div>
     <div class="trenner"></div>
     <div class="fuss">
-      <span class="kennung" style="font-size:${mm(kennungSchriftgroesse(kennung, masse, belegtRechts))}">${
+      <span class="kennung" style="font-size:${mm(fuss.kennungGroesse)}">${
         esc(s.sku)
       }${s.code ? `<span class="code">#${esc(s.code)}</span>` : ""}${
-        !roh && s.barcode ? `<span class="barcode">${esc(s.barcode)}</span>` : ""
+        !fuss.code && s.barcode ? `<span class="barcode">${esc(s.barcode)}</span>` : ""
       }</span>
-      ${strichbild(code, balken, masse, rot)}
+      ${strichbild(fuss, masse, rot)}
       ${label}
     </div>
   </div>`;
@@ -186,14 +165,13 @@ function schild(s: Preisschild, format: SchildFormat, mitCode: boolean): string 
  * ihrem Platz abgezogen – der Code käme gestaucht aus dem Drucker.
  */
 function strichbild(
-  code: Barcode | null,
-  balken: { breite: number; modul: number } | null,
+  fuss: FussAufteilung,
   masse: ReturnType<typeof schildMasse>,
   rot: boolean,
 ): string {
-  if (masse.barcode <= 0 || !code || !balken) return "";
+  const { code, balken, kasten } = fuss;
+  if (masse.barcode <= 0 || !code || !balken || !kasten) return "";
 
-  const kasten = barcodeKasten(masse, balken.breite);
   const striche = code.abschnitte
     .map(
       (a) =>
@@ -383,7 +361,7 @@ export function buildLabelSheetHtml(
   .preiszeile {
     display: flex;
     align-items: center;
-    gap: ${mm(m.luft * 0.7)};
+    gap: ${mm(m.luft * PREIS_ABSTAND)};
     min-width: 0;
   }
 
@@ -417,7 +395,7 @@ export function buildLabelSheetHtml(
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: ${mm(m.luft * 0.3)};
+    gap: ${mm(m.luft * 0.45)};
     flex: none;
   }
 
@@ -454,11 +432,14 @@ export function buildLabelSheetHtml(
     height: ${mm(fussHoehe(m))};
     flex: none;
   }
-  /* Die Nummer nimmt, was übrig ist; Strichcode und Label behalten ihr Maß. */
+  /* Die Nummer bekommt ihre gerechnete Breite und darf den Rest der Zeile
+     füllen; Strichcode und Label behalten, was ihnen zugeteilt wurde. */
   .fuss .kennung { flex: 1; }
 
+  /* Die Schriftgröße steht inline: sie hängt davon ab, was Artikelnummer und
+     Strichcode übrig gelassen haben – das Label ist das Letzte in der
+     Rangfolge und schrumpft, statt den beiden Platz zu nehmen. */
   .label {
-    font-size: ${mm(m.label)};
     font-weight: 700;
     line-height: 1;
     text-transform: uppercase;

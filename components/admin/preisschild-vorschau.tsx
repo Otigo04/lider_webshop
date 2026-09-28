@@ -1,6 +1,5 @@
 "use client";
 
-import { barcode as strichcode } from "@/lib/barcode";
 import { formatPrice } from "@/lib/format";
 import {
   AKTIONSROT,
@@ -9,23 +8,19 @@ import {
   LABEL_LUFT,
   NAME_GEWICHT,
   NAME_ZEILE,
+  PREIS_ABSTAND,
   SCHRIFT,
-  barcodeKasten,
-  barcodeMasse,
+  fussAufteilung,
   fussHoehe,
   istReduziert,
-  kennungSchriftgroesse,
   kopfHoehe,
-  labelBreite,
   labelSchrift,
   nameBreite,
   nameSatz,
   nebenblockBreite,
   preisSchriftgroesse,
   preisTeile,
-  schildKennung,
   schildMasse,
-  strichcodeTaugt,
   type Preisschild,
   type SchildFormat,
 } from "@/lib/preisschild";
@@ -75,18 +70,10 @@ export function PreisschildVorschau({
   const { euro, cent } = preisTeile(schild.preis);
   const satz = nameSatz(schild.name, nameBreite(m, !!schild.icon), m.name, messen);
 
-  // Breitenaufteilung der Fußzeile – dieselbe Reihenfolge wie im Druckbogen:
-  // Label behält sein Maß, Strichcode nimmt den Rest bis zur Reserve der
-  // Artikelnummer, und zu schmal heißt: lieber keiner.
-  const labelB = labelBreite(schild.label, m);
-  const roh = m.barcode > 0 ? strichcode(schild.barcode) : null;
-  const balken = roh ? barcodeMasse(roh.breite, m, labelB) : null;
-  const code = balken && strichcodeTaugt(balken.modul) ? roh : null;
-  // Klartext nur bei einer Nummer, die kein EAN ist – siehe Druckbogen.
-  const kennung = schildKennung(schild.sku, schild.code, roh ? null : schild.barcode);
-  const kasten = balken ? barcodeKasten(m, balken.breite) : null;
-  const belegtRechts =
-    labelB + (code && kasten ? kasten.breite + m.luft * 0.7 : 0);
+  // Fußzeile nach Rangfolge – dieselbe Rechnung wie im Druckbogen, damit die
+  // Vorschau zeigt, was aus dem Drucker kommt.
+  const { kennung, kennungGroesse, code, balken, kasten, labelGroesse: labelG } =
+    fussAufteilung(schild, m);
 
   const trenner: React.CSSProperties = {
     height: `${m.linie}mm`,
@@ -176,7 +163,7 @@ export function PreisschildVorschau({
           style={{
             display: "flex",
             alignItems: "center",
-            gap: `${m.luft * 0.7}mm`,
+            gap: `${m.luft * PREIS_ABSTAND}mm`,
             minWidth: 0,
           }}
         >
@@ -226,7 +213,7 @@ export function PreisschildVorschau({
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "flex-start",
-                gap: `${m.luft * 0.3}mm`,
+                gap: `${m.luft * 0.45}mm`,
                 flex: "none",
               }}
             >
@@ -278,7 +265,7 @@ export function PreisschildVorschau({
       >
         <span
           style={{
-            fontSize: `${kennungSchriftgroesse(kennung, m, belegtRechts)}mm`,
+            fontSize: `${kennungGroesse}mm`,
             fontWeight: 600,
             lineHeight: 1,
             fontVariantNumeric: "tabular-nums",
@@ -294,7 +281,7 @@ export function PreisschildVorschau({
             <span style={{ color: rot ? "#000" : CODEROT }}>#{schild.code}</span>
           ) : null}
           {/* Rückfall nur bei einer Nummer, die kein EAN ist. */}
-          {!roh && schild.barcode ? (
+          {!code && schild.barcode ? (
             <span style={{ opacity: 0.7, fontWeight: 500 }}>
               {" · "}
               {schild.barcode}
@@ -331,10 +318,10 @@ export function PreisschildVorschau({
           </div>
         ) : null}
 
-        {schild.label ? (
+        {schild.label && labelG > 0 ? (
           <span
             style={{
-              fontSize: `${m.label}mm`,
+              fontSize: `${labelG}mm`,
               fontWeight: 700,
               lineHeight: 1,
               textTransform: "uppercase",

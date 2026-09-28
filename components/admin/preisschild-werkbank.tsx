@@ -16,7 +16,6 @@ import {
   barcodeMasse,
   formatMass,
   ghCode,
-  labelBreite,
   proBogen,
   schildMasse,
   schildPreis,
@@ -143,10 +142,10 @@ export function PreisschildWerkbank({
     zeilen.some((z) => z.barcode && strichcode(z.barcode));
   /*
    * Schmalste Striche der Liste. Wie schmal sie werden, hängt am längsten
-   * Code und daran, wie viel das Label in derselben Zeile schon wegnimmt.
-   * Unter dem Normmaß druckt ein Bürodrucker sie nicht mehr zuverlässig –
-   * das Schild sieht dann richtig aus und lässt sich trotzdem nicht scannen,
-   * und das merkt man erst an der Kasse.
+   * Code – das Label spielt keine Rolle mehr, es kommt in der Rangfolge nach
+   * dem Strichcode. Unter dem Normmaß druckt ein Bürodrucker sie nicht mehr
+   * zuverlässig; das Schild sieht dann richtig aus und lässt sich trotzdem
+   * nicht scannen, und das merkt man erst an der Kasse.
    */
   const striche = (() => {
     if (!codePlatz || !format) return null;
@@ -154,9 +153,7 @@ export function PreisschildWerkbank({
     const werte = zeilen
       .map((z) => {
         const code = strichcode(z.barcode);
-        if (!code) return null;
-        return barcodeMasse(code.breite, masse, labelBreite(alsSchild(z).label, masse))
-          .modul;
+        return code ? barcodeMasse(code.breite, masse).modul : null;
       })
       .filter((v): v is number => v !== null);
     return werte.length > 0 ? Math.min(...werte) : null;
