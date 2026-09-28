@@ -433,6 +433,7 @@ export function fussAufteilung(
   return {
     kennung,
     kennungGroesse,
+    klartext,
     code,
     balken,
     kasten,
