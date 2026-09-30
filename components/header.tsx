@@ -40,13 +40,13 @@ export async function Header() {
 
   return (
     <header className="sticky top-0 z-40 bg-surface-dark text-surface-dark-foreground">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4">
+      <div className="mx-auto flex h-[4.5rem] max-w-6xl items-center justify-between gap-4 px-4">
         <Link
           href="/"
-          className="group flex shrink-0 items-center gap-2.5 leading-none focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold"
+          className="group flex shrink-0 flex-col items-center gap-0.5 leading-none focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold"
         >
           {logoPath ? (
-            <span className="relative block size-9 shrink-0 transition-transform duration-300 group-hover:scale-105 sm:size-10">
+            <span className="relative block size-10 shrink-0 transition-transform duration-300 group-hover:scale-105">
               <Image
                 src={logoPath}
                 alt="LIDER Groß- und Einzelhandel"
@@ -58,13 +58,12 @@ export async function Header() {
             </span>
           ) : null}
           {wordmarkPath ? (
-            /* Auf dem Handy kleiner: Wappen, Schriftzug, Warenkorb,
-               Benutzermenü und Klappmenü zusammen brauchten bei 390 px mehr
-               Platz als die Leiste hat – die Seite ließ sich seitlich
-               schieben. Die Breite folgt der Höhe über das Seitenverhältnis
-               der Datei, damit der Schriftzug nicht verzerrt. */
+            /* Unter dem Wappen, wie im Lockup: so bleibt die Leiste bei h-16
+               und wird schmaler statt höher. Die Breite folgt der Höhe über
+               das Seitenverhältnis der Datei, damit der Schriftzug nicht
+               verzerrt. */
             <span
-              className="relative block h-7 w-[calc(1.75rem*var(--wortmarke-ar))] sm:h-10 sm:w-[calc(2.5rem*var(--wortmarke-ar))]"
+              className="relative block h-5 w-[calc(1.25rem*var(--wortmarke-ar))]"
               style={
                 {
                   "--wortmarke-ar": String(LOGO_WORDMARK_ASPECT),
@@ -75,9 +74,9 @@ export async function Header() {
                 src={wordmarkPath}
                 alt="LIDER"
                 fill
-                sizes="200px"
+                sizes="100px"
                 priority
-                className="object-contain object-left"
+                className="object-contain"
               />
             </span>
           ) : (

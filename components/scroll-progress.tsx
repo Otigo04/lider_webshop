@@ -39,7 +39,7 @@ export function ScrollProgress() {
   return (
     <div
       aria-hidden
-      className="sticky top-14 z-30 h-[2px] w-full bg-transparent"
+      className="sticky top-[calc(4.5rem+2px)] z-30 h-[2px] w-full bg-transparent"
     >
       <div
         className="h-full bg-brand transition-[width] duration-150 ease-out"
