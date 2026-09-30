@@ -13,7 +13,8 @@ import {
 import { OrderStatusBadge } from "@/components/order-status-badge";
 import { requireUser } from "@/lib/auth";
 import { formatDate, formatDateTime, formatPrice, formatQuantity } from "@/lib/format";
-import { getInvoiceForOrder, getOrder } from "@/lib/queries/orders";
+import { getInvoiceForOrder, getNachbestellung, getOrder } from "@/lib/queries/orders";
+import { ReorderButton } from "@/components/reorder-button";
 import { getCompanySettings } from "@/lib/queries/settings";
 import { getInvoiceUrl } from "@/lib/storage";
 import { steuer } from "@/lib/vat";
@@ -58,9 +59,10 @@ export default async function OrderDetailPage({
   if (!order) notFound();
 
   const items = order.items ?? [];
-  const [invoice, company] = await Promise.all([
+  const [invoice, company, nachbestellung] = await Promise.all([
     getInvoiceForOrder(id),
     getCompanySettings(),
+    getNachbestellung(items),
   ]);
   const invoiceUrl = await getInvoiceUrl(invoice?.file_path);
 
@@ -100,16 +102,25 @@ export default async function OrderDetailPage({
         </div>
       ) : null}
 
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+      <div className="mt-6 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight tabular">
-            {order.order_number}
-          </h1>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-2xl font-semibold tracking-tight tabular">
+              {order.order_number}
+            </h1>
+            <OrderStatusBadge status={order.status} />
+          </div>
           <p className="mt-1 text-sm text-muted-foreground tabular">
             Bestellt am {formatDate(order.created_at)}
           </p>
         </div>
-        <OrderStatusBadge status={order.status} />
+        {/* Direkt nach dem Absenden wäre „nochmal dasselbe" die falsche Frage. */}
+        {frischBestellt ? null : (
+          <ReorderButton
+            items={nachbestellung.items}
+            fehlend={nachbestellung.fehlend}
+          />
+        )}
       </div>
 
       <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_20rem]">

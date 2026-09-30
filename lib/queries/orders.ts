@@ -1,6 +1,17 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
-import type { AppUser, Invoice, Order, OrderItem, OrderStatus } from "@/lib/types";
+import { freeStock, minOrderQuantity } from "@/lib/pricing";
+import { firstImagePath } from "@/lib/queries/products";
+import type {
+  AppUser,
+  CartItem,
+  Invoice,
+  Order,
+  OrderItem,
+  OrderStatus,
+  ProductImage,
+  ProductVariant,
+} from "@/lib/types";
 
 /**
  * Bestellungen des angemeldeten Kunden. Die Eingrenzung macht RLS
@@ -59,6 +70,103 @@ export async function getOrder(id: string): Promise<OrderWithItems | null> {
     return null;
   }
   return (data as unknown as OrderWithItems) ?? null;
+}
+
+export interface Nachbestellung {
+  /** Mit heutigem Preis und Bestand, Menge auf den freien Bestand begrenzt */
+  items: CartItem[];
+  /** Positionen, die es so nicht mehr gibt: ausgelistet oder ausverkauft */
+  fehlend: string[];
+}
+
+/**
+ * Warenkorbpositionen für „Erneut bestellen". Preise und Bestand kommen
+ * frisch aus dem Katalog – die Bestellung hält nur den Stand von damals.
+ *
+ * Gefunden wird der Artikel über die bestellte Staffel, ersatzweise über die
+ * Artikelnummer: eine Staffel, die seitdem neu angelegt wurde, hat eine neue
+ * Kennung, und order_items verliert sie dann (ON DELETE SET NULL).
+ */
+export async function getNachbestellung(items: OrderItem[]): Promise<Nachbestellung> {
+  if (items.length === 0) return { items: [], fehlend: [] };
+  const supabase = await createClient();
+
+  const staffelIds = items
+    .map((item) => item.product_variant_id)
+    .filter((id): id is string => id !== null);
+  const { data: staffeln } = staffelIds.length
+    ? await supabase.from("product_variants").select("id, product_id").in("id", staffelIds)
+    : { data: [] as { id: string; product_id: string }[] };
+  const artikelZurStaffel = new Map((staffeln ?? []).map((s) => [s.id, s.product_id]));
+
+  const ids = [...new Set(artikelZurStaffel.values())];
+  const skus = [...new Set(items.map((item) => item.product_sku))];
+  const filter = [
+    ids.length ? `id.in.(${ids.join(",")})` : null,
+    `sku.in.(${skus.map((sku) => `"${sku.replaceAll('"', '\\"')}"`).join(",")})`,
+  ]
+    .filter(Boolean)
+    .join(",");
+
+  const { data, error } = await supabase
+    .from("products")
+    .select(
+      `id, sku, name, is_active, has_image, stock_available, stock_reserved,
+       variants:product_variants (id, product_id, min_quantity, max_quantity, unit_price, created_at),
+       images:product_images (id, product_id, file_path, display_order, created_at)`,
+    )
+    .or(filter);
+  if (error) {
+    console.error("[bestellungen] Nachbestellung:", error.message);
+    return { items: [], fehlend: items.map((item) => item.product_name) };
+  }
+
+  type Zeile = {
+    id: string;
+    sku: string;
+    name: string;
+    is_active: boolean;
+    has_image: boolean;
+    stock_available: number;
+    stock_reserved: number;
+    variants: ProductVariant[] | null;
+    images: ProductImage[] | null;
+  };
+  const artikel = (data ?? []) as unknown as Zeile[];
+  const nachId = new Map(artikel.map((a) => [a.id, a]));
+  const nachSku = new Map(artikel.map((a) => [a.sku, a]));
+
+  const ergebnis = new Map<string, CartItem>();
+  const fehlend: string[] = [];
+
+  for (const item of items) {
+    const produktId = item.product_variant_id
+      ? artikelZurStaffel.get(item.product_variant_id)
+      : undefined;
+    const a = (produktId ? nachId.get(produktId) : undefined) ?? nachSku.get(item.product_sku);
+    const tiers = a?.variants ?? [];
+    const frei = a ? freeStock(a) : 0;
+    const min = minOrderQuantity(tiers);
+
+    // Dieselben Regeln wie im Sortiment: aktiv, mit Foto, mit Preis, auf Lager.
+    if (!a || !a.is_active || !a.has_image || tiers.length === 0 || frei < min) {
+      fehlend.push(item.product_name);
+      continue;
+    }
+
+    const vorher = ergebnis.get(a.id)?.quantity ?? 0;
+    ergebnis.set(a.id, {
+      productId: a.id,
+      productName: a.name,
+      productSku: a.sku,
+      quantity: Math.min(Math.max(vorher + item.quantity, min), frei),
+      tiers,
+      maxStock: frei,
+      imagePath: firstImagePath(a.images),
+    });
+  }
+
+  return { items: [...ergebnis.values()], fehlend };
 }
 
 /**
