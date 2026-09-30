@@ -108,9 +108,11 @@ export interface Reduzierung {
  *
  * Zeigt der Aufrufer einen anderen Preis als den Ladenpreis (Shop:
  * Großhandel), wird der Prozentsatz auf diesen übertragen: `jetzt` ist der
- * angezeigte Preis, `vorher` derselbe Preis vor der Reduzierung. Ohne
- * gepflegten Ladenpreis gilt der angezeigte Preis selbst als Bezug – wie an
- * der Kasse, die dann auch zur Staffel greift.
+ * angezeigte Preis, `vorher` derselbe Preis vor der Reduzierung.
+ *
+ * Ohne Ladenpreis keine Reduzierung: der Vorher-Preis gegen den
+ * Großhandelspreis gerechnet ergäbe einen Rabatt, den es nie gab. Das
+ * Preisschild übergibt seinen Schildpreis selbst als Bezug.
  *
  * null, wenn kein Vorher-Preis gepflegt ist oder er nicht über dem Bezug
  * liegt: eine Ersparnis von 0 % oder gar eine negative wäre eine
@@ -131,15 +133,14 @@ export function reduzierung(
     ladenpreis !== null && ladenpreis !== undefined && toNumber(ladenpreis) > 0
       ? toNumber(ladenpreis)
       : null;
-  const bezug = laden ?? jetzt;
-  if (!(liste > bezug) || liste <= 0) return null;
+  if (laden === null) return null;
+  if (!(liste > laden) || liste <= 0) return null;
 
-  const prozent = Math.round(((liste - bezug) / liste) * 100);
+  const prozent = Math.round(((liste - laden) / liste) * 100);
   if (prozent <= 0) return null;
 
   // Gleiches Verhältnis wie im Laden, auf den angezeigten Preis übertragen.
-  const vorher =
-    laden === null ? liste : Math.round(((jetzt * liste) / laden) * 100) / 100;
+  const vorher = Math.round(((jetzt * liste) / laden) * 100) / 100;
   if (!(vorher > jetzt)) return null;
 
   return { vorher, jetzt, prozent };

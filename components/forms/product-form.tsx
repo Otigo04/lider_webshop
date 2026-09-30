@@ -144,11 +144,7 @@ export function ProductForm({
   const vorherWert = listPrice.trim() === "" ? null : Number(listPrice);
   const ladenWert =
     retailPrice.trim() === "" ? null : Number(retailPrice.replace(",", "."));
-  const ladenVorschau = reduzierung(
-    vorherWert,
-    ladenWert ?? guenstigsterPreis ?? null,
-    ladenWert,
-  );
+  const ladenVorschau = reduzierung(vorherWert, ladenWert, ladenWert);
   const shopVorschau = reduzierung(vorherWert, guenstigsterPreis ?? null, ladenWert);
 
   const [images, setImages] = useState<ImageRow[]>(() =>
@@ -456,22 +452,25 @@ export function ProductForm({
           {ladenVorschau ? (
             <div className="space-y-0.5 pb-2 text-sm font-medium text-signal tabular">
               <p>
-                {ladenWert !== null ? "Laden" : "Preis"}:{" "}
-                {formatPrice(ladenVorschau.vorher)} →{" "}
+                Laden: {formatPrice(ladenVorschau.vorher)} →{" "}
                 {formatPrice(ladenVorschau.jetzt)} · −{ladenVorschau.prozent} %
               </p>
-              {ladenWert !== null && shopVorschau ? (
+              {shopVorschau ? (
                 <p className="text-xs font-normal text-muted-foreground">
                   Shop: {formatPrice(shopVorschau.vorher)} →{" "}
                   {formatPrice(shopVorschau.jetzt)} netto
                 </p>
               ) : null}
             </div>
+          ) : listPrice && ladenWert === null ? (
+            <p className="pb-2 text-sm text-muted-foreground">
+              Ohne Ladenpreis keine Reduzierung – der Vorher-Preis wird mit dem
+              Ladenpreis verglichen, nicht mit dem Großhandelspreis.
+            </p>
           ) : listPrice ? (
             <p className="pb-2 text-sm text-muted-foreground">
-              Liegt nicht über dem aktuellen{" "}
-              {ladenWert !== null ? "Ladenpreis" : "Preis"} – es wird keine
-              Reduzierung angezeigt.
+              Liegt nicht über dem Ladenpreis – es wird keine Reduzierung
+              angezeigt.
             </p>
           ) : null}
         </div>

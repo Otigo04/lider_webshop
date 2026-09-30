@@ -523,9 +523,11 @@ mehr als 0 % Ersparnis übrig bleiben. Ein Cent Unterschied ist kein Angebot.
 - **Der Vorher-Preis ist ein Ladenpreis** (Migration 045). Ob und wie stark
   reduziert ist, entscheidet der Vergleich mit `retail_price` – vorher wurde
   gegen den Großhandelspreis gerechnet, und aus 9,99 → 8,99 im Laden wurde im
-  Shop „−55 %". Ohne gepflegten Ladenpreis gilt der angezeigte Preis als
-  Bezug (wie an der Kasse). `reduzierung(list, angezeigt, laden)` – der
-  dritte Parameter ist Pflicht, damit kein Aufrufer ihn vergisst.
+  Shop „−55 %". **Ohne gepflegten Ladenpreis keine Reduzierung** – ein
+  Rückfall auf den Großhandelspreis erfände einen Rabatt. Das Preisschild
+  übergibt seinen Schildpreis (Ladenpreis, ersatzweise Staffel) selbst als
+  Bezug. `reduzierung(list, angezeigt, laden)` – der dritte Parameter ist
+  Pflicht, damit kein Aufrufer ihn vergisst.
 - **Im Shop wird der Prozentsatz übertragen**: angezeigt wird der
   Großhandelspreis, der Streichpreis ist derselbe Preis vor der Reduzierung
   (`jetzt × list / laden`). In der Karte `range.from`, auf der Artikelseite
