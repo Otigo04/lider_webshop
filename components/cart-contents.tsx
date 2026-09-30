@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { ImageOff, ShoppingCart, Trash2 } from "lucide-react";
+import { ArrowLeft, ImageOff, ShoppingCart, Trash2 } from "lucide-react";
 import { useCart } from "@/lib/cart-context";
 import { useCartImages } from "@/lib/use-cart-images";
 import { formatPrice, formatQuantity } from "@/lib/format";
@@ -61,7 +61,8 @@ export function CartContents({
 
   return (
     <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
-      <ul className="divide-y divide-border rounded-md border border-border">
+      <div>
+        <ul className="divide-y divide-border rounded-md border border-border">
         {items.map((item) => {
           const tier = resolveTier(item.tiers, item.quantity);
           const min = minOrderQuantity(item.tiers);
@@ -144,7 +145,20 @@ export function CartContents({
             </li>
           );
         })}
-      </ul>
+        </ul>
+        {/* Weg vom Kassenknopf: dort unten leerte ein Fehlklick den ganzen Korb. */}
+        <div className="mt-2 text-right">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+            onClick={clear}
+          >
+            Warenkorb leeren
+          </Button>
+        </div>
+      </div>
 
       <aside className="h-fit rounded-md border border-border p-5 lg:sticky lg:top-20">
         <h2 className="font-medium">Zusammenfassung</h2>
@@ -221,14 +235,11 @@ export function CartContents({
         <Button asChild size="lg" className="mt-5 w-full">
           <Link href="/checkout">Zur Kasse</Link>
         </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="mt-2 w-full"
-          onClick={clear}
-        >
-          Warenkorb leeren
+        <Button asChild variant="outline" className="mt-2 w-full">
+          <Link href="/shop">
+            <ArrowLeft className="size-4" aria-hidden />
+            Weiter einkaufen
+          </Link>
         </Button>
       </aside>
     </div>

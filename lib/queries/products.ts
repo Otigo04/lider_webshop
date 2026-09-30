@@ -30,6 +30,8 @@ export interface ProductListItem extends Product {
   variants: ProductVariant[];
   /** Signierte URL des ersten Fotos, null wenn keins hinterlegt ist */
   imageUrl: string | null;
+  /** Storage-Pfad desselben Fotos – für den Warenkorb (CartItem.imagePath) */
+  imagePath?: string | null;
   /**
    * Wie viele Ausführungen dieses Angebots die Kachel vertritt (Migration
    * 033). Gesetzt von gruppiere(); 1 oder fehlend heißt: einzelner Artikel.
@@ -337,6 +339,7 @@ export async function getProducts(options?: {
     ...row,
     variants: row.variants ?? [],
     imageUrl: urls[index],
+    imagePath: coverPaths[index],
   }));
 }
 

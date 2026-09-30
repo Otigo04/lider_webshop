@@ -11,6 +11,7 @@ import {
 } from "@/lib/pricing";
 import { MerkButton } from "@/components/merk-button";
 import { ProductFlagBadges } from "@/components/product-flag-badges";
+import { QuickAddButton } from "@/components/quick-add-button";
 import { RabattBadge, SalePrice } from "@/components/sale-price";
 import { StockBadge } from "@/components/stock-badge";
 import type { ProductListItem } from "@/lib/queries/products";
@@ -39,6 +40,8 @@ export function ProductCard({
   const ausfuehrungen = product.ausfuehrungen ?? 1;
   const titel =
     ausfuehrungen > 1 ? (product.group?.name ?? product.name) : product.name;
+  // Bei einem Angebot mit Ausführungen muss erst gewählt werden, welche.
+  const schnellKauf = ausfuehrungen === 1 && range !== null && free >= minQty;
 
   return (
     // Das Herz steht neben dem Link, nicht darin (siehe MerkButton). Es sitzt
@@ -97,7 +100,7 @@ export function ProductCard({
           ) : null}
 
           {/* Preisblock unten bündig, damit er über alle Karten auf einer Linie steht */}
-          <div className="mt-auto border-t border-border pt-3">
+          <div className={cn("mt-auto border-t border-border pt-3", schnellKauf && "pr-12")}>
             {range ? (
               <>
                 {/* Die Mindestmenge steht nur dort, wo sie eine Auflage ist –
@@ -150,6 +153,18 @@ export function ProductCard({
         name={product.name}
         className="absolute right-2 top-[calc(75cqw-2.75rem)] z-10"
       />
+      {/* Neben dem Link wie das Herz: ein Knopf in einem <a> ist ungültig. */}
+      {schnellKauf ? (
+        <QuickAddButton
+          productId={product.id}
+          productName={product.name}
+          productSku={product.sku}
+          tiers={product.variants}
+          freeStock={free}
+          imagePath={product.imagePath ?? null}
+          className="absolute bottom-4 right-4 z-10"
+        />
+      ) : null}
     </div>
   );
 }
