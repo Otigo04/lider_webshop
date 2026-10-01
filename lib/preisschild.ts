@@ -841,7 +841,20 @@ export function schildKennung(
   klartext?: string | null,
 ): string {
   const links = code ? `${sku}#${code}` : sku;
-  return klartext ? `${links} · ${klartext}` : links;
+  if (!klartext) return links;
+  return kennungTrenner(sku, code) ? `${links} · ${klartext}` : klartext;
+}
+
+/**
+ * Steht links von der Barcodenummer überhaupt etwas, wovon sie getrennt
+ * werden müsste?
+ *
+ * Beim freien Generator (/admin/preisschilder/frei) ist die Artikelnummer
+ * optional. Ohne sie begänne die Fußzeile mit „· 4006…" – ein Trennzeichen
+ * ohne etwas davor, das am Regal wie ein Druckfehler aussieht.
+ */
+export function kennungTrenner(sku: string, code: string | null): boolean {
+  return Boolean(sku.trim() || code);
 }
 
 // --- Preis und Reduzierung ---------------------------------------------------

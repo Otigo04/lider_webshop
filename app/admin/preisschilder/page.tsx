@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { PreisschildNav } from "@/components/admin/preisschild-nav";
 import { PreisschildWerkbank } from "@/components/admin/preisschild-werkbank";
 import {
   getLabelIcons,
@@ -29,14 +30,18 @@ export default async function PreisschilderPage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold">Preisschilder</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Artikel auswählen, Stückzahl festlegen, drucken. Der Bogen kommt im
-          A4-Format mit Schnittlinien aus dem Drucker und muss nur noch
-          zerschnitten werden. Die Schildmaße stehen in Millimetern und lassen
-          sich frei einstellen.
-        </p>
+      <header className="space-y-3">
+        <div>
+          <h1 className="text-2xl font-semibold">Preisschilder</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Artikel auswählen, Stückzahl festlegen, drucken. Der Bogen kommt im
+            A4-Format mit Schnittlinien aus dem Drucker und muss nur noch
+            zerschnitten werden. Die Schildmaße stehen in Millimetern und lassen
+            sich frei einstellen. Ware ohne Artikelstamm bekommt ihr Schild
+            unter &bdquo;Frei eingeben&ldquo;.
+          </p>
+        </div>
+        <PreisschildNav />
       </header>
 
       <PreisschildWerkbank

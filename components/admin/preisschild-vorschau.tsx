@@ -13,6 +13,7 @@ import {
   fussAufteilung,
   fussHoehe,
   istReduziert,
+  kennungTrenner,
   kopfHoehe,
   labelSchrift,
   nameBreite,
@@ -283,7 +284,7 @@ export function PreisschildVorschau({
           {/* Rückfall nur bei einer Nummer, die kein EAN ist. */}
           {!code && schild.barcode ? (
             <span style={{ opacity: 0.7, fontWeight: 500 }}>
-              {" · "}
+              {kennungTrenner(schild.sku, schild.code) ? " · " : ""}
               {schild.barcode}
             </span>
           ) : null}

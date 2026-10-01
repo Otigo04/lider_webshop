@@ -15,6 +15,7 @@ import {
   fussAufteilung,
   fussHoehe,
   istReduziert,
+  kennungTrenner,
   kopfHoehe,
   labelSchrift,
   nameBreite,
@@ -139,7 +140,9 @@ function schild(s: Preisschild, format: SchildFormat, mitCode: boolean): string 
       <span class="kennung" style="font-size:${mm(fuss.kennungGroesse)}">${
         esc(s.sku)
       }${s.code ? `<span class="code">#${esc(s.code)}</span>` : ""}${
-        !fuss.code && s.barcode ? `<span class="barcode">${esc(s.barcode)}</span>` : ""
+        !fuss.code && s.barcode
+          ? `<span class="barcode">${kennungTrenner(s.sku, s.code) ? " · " : ""}${esc(s.barcode)}</span>`
+          : ""
       }</span>
       ${strichbild(fuss, masse, rot)}
       ${label}
@@ -466,7 +469,6 @@ export function buildLabelSheetHtml(
      einem Mittelpunkt, damit sie nicht wie eine Verlängerung der
      Artikelnummer gelesen wird. */
   .kennung .barcode { opacity: 0.7; font-weight: 500; }
-  .kennung .barcode::before { content: " · "; opacity: 0.6; }
 
   /* --- Strichcode ---------------------------------------------------- */
 

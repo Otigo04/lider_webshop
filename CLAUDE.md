@@ -195,6 +195,7 @@ CREATE TABLE product_images (
 - `/admin/gruppen` – Angebote mit Ausführungen (Farbe, Größe, Wattzahl)
 - `/admin/bestand` – Wareneingang (Schnellerfassung) und sein Journal
 - `/admin/preisschilder` – Preisschilder fürs Regal, druckfertig auf A4
+- `/admin/preisschilder/frei` – Preisschilder ohne Artikelstamm, von Hand getippt
 - `/admin/products/new` – Produkt erstellen
 - `/admin/products/[id]/edit` – Produkt bearbeiten
 - `/admin/orders` – Bestellverwaltung
@@ -804,6 +805,54 @@ setzen, drucken – A4 mit Schnittlinien.
   Artikel-Flags aus den Einstellungen, farbig unten rechts in der Fußzeile.
   Angelegt werden sie nicht hier, nur ihre Farbe wird gewählt und gespeichert.
   Schriftfarbe schwarz/weiß nach Leuchtdichte (`labelSchrift()`).
+
+---
+
+## ✍️ Freie Preisschilder
+
+`/admin/preisschilder/frei`. Derselbe Bogen, dieselben Regeln, nur ohne
+Artikelstamm: Bezeichnung und Preis werden getippt.
+
+- **Warum zwei Generatoren.** Der Bestandsgenerator deckt das Regal ab, aber
+  nicht den Rest des Ladens – Restposten, die nie erfasst wurden, ein
+  Aktionsstapel vor der Tür, eine Dienstleistung an der Wand. Dafür sonst
+  einen Artikel anzulegen hieße, für ein Stück Papier eine Artikelnummer ohne
+  Bestand ins System zu stellen. Dieselbe Begründung wie bei der freien
+  Position an der Kasse.
+- **Nichts ist neu gerechnet.** Die Maske schickt ihre Zeilen an denselben
+  Route Handler (`/admin/preisschilder/druck`) und setzt ihre Vorschau mit
+  denselben Funktionen aus `lib/preisschild.ts`. Ein frei eingegebenes Schild
+  soll im Regal neben einem aus dem Bestand stehen, ohne dass man sieht,
+  welches woher kam. Ein zweiter Zeichenweg liefe über kurz oder lang neben
+  dem ersten her.
+- **Ausfüllen, Enter, nächstes Schild.** Das Formular ist ein `<form>` mit
+  Absenden, nicht nur ein Knopf: Enter aus jedem Feld legt das Schild aufs
+  Blatt. Danach wird zurückgesetzt, was zur Ware gehört (Bezeichnung, Preise,
+  Nummern), nicht was zur Serie gehört (Symbol, Label) – ein stehen
+  gebliebener Preis wäre ein falsch bepreistes Schild, und das fällt erst im
+  Regal auf.
+- **Der Fokus springt erst nach dem Neuzeichnen zurück**
+  (`requestAnimationFrame`). Sofort gerufen löst er das Verlassen des eben
+  getippten Zahlenfeldes aus, und `NumericInput` meldet beim Verlassen den
+  Wert, der dann im DOM steht – die Stückzahl stünde nach dem Zurücksetzen
+  wieder im Feld, und das nächste Schild käme ungefragt vierfach aufs Blatt.
+- **Das Blatt ist die Liste** (`components/admin/preisschild-bogen-vorschau.tsx`):
+  der A4-Bogen samt Rastern, verkleinert über `transform: scale()`, gezeichnet
+  von derselben Komponente wie die Einzelvorschau. Der Maßstab wird gemessen
+  und nicht geraten – eine Hülle in Millimetern sagt dem Skript, wie viele
+  Pixel ein A4-Blatt hier breit ist. Ein Klick auf ein Schild holt es ins
+  Formular zurück; „Kopie" lässt die Angaben stehen und legt sie als neues
+  Schild ab, was nach einer Preisrunde der häufigste Fall ist.
+- **Die Liste liegt im Browser**, nicht in der Datenbank
+  (`lib/preisschild-entwurf.ts`, externer Store wie der Warenkorb). An der
+  Regel „ein Preisschild wird nicht gespeichert" ändert das nichts – es gibt
+  keine zweite Wahrheit auf dem Server. Ein von Hand getippter Stapel ist aber
+  zu teuer, um ihn an ein versehentliches Neuladen zu verlieren; beim
+  Bestandsgenerator stellen zwei Klicks dieselbe Liste wieder her.
+- **Werkzeug wird nicht doppelt gepflegt**: Schildgrößen, Symbole und
+  Labelfarben stehen weiter beim Bestandsgenerator und gelten hier mit. Die
+  Unterleiste (`components/admin/preisschild-nav.tsx`) führt zwischen beiden
+  hin und her – kein eigener Reiter in der Verwaltungsleiste, die ist voll.
 
 ---
 
