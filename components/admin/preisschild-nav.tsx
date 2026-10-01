@@ -24,7 +24,7 @@ const WEGE = [
   {
     href: "/admin/preisschilder/frei",
     label: "Frei eingeben",
-    hinweis: "ohne Artikelstamm",
+    hinweis: "scannen oder tippen",
     icon: PencilLine,
   },
 ] as const;

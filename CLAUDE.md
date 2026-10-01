@@ -195,7 +195,7 @@ CREATE TABLE product_images (
 - `/admin/gruppen` – Angebote mit Ausführungen (Farbe, Größe, Wattzahl)
 - `/admin/bestand` – Wareneingang (Schnellerfassung) und sein Journal
 - `/admin/preisschilder` – Preisschilder fürs Regal, druckfertig auf A4
-- `/admin/preisschilder/frei` – Preisschilder ohne Artikelstamm, von Hand getippt
+- `/admin/preisschilder/frei` – Preisschilder von Hand, mit Artikelabgleich
 - `/admin/products/new` – Produkt erstellen
 - `/admin/products/[id]/edit` – Produkt bearbeiten
 - `/admin/orders` – Bestellverwaltung
@@ -811,7 +811,8 @@ setzen, drucken – A4 mit Schnittlinien.
 ## ✍️ Freie Preisschilder
 
 `/admin/preisschilder/frei`. Derselbe Bogen, dieselben Regeln, nur ohne
-Artikelstamm: Bezeichnung und Preis werden getippt.
+Artikelliste: Bezeichnung und Preis werden getippt oder über den Barcode aus
+dem Artikelstamm geholt.
 
 - **Warum zwei Generatoren.** Der Bestandsgenerator deckt das Regal ab, aber
   nicht den Rest des Ladens – Restposten, die nie erfasst wurden, ein
@@ -853,6 +854,53 @@ Artikelstamm: Bezeichnung und Preis werden getippt.
   Labelfarben stehen weiter beim Bestandsgenerator und gelten hier mit. Die
   Unterleiste (`components/admin/preisschild-nav.tsx`) führt zwischen beiden
   hin und her – kein eigener Reiter in der Verwaltungsleiste, die ist voll.
+
+### Artikelabgleich über den Barcode
+
+Der Scan steht oben im Formular, weil er den Rest bestimmt:
+
+| Code | Was passiert |
+|------|--------------|
+| bekannt | Bezeichnung, Artikelnummer und alle drei Preise kommen aus dem Artikelstamm |
+| unbekannt | beim Ablegen wird ein Artikel angelegt (`legeSchildArtikelAn()`) |
+| keiner | reines Schild, wie bisher – Aktionsstapel, Dienstleistung, Restposten |
+
+- **Warum überhaupt anlegen.** Vorher entstand hier für neue Ware ein Zettel
+  und sonst nichts: dieselben Angaben mussten danach im Artikelformular ein
+  zweites Mal getippt werden, und bis dahin ließ sich die Ware weder scannen
+  noch verkaufen. Dieselbe Haltung wie an der Kasse und im Wareneingang – wer
+  Ware in der Hand hat, erfasst sie einmal.
+- **Angelegt wird über `createQuickProduct()`**, die Anlegefunktion der Kasse:
+  Artikelnummer aus dem Nummernkreis der Warengruppe, Barcode auf
+  Doppelvergabe geprüft, Preisstaffel ab 1 Stück. Eine zweite Anlegeroutine
+  liefe über kurz oder lang auseinander, und ein Artikel ohne Staffel hätte im
+  Shop keinen Preis.
+- **Ohne Großhandelspreis gilt der Ladenpreis auch als Staffelpreis.** Die
+  Alternative wäre eine Staffel über 0,00 €: der Artikel stünde im Shop zum
+  Nulltarif, und das fiele erst bei der ersten Bestellung auf. Ein vorläufig
+  zu hoher Preis lässt sich nachziehen, eine Nullbestellung nicht
+  zurückholen.
+- **Nachgeschlagen wird von selbst**, 450 ms nach der letzten Eingabe und ab
+  sechs Zeichen (`findPreisschildArtikel()`, Barcode vor Artikelnummer wie an
+  der Kasse). Ein Abgleich, den man von Hand auslösen muss, ist genau das,
+  was er nicht sein soll. Die Hintergrundabfrage bleibt stumm; Enter im
+  Scannerfeld und das Verlassen des Feldes melden sich mit Ton und
+  Statusleiste – sonst piepte beim Tippen einer 13-stelligen Nummer jede
+  Tippause einmal „unbekannt".
+- **Enter im Scannerfeld schlägt erst nach**, legt also nicht sofort ab: ein
+  Handscanner schließt mit Enter ab, und das Schild läge sonst auf dem Blatt,
+  bevor die Angaben eingetroffen sind. Ein zweites Enter legt ab.
+- **Abgeglichen wird nur ein neues Schild.** Wer ein Schild nachträglich
+  ändert, korrigiert Papier – daraus einen Artikel anzulegen wäre eine
+  Nebenwirkung, mit der niemand rechnet.
+- **Signale und Tastatur-Wächter** wie an der Kasse (`useKassenMeldung()`,
+  `useScanFocus()`): Statusleiste über dem Feld, Ton je Vorgang. Der Wächter
+  pausiert, solange eine Abfrage läuft – käme der zweite Scan mitten in die
+  Antwort des ersten, stünden die Angaben des einen Artikels unter dem Code
+  des anderen.
+- **Geändert wird am Artikel nichts.** Preise, die hier nach einem Treffer
+  angepasst werden, gelten für das Schild. Ein Schilddruck, der still
+  Stammdaten überschreibt, wäre an der falschen Stelle wirksam.
 
 ---
 

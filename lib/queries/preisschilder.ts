@@ -27,6 +27,8 @@ export interface PreisschildArtikel {
   name: string;
   /** Barcode des Artikels, null = keiner gepflegt. Optional aufs Schild. */
   barcode: string | null;
+  /** Warengruppe des Artikels – Vorgabe, wenn aus ihm ein neuer entsteht. */
+  kategorieId: string;
   kategorie: string | null;
   /**
    * Preis fürs Regal. Der Ladenpreis, denn ein Regalschild spricht die
@@ -46,6 +48,7 @@ interface ProductZeile {
   sku: string;
   name: string;
   barcode: string | null;
+  category_id: string;
   retail_price: number | string | null;
   list_price: number | string | null;
   stock_available: number;
@@ -61,19 +64,17 @@ interface ProductZeile {
  * Umgekehrt ist ein fehlendes Foto hier kein Ausschlussgrund – auf dem Schild
  * ist ohnehin keins.
  */
+const ARTIKEL_SPALTEN = `id, sku, name, barcode, retail_price, list_price,
+  stock_available, category_id,
+  category:categories (name),
+  variants:product_variants (id, min_quantity, max_quantity, unit_price)`;
+
 export async function getPreisschildArtikel(
   search?: string,
 ): Promise<PreisschildArtikel[]> {
   const supabase = await createClient();
 
-  let query = supabase
-    .from("products")
-    .select(
-      `id, sku, name, barcode, retail_price, list_price, stock_available,
-       category:categories (name),
-       variants:product_variants (id, min_quantity, max_quantity, unit_price)`,
-    )
-    .order("name");
+  let query = supabase.from("products").select(ARTIKEL_SPALTEN).order("name");
 
   const term = search?.replace(/[,()*\\%]/g, " ").trim();
   if (term) {
@@ -86,22 +87,63 @@ export async function getPreisschildArtikel(
     return [];
   }
 
-  return ((data ?? []) as unknown as ProductZeile[]).map((row) => {
-    const staffel = ueberNull(baseUnitPrice(row.variants ?? []));
-    const laden = ueberNull(row.retail_price);
+  return ((data ?? []) as unknown as ProductZeile[]).map(zuPreisschildArtikel);
+}
 
-    return {
-      id: row.id,
-      sku: row.sku,
-      name: row.name,
-      barcode: row.barcode?.trim() || null,
-      kategorie: row.category?.name ?? null,
-      preis: laden ?? staffel,
-      grosshandel: staffel,
-      vorher: ueberNull(row.list_price),
-      bestand: toNumber(row.stock_available),
-    };
-  });
+/** Eine Artikelzeile in die Form bringen, die der Generator braucht. */
+function zuPreisschildArtikel(row: ProductZeile): PreisschildArtikel {
+  const staffel = ueberNull(baseUnitPrice(row.variants ?? []));
+  const laden = ueberNull(row.retail_price);
+
+  return {
+    id: row.id,
+    sku: row.sku,
+    name: row.name,
+    barcode: row.barcode?.trim() || null,
+    kategorieId: row.category_id,
+    kategorie: row.category?.name ?? null,
+    preis: laden ?? staffel,
+    grosshandel: staffel,
+    vorher: ueberNull(row.list_price),
+    bestand: toNumber(row.stock_available),
+  };
+}
+
+/**
+ * Artikel zu einem gescannten Code – Barcode zuerst, Artikelnummer als
+ * Notnagel.
+ *
+ * Dieselbe Reihenfolge wie an der Kasse (findProductByCode()): der Barcode
+ * steht auf der Ware und ist eindeutig, die Artikelnummer tippt jemand, wenn
+ * das Etikett nicht mehr lesbar ist. Eigene Abfrage statt der Kassenversion,
+ * weil das Preisschild den Streichpreis braucht – den führt die Kasse nicht.
+ */
+export async function findPreisschildArtikel(
+  code: string,
+): Promise<PreisschildArtikel | null> {
+  const gesucht = code.trim();
+  if (!gesucht) return null;
+
+  const supabase = await createClient();
+
+  const { data: perBarcode, error } = await supabase
+    .from("products")
+    .select(ARTIKEL_SPALTEN)
+    .eq("barcode", gesucht)
+    .maybeSingle();
+
+  if (error) console.error("[preisschilder] Barcode-Suche:", error.message);
+  if (perBarcode) {
+    return zuPreisschildArtikel(perBarcode as unknown as ProductZeile);
+  }
+
+  const { data: perSku } = await supabase
+    .from("products")
+    .select(ARTIKEL_SPALTEN)
+    .eq("sku", gesucht)
+    .maybeSingle();
+
+  return perSku ? zuPreisschildArtikel(perSku as unknown as ProductZeile) : null;
 }
 
 /**

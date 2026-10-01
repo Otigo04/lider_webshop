@@ -6,6 +6,11 @@ import { requireAdmin } from "@/lib/auth";
 import { PRODUCT_BUCKET } from "@/lib/constants";
 import { MASS_GRENZEN } from "@/lib/preisschild";
 import { createClient } from "@/lib/supabase/server";
+import { createQuickProduct } from "@/lib/actions/pos";
+import {
+  findPreisschildArtikel,
+  type PreisschildArtikel,
+} from "@/lib/queries/preisschilder";
 import type { AdminFormState } from "@/lib/actions/admin-categories";
 
 /**
@@ -248,4 +253,102 @@ export async function setLabelFarbe(input: {
 
   revalidatePath("/admin/preisschilder");
   return { success: "Farbe gespeichert." };
+}
+
+// --- Artikelabgleich des freien Generators -----------------------------------
+
+/**
+ * Der freie Generator (/admin/preisschilder/frei) gleicht jeden eingetippten
+ * oder gescannten Code mit dem Artikelstamm ab: bekannter Code füllt das
+ * Formular, unbekannter wird beim Ablegen zu einem neuen Artikel.
+ *
+ * Der Grund ist derselbe wie an der Kasse und im Wareneingang – wer Ware in
+ * der Hand hat, soll sie einmal erfassen und nicht an drei Stellen. Vorher
+ * entstand beim Schilderdrucken für neue Ware ein Zettel und sonst nichts;
+ * dieselben Angaben mussten danach im Artikelformular ein zweites Mal getippt
+ * werden, und bis dahin ließ sich die Ware weder scannen noch verkaufen.
+ */
+
+export interface SchildArtikelTreffer {
+  artikel: PreisschildArtikel | null;
+  /** Der gesuchte Code, damit die Oberfläche weiß, worauf sich das Ergebnis bezieht. */
+  code: string;
+}
+
+/** Code auflösen. Kein Treffer ist ein normaler Fall, kein Fehler. */
+export async function sucheSchildArtikel(
+  code: string,
+): Promise<SchildArtikelTreffer> {
+  await requireAdmin();
+  const sauber = code.trim().slice(0, 64);
+  if (!sauber) return { artikel: null, code: "" };
+  return { artikel: await findPreisschildArtikel(sauber), code: sauber };
+}
+
+export interface SchildArtikelAnlage {
+  error?: string;
+  artikel?: PreisschildArtikel;
+}
+
+/**
+ * Artikel aus den Angaben des Schilds anlegen.
+ *
+ * Angelegt wird über dieselbe Funktion wie an der Kasse
+ * (`createQuickProduct`): sie vergibt die Artikelnummer aus dem Nummernkreis
+ * der Warengruppe, prüft den Barcode auf Doppelvergabe und legt die
+ * Preisstaffel ab 1 Stück an. Eine zweite Anlegeroutine neben ihr liefe über
+ * kurz oder lang auseinander – und ein Artikel ohne Staffel hätte im Shop
+ * keinen Preis.
+ */
+export async function legeSchildArtikelAn(input: {
+  name: string;
+  barcode: string;
+  categoryId: string;
+  /** Ladenpreis – der Preis, der auf dem Schild steht. */
+  retailPrice: number;
+  /** Großhandelspreis; 0 oder leer heißt „keiner gepflegt". */
+  wholesalePrice?: number | null;
+  stock?: number;
+}): Promise<SchildArtikelAnlage> {
+  await requireAdmin();
+
+  const barcode = input.barcode.trim();
+  if (!barcode) return { error: "Ohne Barcode wird kein Artikel angelegt." };
+
+  /*
+   * Ohne eigenen Großhandelspreis gilt der Ladenpreis auch als Staffelpreis.
+   * Die Alternative wäre eine Staffel über 0,00 €: der Artikel stünde dann im
+   * Shop zum Nulltarif, und das fiele erst bei der ersten Bestellung auf. Ein
+   * vorläufig zu hoher Preis ist der harmlosere Fehler – er lässt sich in der
+   * Artikelliste nachziehen, eine Nullbestellung nicht zurückholen.
+   */
+  const staffel = input.wholesalePrice && input.wholesalePrice > 0
+    ? input.wholesalePrice
+    : input.retailPrice;
+
+  const ergebnis = await createQuickProduct({
+    name: input.name,
+    barcode,
+    category_id: input.categoryId,
+    unit_price: staffel,
+    retail_price: input.retailPrice > 0 ? input.retailPrice : null,
+    stock_available: Math.max(0, Math.round(input.stock ?? 0)),
+  });
+
+  if (ergebnis.error || !ergebnis.product) {
+    return { error: ergebnis.error ?? "Der Artikel konnte nicht angelegt werden." };
+  }
+
+  revalidatePath("/admin/preisschilder");
+
+  /*
+   * Den angelegten Artikel noch einmal lesen statt das Kassenergebnis
+   * umzuformen: PosProduct kennt den Streichpreis nicht, und die Oberfläche
+   * soll denselben Datensatz bekommen wie bei einem Treffer.
+   */
+  const artikel = await findPreisschildArtikel(barcode);
+  if (!artikel) {
+    return { error: "Der Artikel wurde angelegt, konnte aber nicht geladen werden." };
+  }
+  return { artikel };
 }

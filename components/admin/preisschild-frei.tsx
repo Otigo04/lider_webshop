@@ -1,7 +1,14 @@
 "use client";
 
-import { useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { Copy, Plus, Printer, Trash2, X } from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
+import { BadgePlus, Copy, Loader2, Plus, Printer, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { NumericInput } from "@/components/numeric-input";
 import {
@@ -9,8 +16,13 @@ import {
   type BogenPlatz,
 } from "@/components/admin/preisschild-bogen-vorschau";
 import { PreisschildVorschau } from "@/components/admin/preisschild-vorschau";
+import { KassenStatus, useKassenMeldung } from "@/components/pos/kassen-status";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  legeSchildArtikelAn,
+  sucheSchildArtikel,
+} from "@/lib/actions/preisschilder";
 import { MODUL_HART, MODUL_MIN, barcode as strichcode } from "@/lib/barcode";
 import { formatPrice } from "@/lib/format";
 import {
@@ -34,26 +46,43 @@ import {
   subscribeFrei,
   type FreiesSchild,
 } from "@/lib/preisschild-entwurf";
-import type { LabelIcon } from "@/lib/queries/preisschilder";
+import { useScanFocus } from "@/lib/use-scan-focus";
+import type {
+  LabelIcon,
+  PreisschildArtikel,
+} from "@/lib/queries/preisschilder";
+import type { Category } from "@/lib/types";
 
 /**
- * Freier Preisschild-Generator.
+ * Freier Preisschild-Generator mit Artikelabgleich.
  *
  * Der Generator unter /admin/preisschilder nimmt seine Angaben aus dem
- * Artikelstamm. Das deckt das Regal ab, aber nicht den Rest des Ladens:
- * Restposten, die nie erfasst wurden, ein Aktionsstapel vor der Tür, eine
- * Dienstleistung an der Wand. Dafür müsste man sonst einen Artikel anlegen,
- * nur um ein Stück Papier zu bekommen – und hätte danach eine Artikelnummer
- * ohne Bestand im System.
+ * Artikelstamm und setzt voraus, dass die Ware dort schon steht. Hier wird
+ * getippt – und der Barcode entscheidet, was daraus wird:
  *
- * Hier wird alles von Hand eingetippt. Gerechnet, gesetzt und gedruckt wird
- * mit denselben Regeln (`lib/preisschild.ts`) und über denselben Druckbogen
+ *  - **Bekannter Code** füllt Bezeichnung, Artikelnummer und alle drei Preise
+ *    aus dem Artikelstamm. Niemand tippt ab, was schon in der Datenbank steht.
+ *  - **Unbekannter Code** wird beim Ablegen zu einem neuen Artikel. Vorher
+ *    entstand hier für neue Ware ein Zettel und sonst nichts: dieselben
+ *    Angaben mussten danach im Artikelformular ein zweites Mal getippt
+ *    werden, und bis dahin ließ sich die Ware weder scannen noch verkaufen.
+ *  - **Ohne Barcode** bleibt es ein reines Schild, wie bisher – für den
+ *    Aktionsstapel vor der Tür oder eine Dienstleistung an der Wand, die kein
+ *    Artikel werden soll.
+ *
+ * Dieselbe Haltung wie an der Kasse und im Wareneingang: wer Ware in der Hand
+ * hat, erfasst sie einmal und nicht an drei Stellen. Deshalb auch dieselben
+ * Signale (`useKassenMeldung()`) und derselbe Tastatur-Wächter
+ * (`useScanFocus()`) – gescannt wird hier wie dort.
+ *
+ * Gerechnet, gesetzt und gedruckt wird mit denselben Regeln
+ * (`lib/preisschild.ts`) und über denselben Druckbogen
  * (`/admin/preisschilder/druck`) wie beim Bestandsgenerator: ein frei
  * eingegebenes Schild soll im Regal neben einem aus dem Bestand stehen, ohne
  * dass man sieht, welches woher kam.
  *
- * Arbeitsweise: ausfüllen, Enter – das Schild liegt auf dem Blatt. Noch eins,
- * noch eins, drucken. Kein Dialog, kein zweiter Schritt.
+ * Arbeitsweise: scannen oder tippen, Enter – das Schild liegt auf dem Blatt.
+ * Noch eins, noch eins, drucken. Kein Dialog, kein zweiter Schritt.
  */
 
 /** Entwurfszustand des Formulars – ein Schild, das noch keine Kennung hat. */
@@ -82,10 +111,16 @@ export function PreisschildFrei({
   icons,
   formate,
   labels,
+  kategorien,
+  vorgabeKategorie,
 }: {
   icons: LabelIcon[];
   formate: SchildFormat[];
   labels: LabelOption[];
+  /** Warengruppen für den Fall, dass aus dem Schild ein Artikel wird. */
+  kategorien: Category[];
+  /** Warengruppe des zuletzt angelegten Artikels – siehe getLastUsedCategoryId(). */
+  vorgabeKategorie: string | null;
 }) {
   /*
    * Die Liste liegt im Browser, außerhalb von React – siehe
@@ -102,7 +137,46 @@ export function PreisschildFrei({
   const [entwurf, setEntwurf] = useState<Entwurf>(LEER);
   /** Kennung des Schilds, das gerade bearbeitet wird. null = neues Schild. */
   const [bearbeitet, setBearbeitet] = useState<string | null>(null);
+  const scanFeld = useRef<HTMLInputElement>(null);
   const nameFeld = useRef<HTMLInputElement>(null);
+
+  /* ---- Artikelabgleich ----------------------------------------------------
+   * `aufgeloest` ist der Code, zu dem `treffer` gehört. Beides zusammen sagt
+   * dreierlei: noch nicht nachgesehen (aufgeloest !== Code im Feld), bekannt
+   * (treffer gesetzt) oder unbekannt (nachgesehen, nichts gefunden). Ein
+   * eigenes Kennzeichen „unbekannt" wäre ein vierter Zustand, der mit den
+   * anderen auseinanderlaufen kann, sobald jemand im Feld weitertippt.
+   */
+  const [aufgeloest, setAufgeloest] = useState<string | null>(null);
+  const [treffer, setTreffer] = useState<PreisschildArtikel | null>(null);
+  const [sucht, setSucht] = useState(false);
+  const [legtAn, setLegtAn] = useState(false);
+  /** Warengruppe und Anfangsbestand eines neu anzulegenden Artikels. */
+  const [kategorieId, setKategorieId] = useState(
+    () => vorgabeKategorie ?? kategorien[0]?.id ?? "",
+  );
+  const [bestand, setBestand] = useState(0);
+
+  const { meldung, melden } = useKassenMeldung();
+
+  /*
+   * Handscanner tippen blind los, egal wo der Fokus steht. Pausiert, solange
+   * eine Abfrage läuft: käme der zweite Scan mitten in die Antwort des
+   * ersten, stünden am Ende die Angaben des einen Artikels unter dem Code des
+   * anderen.
+   */
+  useScanFocus(scanFeld, sucht || legtAn);
+
+  /*
+   * Der Code, der gerade im Feld steht – ohne ihn in die Abhängigkeiten der
+   * Abfrage zu ziehen. Eine Antwort wird nur übernommen, wenn sie noch zu
+   * diesem Code gehört: sonst überschriebe ein langsamer erster Scan die
+   * Angaben des zweiten.
+   */
+  const codeRef = useRef("");
+  useEffect(() => {
+    codeRef.current = entwurf.barcode.trim();
+  }, [entwurf.barcode]);
 
   /*
    * Vorgabe ist die mittlere Größe: die kleine trägt kaum eine Bezeichnung,
@@ -214,6 +288,17 @@ export function PreisschildFrei({
     return liste;
   }, [schilder, alsSchild]);
 
+  /* ---- Stand des Abgleichs ----------------------------------------------- */
+
+  /** Der Code, um den es gerade geht. Leer heißt: ein Schild ohne Artikel. */
+  const code = entwurf.barcode.trim();
+  /** Wurde zu genau diesem Code schon nachgesehen? */
+  const abgeglichen = aufgeloest !== null && aufgeloest === code;
+  /** Der gefundene Artikel – nur, wenn er zum Code im Feld gehört. */
+  const gefunden = abgeglichen ? treffer : null;
+  /** Nachgesehen und nichts gefunden: aus dem Schild wird ein Artikel. */
+  const unbekannt = Boolean(code) && abgeglichen && !treffer;
+
   /* ---- Bedienen ---------------------------------------------------------- */
 
   function feld(teil: Partial<Entwurf>) {
@@ -221,30 +306,136 @@ export function PreisschildFrei({
   }
 
   /**
-   * Zurück in die Bezeichnung – aber erst nach dem Neuzeichnen.
+   * Zurück ins Scannerfeld – aber erst nach dem Neuzeichnen.
    *
    * Der Fokuswechsel löst das Verlassen des Feldes aus, in dem gerade getippt
    * wurde, und ein Zahlenfeld meldet beim Verlassen den Wert, der dann im DOM
    * steht (siehe components/numeric-input.tsx). Sofort gerufen wäre das die
    * eben abgelegte Stückzahl: sie stünde nach dem Zurücksetzen wieder im Feld,
    * und das nächste Schild käme ungefragt vierfach aufs Blatt.
+   *
+   * Ziel ist das Scannerfeld und nicht mehr die Bezeichnung: der nächste
+   * Handgriff ist der nächste Artikel, und der beginnt mit einem Scan.
    */
-  function zurueckZumFeld() {
-    requestAnimationFrame(() => nameFeld.current?.focus());
+  function zurueckZumFeld(ziel: "scan" | "name" = "scan") {
+    requestAnimationFrame(() =>
+      (ziel === "name" ? nameFeld : scanFeld).current?.focus(),
+    );
   }
+
+  /**
+   * Angaben eines gefundenen Artikels ins Formular holen.
+   *
+   * Überschreibt, was im Formular steht: wer scannt, will die gepflegten
+   * Angaben und nicht die halb getippten. Der Streichpreis kommt mit, auch
+   * wenn er leer ist – sonst bliebe die Reduzierung des vorigen Artikels
+   * stehen und das nächste Schild wäre fälschlich rot.
+   */
+  const uebernehmeArtikel = useCallback((artikel: PreisschildArtikel) => {
+    setEntwurf((alt) => ({
+      ...alt,
+      name: artikel.name,
+      sku: artikel.sku,
+      barcode: artikel.barcode ?? alt.barcode,
+      preis: artikel.preis ?? 0,
+      vorher: artikel.vorher ?? 0,
+      gh: artikel.grosshandel ?? 0,
+    }));
+    setKategorieId(artikel.kategorieId);
+  }, []);
+
+  /**
+   * Code im Artikelstamm nachschlagen.
+   *
+   * `still` unterscheidet, wer gefragt hat: die Hintergrundabfrage nach dem
+   * Tippen bleibt stumm, ein abgeschlossener Scan (Enter) und das Verlassen
+   * des Feldes melden sich. Sonst piepte beim Tippen einer 13-stelligen
+   * Nummer jede Tippause einmal „unbekannt".
+   */
+  const aufloesen = useCallback(
+    async (
+      code: string,
+      { still = false }: { still?: boolean } = {},
+    ): Promise<PreisschildArtikel | null> => {
+      const sauber = code.trim();
+      if (!sauber) {
+        setAufgeloest(null);
+        setTreffer(null);
+        return null;
+      }
+
+      setSucht(true);
+      try {
+        const antwort = await sucheSchildArtikel(sauber);
+        // Inzwischen weitergetippt? Dann gehört die Antwort nicht mehr hierher.
+        if (antwort.code !== codeRef.current) return null;
+
+        setAufgeloest(antwort.code);
+        setTreffer(antwort.artikel);
+
+        if (antwort.artikel) {
+          uebernehmeArtikel(antwort.artikel);
+          if (!still) {
+            melden("treffer", antwort.artikel.name, antwort.artikel.sku);
+          }
+        } else if (!still) {
+          melden(
+            "unbekannt",
+            "Noch kein Artikel – wird beim Ablegen angelegt.",
+            sauber,
+          );
+        }
+        return antwort.artikel;
+      } catch (fehler) {
+        console.error("[preisschilder] Artikelabgleich:", fehler);
+        melden("fehler", "Der Artikelstamm war nicht erreichbar.", sauber);
+        return null;
+      } finally {
+        setSucht(false);
+      }
+    },
+    [melden, uebernehmeArtikel],
+  );
+
+  /**
+   * Hintergrundabfrage beim Tippen.
+   *
+   * Ein Scanner schickt seinen Code in einem Rutsch, dann steht er still –
+   * nach einer halben Sekunde Ruhe ist die Eingabe fertig. Ohne diese Abfrage
+   * müsste man den Abgleich von Hand auslösen, und genau das soll er nicht
+   * sein: er ist der Grund, warum hier gescannt wird.
+   *
+   * Ab sechs Zeichen, weil kürzer weder EAN-8 noch eine Artikelnummer ist –
+   * jede Abfrage darunter wäre eine Antwort auf eine halb getippte Nummer.
+   */
+  useEffect(() => {
+    const code = entwurf.barcode.trim();
+    if (!code || code === aufgeloest || code.length < 6) return;
+    const uhr = setTimeout(() => {
+      void aufloesen(code, { still: true });
+    }, 450);
+    return () => clearTimeout(uhr);
+  }, [entwurf.barcode, aufgeloest, aufloesen]);
 
   /**
    * Entwurf aufs Blatt legen – oder das bearbeitete Schild ändern.
    *
    * Ein Formular mit Absenden und nicht nur ein Knopf: die Hand bleibt auf der
-   * Tastatur. Bezeichnung, Preis, Enter, nächstes Schild – und zwar aus jedem
-   * Feld heraus.
+   * Tastatur. Scannen, Preis prüfen, Enter, nächster Artikel – und zwar aus
+   * jedem Feld heraus.
+   *
+   * Steht ein Barcode im Feld, führt der Weg über den Artikelstamm: bekannt
+   * heißt weiter wie bisher, unbekannt heißt erst anlegen, dann drucken. Das
+   * Schild und der Artikel entstehen aus denselben getippten Angaben, also
+   * sollen sie auch in einem Zug entstehen.
    */
-  function uebernehmen() {
+  async function uebernehmen() {
+    if (sucht || legtAn) return;
+
     const name = entwurf.name.trim();
     if (!name) {
       toast.warning("Ohne Bezeichnung kein Schild.");
-      zurueckZumFeld();
+      zurueckZumFeld("name");
       return;
     }
 
@@ -257,7 +448,64 @@ export function PreisschildFrei({
       return;
     }
 
-    const werte: Entwurf = { ...entwurf, name, anzahl };
+    let sku = entwurf.sku.trim();
+
+    /*
+     * Der Artikelabgleich gilt nur für neue Schilder. Wer ein Schild
+     * nachträglich ändert, korrigiert das Papier – daraus einen Artikel
+     * anzulegen wäre eine Nebenwirkung, mit der niemand rechnet.
+     */
+    if (code && !bearbeitet) {
+      let artikel = abgeglichen ? treffer : await aufloesen(code);
+
+      /*
+       * Noch nicht nachgesehen und der Code ist bekannt: dann sind gerade
+       * Bezeichnung und Preise aus dem Artikelstamm ins Formular gelaufen.
+       * Jetzt abzulegen hieße, die eben überschriebenen Angaben zu drucken,
+       * ohne dass jemand sie gesehen hat.
+       */
+      if (!abgeglichen && artikel) {
+        toast.info("Angaben aus dem Artikelstamm übernommen – prüfen, dann ablegen.");
+        return;
+      }
+
+      if (!artikel) {
+        if (!kategorieId) {
+          melden("warnung", "Ohne Warengruppe kein Artikel.", code);
+          return;
+        }
+        setLegtAn(true);
+        const ergebnis = await legeSchildArtikelAn({
+          name,
+          barcode: code,
+          categoryId: kategorieId,
+          retailPrice: entwurf.preis,
+          wholesalePrice: entwurf.gh,
+          stock: bestand,
+        });
+        setLegtAn(false);
+
+        if (ergebnis.error || !ergebnis.artikel) {
+          const text = ergebnis.error ?? "Der Artikel konnte nicht angelegt werden.";
+          melden("fehler", text, code);
+          toast.error(text);
+          return;
+        }
+
+        artikel = ergebnis.artikel;
+        setAufgeloest(code);
+        setTreffer(artikel);
+        melden("neu", `${artikel.name} angelegt`, artikel.sku);
+      } else {
+        melden("treffer", artikel.name, artikel.sku);
+      }
+
+      // Die Artikelnummer kommt aus dem Stamm, nicht aus dem Feld: sie steht
+      // auf dem Schild und muss die sein, unter der die Ware geführt wird.
+      sku = artikel.sku;
+    }
+
+    const werte: Entwurf = { ...entwurf, name, anzahl, sku };
 
     if (bearbeitet) {
       setzeSchilder((alt) =>
@@ -280,6 +528,12 @@ export function PreisschildFrei({
      * bepreistes Schild, und das fällt erst im Regal auf.
      */
     setEntwurf((alt) => ({ ...LEER, iconId: alt.iconId, labelKey: alt.labelKey }));
+    // Der Abgleich gehört zum Code im Feld: ist das Feld leer, gibt es nichts
+    // mehr abzugleichen, und ein stehen gebliebener Treffer behauptete sonst,
+    // das nächste Schild hinge an demselben Artikel.
+    setAufgeloest(null);
+    setTreffer(null);
+    setBestand(0);
     zurueckZumFeld();
   }
 
@@ -299,12 +553,20 @@ export function PreisschildFrei({
       anzahl: eintrag.anzahl,
     });
     setBearbeitet(id);
-    zurueckZumFeld();
+    // Ein zurückgeholtes Schild wird nicht noch einmal abgeglichen: es liegt
+    // bereits auf dem Blatt, und sein Artikel – falls es einen gibt – ist
+    // beim Ablegen entstanden.
+    setAufgeloest(null);
+    setTreffer(null);
+    zurueckZumFeld("name");
   }
 
   function abbrechen() {
     setBearbeitet(null);
     setEntwurf(LEER);
+    setAufgeloest(null);
+    setTreffer(null);
+    setBestand(0);
     zurueckZumFeld();
   }
 
@@ -478,6 +740,15 @@ export function PreisschildFrei({
       <div className="grid gap-6 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
         {/* ---- Eingabemaske ---------------------------------------------- */}
         <section className="space-y-4">
+          {/* Dieselbe Leiste wie an der Kasse und im Wareneingang: fest über
+              dem Feld, in Blickrichtung. Wer scannt, sieht nicht auf den
+              Bildschirm – eine Meldung am Rand wäre weg, bevor jemand
+              hinschaut. */}
+          <KassenStatus
+            meldung={meldung}
+            bereitText="Barcode scannen oder Angaben tippen."
+          />
+
           <form
             onSubmit={(event) => {
               event.preventDefault();
@@ -511,11 +782,111 @@ export function PreisschildFrei({
               ) : null}
             </div>
 
+            {/* Der Scan steht oben, weil er den Rest bestimmt: ein bekannter
+                Code füllt das Formular, ein unbekannter macht daraus einen
+                neuen Artikel. Das Feld ohne Barcode auszufüllen bleibt
+                erlaubt – dann bleibt es ein reines Schild. */}
+            <Feld label="Barcode scannen" htmlFor="frei-barcode">
+              <div className="relative">
+                <Input
+                  id="frei-barcode"
+                  ref={scanFeld}
+                  autoFocus
+                  value={entwurf.barcode}
+                  onChange={(event) => feld({ barcode: event.target.value })}
+                  onBlur={() => {
+                    // Von Hand getippt und weggeklickt: nachsehen, bevor
+                    // jemand auf den Knopf drückt.
+                    if (code && code !== aufgeloest) void aufloesen(code);
+                  }}
+                  onKeyDown={(event) => {
+                    /*
+                     * Ein Handscanner schließt mit Enter ab. Solange der Code
+                     * noch nicht nachgeschlagen ist, heißt dieses Enter
+                     * „nachsehen" und nicht „aufs Blatt": sonst läge das
+                     * Schild da, bevor die Angaben aus dem Artikelstamm
+                     * eingetroffen sind.
+                     */
+                    if (event.key === "Enter" && code && code !== aufgeloest) {
+                      event.preventDefault();
+                      void aufloesen(code);
+                    }
+                  }}
+                  placeholder="EAN scannen, tippen oder leer lassen"
+                  maxLength={40}
+                  className="h-9 pr-9 tabular"
+                />
+                {sucht ? (
+                  <Loader2
+                    className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground"
+                    aria-hidden
+                  />
+                ) : null}
+              </div>
+            </Feld>
+
+            {gefunden ? (
+              <p className="rounded-md border border-success/40 bg-success/10 px-3 py-2 text-[11px] text-success">
+                <span className="font-medium">Artikel gefunden:</span>{" "}
+                <span className="tabular">{gefunden.sku}</span> · Bestand{" "}
+                <span className="tabular">{gefunden.bestand}</span>. Angaben
+                übernommen. Änderungen hier gelten nur für das Schild, nicht für
+                den Artikel.
+              </p>
+            ) : null}
+
+            {unbekannt ? (
+              <div className="space-y-2 rounded-md border border-gold/50 bg-gold-soft px-3 py-2">
+                <p className="text-[11px] font-medium text-gold">
+                  Noch kein Artikel mit diesem Code. Beim Ablegen wird einer
+                  angelegt – Bezeichnung, Barcode, Preise und Warengruppe
+                  kommen von hier, die Artikelnummer aus dem Nummernkreis.
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <Feld label="Warengruppe" htmlFor="frei-kategorie">
+                    <select
+                      id="frei-kategorie"
+                      value={kategorieId}
+                      onChange={(event) => setKategorieId(event.target.value)}
+                      className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                    >
+                      {kategorien.map((kategorie) => (
+                        <option key={kategorie.id} value={kategorie.id}>
+                          {kategorie.name}
+                        </option>
+                      ))}
+                    </select>
+                  </Feld>
+                  <Feld label="Anfangsbestand" htmlFor="frei-bestand">
+                    <NumericInput
+                      id="frei-bestand"
+                      value={bestand}
+                      onChange={setBestand}
+                      className="h-9"
+                    />
+                  </Feld>
+                </div>
+                {entwurf.gh <= 0 ? (
+                  <p className="text-[11px] text-gold">
+                    Ohne Großhandelspreis gilt der Ladenpreis auch als
+                    Staffelpreis – sonst stünde der Artikel im Shop zum
+                    Nulltarif.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+
+            {keinEan ? (
+              <p className="text-[11px] text-muted-foreground">
+                Kein EAN-13, EAN-8 oder UPC-A – die Nummer steht als Text in der
+                Fußzeile. Eine falsche Prüfziffer wird nicht berichtigt.
+              </p>
+            ) : null}
+
             <Feld label="Bezeichnung" htmlFor="frei-name">
               <Input
                 id="frei-name"
                 ref={nameFeld}
-                autoFocus
                 value={entwurf.name}
                 onChange={(event) => feld({ name: event.target.value })}
                 placeholder="z. B. Handbesen mit Schaufel"
@@ -587,23 +958,6 @@ export function PreisschildFrei({
               </Feld>
             </div>
 
-            <Feld label="Barcode" htmlFor="frei-barcode">
-              <Input
-                id="frei-barcode"
-                value={entwurf.barcode}
-                onChange={(event) => feld({ barcode: event.target.value })}
-                placeholder="EAN einscannen oder tippen"
-                maxLength={40}
-                className="h-9 tabular"
-              />
-            </Feld>
-            {keinEan ? (
-              <p className="text-[11px] text-muted-foreground">
-                Kein EAN-13, EAN-8 oder UPC-A – die Nummer steht als Text in der
-                Fußzeile. Eine falsche Prüfziffer wird nicht berichtigt.
-              </p>
-            ) : null}
-
             <div className="grid grid-cols-3 gap-3">
               <Feld label="Symbol" htmlFor="frei-icon">
                 <select
@@ -665,14 +1019,26 @@ export function PreisschildFrei({
               </p>
             ) : null}
 
-            <Button type="submit" className="w-full">
-              <Plus className="size-4" aria-hidden />
-              {bearbeitet ? "Änderung übernehmen" : "Aufs Blatt legen"}
+            <Button type="submit" className="w-full" disabled={sucht || legtAn}>
+              {legtAn ? (
+                <Loader2 className="size-4 animate-spin" aria-hidden />
+              ) : unbekannt && !bearbeitet ? (
+                <BadgePlus className="size-4" aria-hidden />
+              ) : (
+                <Plus className="size-4" aria-hidden />
+              )}
+              {bearbeitet
+                ? "Änderung übernehmen"
+                : legtAn
+                  ? "Artikel wird angelegt …"
+                  : unbekannt
+                    ? "Anlegen und aufs Blatt"
+                    : "Aufs Blatt legen"}
             </Button>
             <p className="text-[11px] text-muted-foreground">
-              Enter in jedem Feld legt das Schild aufs Blatt. Symbol und Label
-              bleiben für das nächste Schild stehen, Bezeichnung und Preise
-              nicht.
+              Enter in jedem Feld legt das Schild aufs Blatt; im Scannerfeld
+              schlägt es erst den Code nach. Symbol und Label bleiben für das
+              nächste Schild stehen, Bezeichnung und Preise nicht.
             </p>
           </form>
 
