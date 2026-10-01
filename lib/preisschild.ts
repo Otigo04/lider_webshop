@@ -197,16 +197,16 @@ export function schildMasse(
      * Preis: gelesen wird aus der Entfernung der Betrag, die Bezeichnung erst
      * vor dem Regal.
      */
-    name: klemme(innenH * 0.1, 1.8, 8),
+    name: klemme(innenH * 0.1, 1.8, 18),
     /** Wunschgröße des Euro-Betrags – die Breitenprüfung kann sie kürzen. */
-    preis: klemme(innenH * 0.44 * k, 4, 40),
-    vorher: klemme(innenH * 0.125 * k, 1.8, 10),
-    prozent: klemme(innenH * 0.125 * k, 1.8, 10),
-    kennung: klemme(innenH * 0.135, 1.8, 11),
+    preis: klemme(innenH * 0.44 * k, 4, 110),
+    vorher: klemme(innenH * 0.125 * k, 1.8, 26),
+    prozent: klemme(innenH * 0.125 * k, 1.8, 26),
+    kennung: klemme(innenH * 0.135, 1.8, 14),
     /** Label in der Fußzeile, etwas kleiner als die Artikelnummer. */
     label: klemme(innenH * 0.11, 1.6, 9),
     /** Symbol neben der Bezeichnung. */
-    icon: klemme(innenH * 0.2, 3, 18),
+    icon: klemme(innenH * 0.2, 3, 40),
     /** Stärke der beiden Haarlinien. */
     linie: klemme(format.hoehe * 0.008, 0.18, 0.5),
     /** Abstand der Haarlinien nach oben und unten. */
@@ -257,6 +257,9 @@ export const NAME_ZEILE = 1.12;
 
 /** Innenabstand des Prozentfelds, in em seiner Schriftgröße (oben + unten). */
 const PROZENT_LUFT = 0.44;
+
+/** Reserve unter der zweiten Namenszeile, in em der Namensschrift. */
+const UNTERLAENGE = 0.16;
 
 /**
  * Höhe, die ein voll besetztes Schild braucht – zweizeilige Bezeichnung,
@@ -479,7 +482,10 @@ export function preiszeilenHoehe(masse: ReturnType<typeof schildMasse>): number 
  */
 export function kopfHoehe(masse: ReturnType<typeof schildMasse>): number {
   return Math.max(
-    masse.name * NAME_ZEILE * 2,
+    // Zwei Zeilen plus ein Hauch für die Unterlängen der zweiten: bei
+    // Zeilenabstand 1,12 ragen „g" und „y" unter ihre Zeile, und der Kopf
+    // schneidet ab, was übersteht.
+    masse.name * (NAME_ZEILE * 2 + UNTERLAENGE),
     masse.prozent * (1 + PROZENT_LUFT),
     masse.icon,
   );
@@ -507,9 +513,10 @@ export function nameBreite(
 /**
  * Satz der Bezeichnung: zwei Zeilen, voll ausgeschrieben.
  *
- * Zeile 1 wird bis zum Rand gefüllt. Passt das nächste Wort nicht mehr ganz
- * hinein, wird es dort getrennt – so viel, wie bis zum Rand geht, dann ein
- * „-", der Rest in Zeile 2. Vorher rutschte das ganze Wort in die zweite
+ * Umbrochen wird am Wortende, solange der Rest in Zeile 2 passt. Erst wenn
+ * er das nicht tut, wird Zeile 1 bis zum Rand gefüllt und das nächste Wort
+ * dort getrennt – so viel, wie bis zum Rand geht, dann ein „-", der Rest in
+ * Zeile 2. Vorher rutschte das ganze Wort in die zweite
  * Zeile, ließ die erste halb leer und schnitt die zweite mit „…" ab: aus
  * „Cimar 15W Magnetisches Fahrradlicht" wurde „Magnetisches…".
  *
@@ -550,7 +557,28 @@ export function nameSatz(
         zeile1 = probe;
         continue;
       }
+      // Erst der saubere Umbruch am Wortende: passt der Rest ganz in die
+      // zweite Zeile, wird nichts getrennt. „Silikon / schwarz" liest sich
+      // besser als „Silikon schwa- / rz", auch wenn Zeile 1 dabei kürzer ist.
+      if (zeile1 && messen(woerter.slice(i).join(" ")) <= breiteEm) {
+        return [zeile1, woerter.slice(i).join(" ")];
+      }
       const zeichen = Array.from(woerter[i]);
+      // Ein Bindestrich im Wort ist die bessere Trennstelle als irgendein
+      // Buchstabe: „Akku- / Bohrschrauber" statt „Akku-Bohrsc- / hrauber".
+      let amStrich = false;
+      for (let n = zeichen.length - 1; n >= 2; n--) {
+        if (zeichen[n - 1] !== "-") continue;
+        const vorne = (zeile1 ? zeile1 + " " : "") + zeichen.slice(0, n).join("");
+        const hinten = [zeichen.slice(n).join("")].concat(woerter.slice(i + 1)).join(" ");
+        if (messen(vorne) <= breiteEm && messen(hinten) <= breiteEm) {
+          zeile1 = vorne;
+          rest = zeichen.slice(n).join("");
+          amStrich = true;
+          break;
+        }
+      }
+      if (amStrich) break;
       for (let n = zeichen.length - MIN_HINTEN; n >= MIN_VORNE; n--) {
         // Nicht mitten in einer Zahl: aus „1500W" würde sonst „150-" und „0W".
         if (/\d/.test(zeichen[n - 1]) && /\d/.test(zeichen[n])) continue;
@@ -712,20 +740,198 @@ export function nebenblockBreite(
   masse: ReturnType<typeof schildMasse>,
 ): number {
   if (vorher === null && prozent === null) return 0;
+  const teile = nebenTeile(vorher, prozent, masse);
+  return Math.max(teile.vorher, teile.prozent) + PREIS_ABSTAND * masse.luft;
+}
 
-  let breite = 0;
+/**
+ * Aufschlag auf die geschätzten Breiten. Beide Angaben stehen in einer Zeile,
+ * die nicht umbricht; liegt die Schätzung zu niedrig, läuft das Prozentfeld
+ * über den Rand. Zu hoch geschätzt kostet nur etwas Preisgröße.
+ */
+const NEBEN_RESERVE = 1.06;
+
+/** Breite von Streichpreis und Prozentfeld, jedes für sich, in Millimetern. */
+function nebenTeile(
+  vorher: number | null,
+  prozent: number | null,
+  masse: ReturnType<typeof schildMasse>,
+): { vorher: number; prozent: number } {
+  let v = 0;
+  let p = 0;
   if (vorher !== null) {
     const { euro, cent } = preisTeile(vorher);
     // „15,99 €" – Betrag, Komma, Cent, Leerzeichen, Zeichen.
-    const em = emBreite(euro) + EM_TRENNER + emBreite(cent) + 0.3 + 0.62;
-    breite = Math.max(breite, em * masse.vorher);
+    v =
+      (emBreite(euro) + EM_TRENNER + emBreite(cent) + 0.3 + 0.62) *
+      masse.vorher *
+      NEBEN_RESERVE;
   }
   if (prozent !== null) {
     // „−28 %" plus der Innenabstand des Feldes.
-    const em = 0.62 + emBreite(String(prozent)) + 0.3 + 0.62 + 0.8;
-    breite = Math.max(breite, em * masse.prozent);
+    // Das fette Prozentzeichen ist mit 0,9 em das breiteste Zeichen der Zeile.
+    p =
+      (0.62 + emBreite(String(prozent)) + 0.3 + 0.9 + 0.8) *
+      masse.prozent *
+      NEBEN_RESERVE;
   }
-  return breite + PREIS_ABSTAND * masse.luft;
+  return { vorher: v, prozent: p };
+}
+
+/** Breite des Preises in em seines Euro-Betrags: Betrag, Cent, Euro-Zeichen. */
+function preisEm(wert: number): number {
+  const { euro, cent } = preisTeile(wert);
+  return (
+    emBreite(euro) + 0.08 + emBreite(cent) * CENT_ANTEIL + 0.12 + 0.62 * CENT_ANTEIL
+  );
+}
+
+/**
+ * Höhe, die zwischen den beiden Haarlinien für den Preis bleibt.
+ *
+ * Kopf und Fußzeile haben feste Höhen; was dazwischen liegt, gehört dem
+ * Preisblock. Größer als das darf dort nichts werden – der Block schneidet
+ * nicht ab, er läuft in die Linien.
+ */
+export function preisblockHoehe(masse: ReturnType<typeof schildMasse>): number {
+  const trenner = 2 * (masse.linie + 2 * masse.linienLuft);
+  return Math.max(0, masse.innenH - kopfHoehe(masse) - trenner - fussHoehe(masse));
+}
+
+/** Wie Preis, Streichpreis und Prozentfeld auf diesem Schild stehen. */
+export interface PreisAufteilung {
+  /** Schriftgröße des Euro-Betrags in Millimetern */
+  groesse: number;
+  /**
+   * `neben`: Streichpreis und Prozentfeld rechts vom Preis, untereinander.
+   * `unter`: beide in einer Reihe unter dem Preis.
+   * `solo`: nur der Preis.
+   */
+  anordnung: "solo" | "neben" | "unter";
+  zeigeVorher: boolean;
+  zeigeProzent: boolean;
+  /**
+   * Faktor auf die Schrift von Streichpreis und Prozentfeld. Unter 1, wenn
+   * beide in der Reihe unter dem Preis sonst nicht nebeneinander passten.
+   */
+  nebenSkala: number;
+}
+
+/** Kleiner als so werden Streichpreis und Prozentfeld nicht – dann lieber weg. */
+const NEBEN_MIN_SKALA = 0.55;
+
+/**
+ * Ab welchem Anteil der möglichen Preisgröße die Reduzierungsangaben bleiben
+ * dürfen. Darunter fressen sie dem Preis mehr weg, als sie sagen.
+ */
+const PREIS_MINDESTANTEIL = 0.62;
+
+/**
+ * Die Preiszeile nach Rangfolge: **Preis, Prozentfeld, Streichpreis.**
+ *
+ * Auf einem großen Schild steht alles nebeneinander. Wird es eng, gab es
+ * vorher nur eine Antwort: den Preis kleiner setzen – auf einem schmalen
+ * Schild bis auf zwei Millimeter, während der Streichpreis trotzdem über den
+ * Rand lief. Ausgerechnet das reduzierte Schild, das am weitesten zu lesen
+ * sein soll, hatte den kleinsten Preis.
+ *
+ * Jetzt wird gewählt, was den Preis am größten lässt:
+ *
+ *  1. Streichpreis und Prozentfeld **neben** dem Preis oder **unter** ihm –
+ *     je nachdem, ob das Schild eher breit oder eher hoch ist.
+ *  2. Bleibt dem Preis so weniger als gut die Hälfte seiner möglichen Größe,
+ *     fällt der Streichpreis weg. Das Prozentfeld sagt dasselbe kürzer.
+ *  3. Reicht auch das nicht, steht der Preis allein. Dass reduziert ist, sagt
+ *     dann die rote Fläche.
+ *
+ * Nichts davon darf über den Rand: eine Anordnung, deren Teile nicht in
+ * Breite und Höhe des Blocks passen, scheidet aus, statt abgeschnitten zu
+ * werden.
+ */
+export function preisAufteilung(
+  schild: Pick<Preisschild, "preis" | "vorher" | "prozent">,
+  masse: ReturnType<typeof schildMasse>,
+): PreisAufteilung {
+  const em = preisEm(schild.preis);
+  const blockH = preisblockHoehe(masse);
+  const solo = Math.min(masse.preis, masse.innenB / em, blockH);
+  const allein: PreisAufteilung = {
+    groesse: solo,
+    anordnung: "solo",
+    zeigeVorher: false,
+    zeigeProzent: false,
+    nebenSkala: 1,
+  };
+  if (schild.vorher === null && schild.prozent === null) return allein;
+
+  const abstand = PREIS_ABSTAND * masse.luft;
+  const zwischen = masse.luft * 0.45;
+
+  function versuche(
+    vorher: number | null,
+    prozent: number | null,
+  ): PreisAufteilung | null {
+    const teile = nebenTeile(vorher, prozent, masse);
+    const hoeheV = vorher !== null ? masse.vorher : 0;
+    const hoeheP = prozent !== null ? masse.prozent * (1 + PROZENT_LUFT) : 0;
+    const beide = vorher !== null && prozent !== null;
+    const kandidaten: PreisAufteilung[] = [];
+
+    // Daneben: untereinander gestapelt, rechts vom Preis.
+    const nebenH = hoeheV + hoeheP + (beide ? zwischen : 0);
+    const nebenB = Math.max(teile.vorher, teile.prozent);
+    if (nebenH <= blockH) {
+      const groesse = Math.min(masse.preis, (masse.innenB - nebenB - abstand) / em, blockH);
+      if (groesse > 0) {
+        kandidaten.push({
+          groesse,
+          anordnung: "neben",
+          zeigeVorher: vorher !== null,
+          zeigeProzent: prozent !== null,
+          nebenSkala: 1,
+        });
+      }
+    }
+
+    // Darunter: in einer Reihe, der Preis behält die volle Breite. Auf einem
+    // schmalen, hohen Schild ist Höhe übrig und Breite knapp – die Reihe darf
+    // deshalb schrumpfen, bevor sie entfällt.
+    const reiheB = teile.vorher + teile.prozent;
+    const skala = Math.min(
+      1,
+      (masse.innenB - (beide ? abstand : 0)) / Math.max(reiheB, 0.01),
+    );
+    if (skala >= NEBEN_MIN_SKALA) {
+      const reiheH = Math.max(hoeheV, hoeheP) * skala;
+      const groesse = Math.min(
+        masse.preis,
+        masse.innenB / em,
+        blockH - reiheH - zwischen,
+      );
+      if (groesse > 0) {
+        kandidaten.push({
+          groesse,
+          anordnung: "unter",
+          zeigeVorher: vorher !== null,
+          zeigeProzent: prozent !== null,
+          nebenSkala: skala,
+        });
+      }
+    }
+
+    // Die größere gewinnt; bei Gleichstand „neben" – es steht zuerst da.
+    let beste: PreisAufteilung | null = null;
+    for (const k of kandidaten) {
+      if (!beste || k.groesse > beste.groesse + 0.01) beste = k;
+    }
+    return beste && beste.groesse >= solo * PREIS_MINDESTANTEIL ? beste : null;
+  }
+
+  return (
+    versuche(schild.vorher, schild.prozent) ??
+    (schild.prozent !== null ? versuche(null, schild.prozent) : null) ??
+    allein
+  );
 }
 
 /**
@@ -874,9 +1080,10 @@ export function istReduziert(schild: Pick<Preisschild, "vorher">): boolean {
 /**
  * Aktionsrot der reduzierten Schilder.
  *
- * Nicht das Markenrot #a02020: darauf ist schwarze Schrift kaum zu lesen, und
- * schwarz auf rot ist hier ausdrücklich gewünscht. Dieses hellere Signalrot
- * trägt schwarze Ziffern und bleibt im Regal von weitem ein Aktionsschild.
+ * Nicht das Markenrot #a02020: das hellere Signalrot bleibt im Regal von
+ * weitem ein Aktionsschild. Die Schrift darauf ist weiß (Kontrast rund 4,9:1)
+ * – schwarz auf rot las sich im Laden schlechter, als es auf dem Bildschirm
+ * aussah.
  */
 export const AKTIONSROT = "#e2001a";
 
