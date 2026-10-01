@@ -1,6 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowDownRight, ArrowUpRight, PackagePlus, Search, Sparkles } from "lucide-react";
+import {
+  ArrowDownRight,
+  ArrowUpRight,
+  PackagePlus,
+  Printer,
+  Search,
+  Sparkles,
+} from "lucide-react";
 import { Wareneingang } from "@/components/admin/wareneingang";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,12 +59,20 @@ export default async function BestandPage({
             buchen. Unbekannte Codes werden dabei als Artikel angelegt.
           </p>
         </div>
-        <Button asChild variant="outline">
-          <Link href="/admin/products/new">
-            <PackagePlus className="size-4" aria-hidden />
-            Einzelnen Artikel ausführlich anlegen
-          </Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline">
+            <Link href="/admin/preisschilder?letzte=10">
+              <Printer className="size-4" aria-hidden />
+              Preisschilder: letzte 10
+            </Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/admin/products/new">
+              <PackagePlus className="size-4" aria-hidden />
+              Einzelnen Artikel ausführlich anlegen
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {categories.length === 0 ? (

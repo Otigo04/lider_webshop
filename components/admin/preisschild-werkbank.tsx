@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { ListPlus, Plus, Printer, Search, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { History, ListPlus, Plus, Printer, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { NumericInput } from "@/components/numeric-input";
 import { PreisschildGroessen } from "@/components/admin/preisschild-groessen";
@@ -61,12 +61,41 @@ interface Zeile {
 /** Wie viele Treffer die Auswahlliste zeigt, bevor sie zur Bleiwüste wird. */
 const MAX_TREFFER = 60;
 
+/** Unter diesem Schlüssel merkt sich der Browser die zuletzt gewählte Größe. */
+const GEMERKTES_FORMAT = "lider_preisschild_format";
+
+/** Artikel als frische Zeile der Schilderliste, ein Schild. */
+function alsZeile(a: PreisschildArtikel): Zeile {
+  return {
+    productId: a.id,
+    sku: a.sku,
+    barcode: a.barcode,
+    name: a.name,
+    preis: a.preis ?? 0,
+    vorher: a.vorher ?? 0,
+    gh: a.grosshandel ?? 0,
+    iconId: null,
+    labelKey: null,
+    anzahl: 1,
+  };
+}
+
 export function PreisschildWerkbank({
   artikel,
   icons,
   formate,
   labels,
+  vorauswahl = [],
+  zuletzt = [],
 }: {
+  /** Zuletzt aufgenommene Artikel, der jüngste zuerst (Wareneingangsjournal) */
+  zuletzt?: string[];
+  /**
+   * Artikel, die schon auf der Liste stehen sollen – die Positionen eines
+   * Wareneingangs (`?eingang=`). Je Artikel ein Schild: am Regal hängt eins
+   * je Sorte, nicht eins je Stück.
+   */
+  vorauswahl?: string[];
   artikel: PreisschildArtikel[];
   icons: LabelIcon[];
   formate: SchildFormat[];
@@ -80,7 +109,15 @@ export function PreisschildWerkbank({
   );
   const [suche, setSuche] = useState("");
   const [kategorie, setKategorie] = useState("");
-  const [zeilen, setZeilen] = useState<Zeile[]>([]);
+  const [zeilen, setZeilen] = useState<Zeile[]>(() => {
+    // In der Reihenfolge der Vorauswahl, nicht alphabetisch: so liegen die
+    // Schilder nach dem Schneiden in der Reihenfolge, in der gescannt wurde.
+    const nachId = new Map(artikel.map((a) => [a.id, a]));
+    return vorauswahl.flatMap((id) => {
+      const a = nachId.get(id);
+      return a ? [alsZeile(a)] : [];
+    });
+  });
   const [aktiv, setAktiv] = useState<string | null>(null);
   /*
    * Strichcode aufs Schild – ein Schalter für den ganzen Bogen, nicht je
@@ -94,6 +131,34 @@ export function PreisschildWerkbank({
    * ab – das ist die seltenere Entscheidung und darf der Klick sein.
    */
   const [mitBarcode, setMitBarcode] = useState(true);
+
+  /*
+   * Zuletzt benutzte Schildgröße merken. Im Laden hängt eine Schiene, also
+   * wird fast immer dieselbe Größe gedruckt – sie jedes Mal neu anzuklicken
+   * ist ein Klick, den man irgendwann vergisst, und dann kommt der Bogen im
+   * falschen Maß. Nur diese eine Einstellung, je Gerät: sie ist Gewohnheit,
+   * keine Stammdaten.
+   */
+  useEffect(() => {
+    const spaeter = setTimeout(() => {
+      try {
+        const gemerkt = localStorage.getItem(GEMERKTES_FORMAT);
+        if (gemerkt && formate.some((f) => f.id === gemerkt)) setFormatId(gemerkt);
+      } catch {
+        // Ohne Speicher gilt die Vorgabe.
+      }
+    }, 0);
+    return () => clearTimeout(spaeter);
+  }, [formate]);
+
+  function formatWaehlen(id: string) {
+    setFormatId(id);
+    try {
+      localStorage.setItem(GEMERKTES_FORMAT, id);
+    } catch {
+      // siehe oben
+    }
+  }
 
   // Eine gerade gelöschte Größe darf die Seite nicht leer lassen.
   const format = formate.find((f) => f.id === formatId) ?? formate[0];
@@ -177,22 +242,25 @@ export function PreisschildWerkbank({
           z.productId === a.id ? { ...z, anzahl: z.anzahl + 1 } : z,
         );
       }
-      return [
-        ...alt,
-        {
-          productId: a.id,
-          sku: a.sku,
-          barcode: a.barcode,
-          name: a.name,
-          preis: a.preis ?? 0,
-          vorher: a.vorher ?? 0,
-          gh: a.grosshandel ?? 0,
-          iconId: null,
-          labelKey: null,
-          anzahl: 1,
-        },
-      ];
+      return [...alt, alsZeile(a)];
     });
+  }
+
+  /**
+   * Die letzten n aufgenommenen Artikel auf die Liste. Was schon draufsteht,
+   * bleibt wie es ist – ein zweiter Klick soll keine Stückzahlen verdoppeln.
+   */
+  function letzteHinzufuegen(n: number) {
+    const nachId = new Map(artikel.map((a) => [a.id, a]));
+    const neu = zuletzt.slice(0, n).flatMap((id) => {
+      const a = nachId.get(id);
+      return a ? [a] : [];
+    });
+    setZeilen((alt) => [
+      ...alt,
+      ...neu.filter((a) => !alt.some((z) => z.productId === a.id)).map(alsZeile),
+    ]);
+    if (neu[0]) setAktiv(neu[0].id);
   }
 
   function alleHinzufuegen() {
@@ -267,6 +335,28 @@ export function PreisschildWerkbank({
       <div className="grid gap-6 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
         {/* ---- Artikel auswählen -------------------------------------- */}
         <aside className="space-y-3">
+          {zuletzt.length > 0 ? (
+            <div className="rounded-lg border border-border bg-muted/40 p-3">
+              <p className="flex items-center gap-1.5 text-xs font-medium">
+                <History className="size-3.5" aria-hidden />
+                Zuletzt aufgenommen
+              </p>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {[5, 10, 20, 50].map((n) => (
+                  <Button
+                    key={n}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 bg-card tabular"
+                    onClick={() => letzteHinzufuegen(n)}
+                  >
+                    letzte {n}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          ) : null}
           <div className="relative">
             <Search
               className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
@@ -372,7 +462,7 @@ export function PreisschildWerkbank({
                     <button
                       key={f.id}
                       type="button"
-                      onClick={() => setFormatId(f.id)}
+                      onClick={() => formatWaehlen(f.id)}
                       aria-pressed={gewaehlt}
                       className={`rounded-md border px-3 py-1.5 text-left text-sm transition-colors ${
                         gewaehlt

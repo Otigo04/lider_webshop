@@ -75,3 +75,58 @@ export function summiere(entries: StockEntry[]): StockEntrySummary {
     neueArtikel: entries.filter((eintrag) => eintrag.is_new_product).length,
   };
 }
+
+/**
+ * Artikel einer Buchung – für die Preisschilder der Lieferung.
+ *
+ * Eine Buchung hat keine eigene Kennung, aber einen eigenen Zeitpunkt:
+ * record_stock_entries() läuft in einer Transaktion, alle ihre Zeilen tragen
+ * dasselbe now(). Eine Buchungstabelle nur dafür wäre ein zweiter Ort, an dem
+ * dieselbe Lieferung steht.
+ */
+export async function getEingangProductIds(zeitpunkt: string): Promise<string[]> {
+  if (Number.isNaN(Date.parse(zeitpunkt))) return [];
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("stock_entries")
+    .select("product_id")
+    .eq("created_at", zeitpunkt)
+    .not("product_id", "is", null);
+
+  if (error) {
+    console.error("[wareneingang] Positionen der Buchung:", error.message);
+    return [];
+  }
+
+  return [...new Set((data ?? []).map((zeile) => zeile.product_id as string))];
+}
+
+/**
+ * Zuletzt aufgenommene Artikel, der jüngste zuerst, jeder einmal.
+ *
+ * Für „die letzten zehn als Preisschild": wer gerade einen Karton gebucht
+ * hat, will dessen Schilder und sucht die Artikel nicht noch einmal
+ * zusammen. Aus dem Journal gelesen statt gemerkt – so gilt es an jedem
+ * Gerät.
+ */
+export async function getZuletztAufgenommen(anzahl = 200): Promise<string[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("stock_entries")
+    .select("product_id")
+    .not("product_id", "is", null)
+    .order("created_at", { ascending: false })
+    // Mehr Zeilen als Artikel: derselbe Artikel kann mehrfach gebucht sein.
+    .limit(anzahl * 3);
+
+  if (error) {
+    console.error("[wareneingang] Zuletzt aufgenommen:", error.message);
+    return [];
+  }
+
+  return [...new Set((data ?? []).map((zeile) => zeile.product_id as string))].slice(
+    0,
+    anzahl,
+  );
+}
