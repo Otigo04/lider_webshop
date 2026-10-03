@@ -875,10 +875,15 @@ setzen, drucken – A4 mit Schnittlinien.
 - **HTML statt PDF.** Die Schilder sind reines Rechteck-Layout, das CSS-Grid
   ohne eine Zeile Koordinatenrechnerei setzt. `print-color-adjust: exact` ist
   dabei nicht Kosmetik: ohne das druckt Chrome die roten Flächen weiß.
-- **Rot heißt reduziert**, sonst weiß – die Schrift bleibt in beiden Fällen
-  schwarz. Ob rot, entscheidet `reduzierung()` wie im Shop: ein Cent
-  Unterschied ist kein Angebot. Die Fläche ist `#e2001a` und nicht das
-  Markenrot `#a02020`, weil schwarze Ziffern darauf lesbar bleiben müssen.
+- **Rot heißt reduziert**, sonst weiß – die Schrift ist **weiß auf Rot,
+  schwarz auf Weiß** (`rot ? "#fff" : "#000"`, dieselbe Verzweigung in
+  `preisschild-vorschau.tsx` und `preisschild-bogen.ts`). Ob rot, entscheidet
+  `reduzierung()` wie im Shop: ein Cent Unterschied ist kein Angebot. Die
+  Fläche ist `#e2001a` und nicht das Markenrot `#a02020` – dagegen steht auch
+  weiße Schrift noch deutlich ab. Der verdeckte Code hinter der Artikelnummer
+  folgt derselben Umkehr: `CODEROT` auf weißem Schild, Weiß auf rotem. Nur das
+  schwarze Prozentfeld bleibt unverändert schwarz mit weißer Schrift – es
+  steht unabhängig von der Schildfarbe und ist auf beiden gleich stark.
 - **Strichcode** in der Fußzeile rechts neben der Artikelnummer, scannbar
   (`lib/barcode.ts`, Schalter „Strichcode aufs Schild", **Vorgabe an** – ein
   scannbares Regal spart Abtippen, und der Code kostet weder Höhe noch

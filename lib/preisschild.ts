@@ -917,9 +917,11 @@ export function istReduziert(schild: Pick<Preisschild, "vorher">): boolean {
 /**
  * Aktionsrot der reduzierten Schilder.
  *
- * Nicht das Markenrot #a02020: darauf ist schwarze Schrift kaum zu lesen, und
- * schwarz auf rot ist hier ausdrücklich gewünscht. Dieses hellere Signalrot
- * trägt schwarze Ziffern und bleibt im Regal von weitem ein Aktionsschild.
+ * Nicht das Markenrot #a02020, sondern dieses hellere, kräftigere Signalrot –
+ * es bleibt im Regal von weitem ein Aktionsschild. Die Schrift darauf ist
+ * weiß (siehe `preisschild-vorschau.tsx`/`preisschild-bogen.ts`, `rot ?
+ * "#fff" : "#000"`): auf #e2001a ist der Kontrast zu Weiß deutlich höher als
+ * zu Schwarz.
  */
 export const AKTIONSROT = "#e2001a";
 

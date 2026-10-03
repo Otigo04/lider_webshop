@@ -299,7 +299,9 @@ export function buildLabelSheetHtml(
     overflow: hidden;
     background: #fff;
   }
-  .zelle.rot { background: ${AKTIONSROT}; }
+  /* Weiß auf dem Aktionsrot, sonst das geerbte Schwarz von body – auf
+     #e2001a ist der Kontrast zu Weiß deutlich höher als zu Schwarz. */
+  .zelle.rot { background: ${AKTIONSROT}; color: #fff; }
 
   /* Feste Höhe: zwei Zeilen Bezeichnung, auch wenn nur eine gebraucht wird.
      Sonst rutschte der Preis mit der Länge des Namens auf und ab, und auf dem
@@ -463,7 +465,7 @@ export function buildLabelSheetHtml(
     flex: none;
   }
   .kennung .code { color: ${CODEROT}; }
-  .zelle.rot .kennung .code { color: #000; }
+  .zelle.rot .kennung .code { color: #fff; }
 
   /* Rückfall für Nummern, aus denen kein EAN wird: als Ziffernfolge hinter
      einem Mittelpunkt, damit sie nicht wie eine Verlängerung der

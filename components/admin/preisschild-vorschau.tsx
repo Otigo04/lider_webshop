@@ -95,7 +95,9 @@ export function PreisschildVorschau({
         height: `${format.hoehe}mm`,
         padding: `${m.luft}mm`,
         background: rot ? AKTIONSROT : "#fff",
-        color: "#000",
+        // Weiß auf dem Aktionsrot, sonst Schwarz auf Weiß – auf #e2001a ist
+        // der Kontrast zu Weiß deutlich höher als zu Schwarz.
+        color: rot ? "#fff" : "#000",
         display: "flex",
         flexDirection: "column",
         fontFamily: SCHRIFT,
@@ -279,7 +281,7 @@ export function PreisschildVorschau({
         >
           {schild.sku}
           {schild.code ? (
-            <span style={{ color: rot ? "#000" : CODEROT }}>#{schild.code}</span>
+            <span style={{ color: rot ? "#fff" : CODEROT }}>#{schild.code}</span>
           ) : null}
           {/* Rückfall nur bei einer Nummer, die kein EAN ist. */}
           {!code && schild.barcode ? (
