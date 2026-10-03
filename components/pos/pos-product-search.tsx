@@ -6,7 +6,8 @@ import { searchPosProductsAction } from "@/lib/actions/pos";
 import type { PosProduct } from "@/lib/queries/pos";
 import { Input } from "@/components/ui/input";
 import { formatPrice, formatQuantity } from "@/lib/format";
-import { counterUnitPrice, marge } from "@/lib/pricing";
+import { counterUnitPrice, marge, reduzierung } from "@/lib/pricing";
+import { RabattBadge } from "@/components/sale-price";
 import { cn } from "@/lib/utils";
 import type { PosPriceMode } from "@/lib/types";
 
@@ -227,6 +228,24 @@ export function PosProductSearch({
                   <span className="block font-semibold tabular">
                     {formatPrice(counterUnitPrice(product, 1, preisModus))}
                   </span>
+                  {/* Reduzierung schon im Treffer zeigen – nicht erst nach
+                      der Auswahl auf dem Bon. */}
+                  {(() => {
+                    const r = reduzierung(
+                      product.listPrice,
+                      counterUnitPrice(product, 1, preisModus),
+                      product.retailPrice,
+                    );
+                    if (!r) return null;
+                    return (
+                      <span className="flex items-center justify-end gap-1 text-xs text-signal">
+                        <span className="tabular line-through">
+                          {formatPrice(r.vorher)}
+                        </span>
+                        <RabattBadge prozent={r.prozent} />
+                      </span>
+                    );
+                  })()}
                   <span
                     className={cn(
                       "block text-xs tabular",

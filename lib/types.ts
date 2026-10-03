@@ -395,6 +395,12 @@ export interface PosCartItem {
   variants?: PriceTier[];
   retailPrice?: number | null;
   /**
+   * Vorher-Preis (Migration 023), nur als Bezug für reduzierung() – steht nie
+   * auf dem Bon, nur als Streichpreis auf dem Bildschirm. Fehlt bei freien
+   * Positionen und bei Artikeln ohne Reduzierung.
+   */
+  listPrice?: number | null;
+  /**
    * Einkaufspreis des Artikels (Migration 047), nur für die Anzeige auf dem
    * Bildschirm. Kommt weder auf den Bon noch in die Buchung – die Kasse
    * rechnet mit Verkaufspreisen, der Einkauf ist eine Nebeninformation für

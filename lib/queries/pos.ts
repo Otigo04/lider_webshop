@@ -30,6 +30,14 @@ export interface PosProduct {
   /** Ladenpreis für Privatkunden; null, wenn keiner gepflegt ist */
   retailPrice: number | null;
   /**
+   * Vorher-Preis (Migration 023), nur als Bezug für reduzierung() – die Kasse
+   * verkauft ihn nie selbst. Ohne ihn im Suchergebnis wusste die Kasse nicht,
+   * dass ein Artikel reduziert ist, und zeigte den schon ermäßigten
+   * retail_price kommentarlos an. Der sah dann aus wie ein ganz normaler
+   * Preis, obwohl er es rechnerisch schon war – nur ohne den Hinweis dazu.
+   */
+  listPrice: number | null;
+  /**
    * Einkaufspreis (Migration 047), nur zur Anzeige am Tresen. Für Kunden gibt
    * RLS auf product_costs nichts her, und die Kasse sieht ohnehin nur der
    * Admin. Wird nie gedruckt.
@@ -39,7 +47,7 @@ export interface PosProduct {
 }
 
 const POS_COLUMNS = `
-  id, sku, barcode, name, category_id, is_active, retail_price,
+  id, sku, barcode, name, category_id, is_active, retail_price, list_price,
   stock_available, stock_reserved,
   category:categories (id, name),
   cost:product_costs (cost_price),
@@ -53,6 +61,7 @@ interface PosProductRow {
   name: string;
   category_id: string;
   retail_price: number | string | null;
+  list_price: number | string | null;
   stock_available: number;
   stock_reserved: number;
   category: { id: string; name: string } | null;
@@ -79,6 +88,7 @@ function zuPosProdukt(row: PosProductRow): PosProduct {
     // NUMERIC kommt als string über PostgREST – erst hier zur Zahl machen,
     // sonst rechnet die Kasse mit Text weiter.
     retailPrice: row.retail_price === null ? null : toNumber(row.retail_price),
+    listPrice: row.list_price === null ? null : toNumber(row.list_price),
     costPrice: einkaufspreis(row.cost),
     variants,
   };

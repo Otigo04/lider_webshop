@@ -40,7 +40,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { formatPrice, formatQuantity } from "@/lib/format";
-import { counterUnitPrice, marge } from "@/lib/pricing";
+import { counterUnitPrice, marge, reduzierung } from "@/lib/pricing";
+import { RabattBadge } from "@/components/sale-price";
 import { cn } from "@/lib/utils";
 import {
   POS_PRICE_MODE_LABELS,
@@ -203,6 +204,7 @@ export function PosTerminal({
           maxStock: product.freeStock,
           variants: product.variants,
           retailPrice: product.retailPrice,
+          listPrice: product.listPrice,
           costPrice: product.costPrice,
         },
       ]);
@@ -662,6 +664,31 @@ export function PosTerminal({
                           {zeile.barcode ? ` · ${zeile.barcode}` : ""}
                         </p>
                       )}
+                      {/* Reduzierung, damit der Kassierer sieht, dass der
+                          Preis schon der ermäßigte ist, statt stillschweigend
+                          wie ein ganz normaler Preis dazustehen. Nicht bei
+                          von Hand geändertem Preis – der Streichpreis bezöge
+                          sich dann auf einen Betrag, den niemand mehr
+                          verlangt. */}
+                      {!zeile.preisManuell
+                        ? (() => {
+                            const r = reduzierung(
+                              zeile.listPrice,
+                              zeile.unitPrice,
+                              zeile.retailPrice,
+                            );
+                            if (!r) return null;
+                            return (
+                              <p className="flex items-center gap-1.5 text-xs text-signal">
+                                reduziert · vorher{" "}
+                                <span className="tabular line-through">
+                                  {formatPrice(r.vorher)}
+                                </span>
+                                <RabattBadge prozent={r.prozent} />
+                              </p>
+                            );
+                          })()
+                        : null}
                       {/* Einkaufspreis und Marge, nur auf dem Bildschirm.
                           Die Kasse sieht ohnehin nur der Admin; auf Bon,
                           Beleg und Rechnung steht nichts davon. Ohne
