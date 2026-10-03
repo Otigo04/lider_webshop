@@ -20,6 +20,7 @@ import { PreisschildVorschau } from "@/components/admin/preisschild-vorschau";
 import { KassenStatus, useKassenMeldung } from "@/components/pos/kassen-status";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { updateProductField } from "@/lib/actions/admin-products";
 import {
   legeSchildArtikelAn,
   sucheSchildArtikel,
@@ -1023,13 +1024,16 @@ export function PreisschildFrei({
               </p>
             ) : null}
 
-            {/* Mit Artikelabgleich über die Bezeichnung – aber nur, solange
-                im Scannerfeld nichts steht. Hat ein Code entschieden, wäre
-                ein Vorschlag hier eine Einladung, einen zweiten Artikel
-                unter dem Code des ersten zu wählen. */}
+            {/* Mit Artikelabgleich über die Bezeichnung – solange im
+                Scannerfeld nichts steht, oder ein Code dort schon als
+                unbekannt feststeht. Ist der Code aber gerade erst eingetippt
+                und noch nicht abgeglichen, wäre ein Vorschlag eine Einladung,
+                einen zweiten Artikel unter dem Code des ersten zu wählen. */}
             <Feld
               label={
-                code ? "Bezeichnung" : "Bezeichnung – oder im Bestand suchen"
+                code && !unbekannt
+                  ? "Bezeichnung"
+                  : "Bezeichnung – oder im Bestand suchen"
               }
               htmlFor="frei-name"
             >
@@ -1037,19 +1041,53 @@ export function PreisschildFrei({
                 id="frei-name"
                 feldRef={nameFeld}
                 wert={entwurf.name}
-                aktiv={!code && !bearbeitet}
+                aktiv={(!code || unbekannt) && !bearbeitet}
                 onChange={(name) => feld({ name })}
                 onSelect={(artikel) => {
                   uebernehmeArtikel(artikel);
-                  /*
-                   * Der Abgleich muss mitgesetzt werden, sonst hielte
-                   * uebernehmen() den Artikel für unbekannt und legte ihn ein
-                   * zweites Mal an – mit neuer Artikelnummer und einem
-                   * Barcode, der schon vergeben ist.
-                   */
-                  setAufgeloest(artikel.barcode ?? artikel.sku);
-                  setTreffer(artikel);
-                  melden("treffer", artikel.name, artikel.sku);
+
+                  if (code && !artikel.barcode) {
+                    /*
+                     * Der gescannte Code gehörte zu keinem Artikel, aber die
+                     * Ware schon – etwa, weil sie ohne EAN angelegt wurde
+                     * (Alpalium-Lieferung ohne Barcodespalte). Jetzt ist die
+                     * echte Nummer da, also wird sie nachgetragen: der
+                     * nächste Scan dieses Artikels findet ihn direkt, ohne
+                     * noch einmal über die Namenssuche zu müssen.
+                     *
+                     * Nur, wenn der Artikel noch *keinen* Barcode hat – einen
+                     * vorhandenen zu überschreiben hieße, einem Artikel die
+                     * Nummer eines anderen unterzuschieben.
+                     */
+                    void updateProductField({
+                      id: artikel.id,
+                      field: "barcode",
+                      value: code,
+                    }).then((ergebnis) => {
+                      if (ergebnis.error) {
+                        melden("warnung", ergebnis.error, artikel.sku);
+                      }
+                    });
+                    feld({ barcode: code });
+                    setAufgeloest(code);
+                    setTreffer({ ...artikel, barcode: code });
+                    melden(
+                      "treffer",
+                      artikel.name,
+                      `${artikel.sku} · Barcode ${code} nachgetragen`,
+                    );
+                  } else {
+                    /*
+                     * Der Abgleich muss mitgesetzt werden, sonst hielte
+                     * uebernehmen() den Artikel für unbekannt und legte ihn
+                     * ein zweites Mal an – mit neuer Artikelnummer und einem
+                     * Barcode, der schon vergeben ist.
+                     */
+                    setAufgeloest(artikel.barcode ?? artikel.sku);
+                    setTreffer(artikel);
+                    melden("treffer", artikel.name, artikel.sku);
+                  }
+
                   // Weiter zum Preis: die nächste Frage ist „stimmt er noch?"
                   requestAnimationFrame(() =>
                     document.getElementById("frei-preis")?.focus(),

@@ -1031,13 +1031,25 @@ Der Scan steht oben im Formular, weil er den Rest bestimmt:
   Trefferliste, Pfeiltasten, ab zwei Zeichen, 250 ms Ruhe. Für Ware ohne
   lesbares Etikett – sie steht trotzdem im Stamm, und Bezeichnung samt
   Preisen abzutippen ist genau die Doppelarbeit, die der Abgleich abschafft.
-  **Nur bei leerem Scannerfeld**: hat ein Code entschieden, wäre ein
-  Vorschlag hier eine Einladung, einen zweiten Artikel unter dem Code des
-  ersten zu wählen – neue Ware unter dem Datensatz einer alten ist der
-  teuerste Fehler, den die Maske zulassen kann. Ohne Treffer erscheint
-  nichts; das Feld ist in erster Linie ein Eingabefeld. Eine Auswahl setzt
-  `aufgeloest`/`treffer` mit, sonst hielte `uebernehmen()` den Artikel für
-  unbekannt und legte ihn ein zweites Mal an.
+  **Bei leerem Scannerfeld oder bei einem Code, der sich schon als unbekannt
+  herausgestellt hat** (`unbekannt`): steht ein Code noch nicht fertig
+  abgeglichen im Feld, bleibt die Suche aus – ein Vorschlag wäre sonst eine
+  Einladung, einen zweiten Artikel unter dem Code des ersten zu wählen, und
+  neue Ware unter dem Datensatz einer alten ist der teuerste Fehler, den die
+  Maske zulassen kann. Ohne Treffer erscheint nichts; das Feld ist in erster
+  Linie ein Eingabefeld. Eine Auswahl setzt `aufgeloest`/`treffer` mit, sonst
+  hielte `uebernehmen()` den Artikel für unbekannt und legte ihn ein zweites
+  Mal an.
+- **Ein unbekannter Code trägt den Treffer nach, statt einen zweiten Artikel
+  zu bekommen.** Nicht jede Rechnung hat eine EAN (Alpalium keine, Iden
+  schon) – ein Artikel ohne Barcode scannt sich beim nächsten Mal trotzdem
+  nicht von selbst. Wählt die Namenssuche bei einem unbekannten Code einen
+  Artikel **ohne** gepflegten Barcode, schreibt `updateProductField()` den
+  gescannten Code auf diesen Artikel; der nächste Scan findet ihn direkt. Hat
+  der gewählte Artikel schon einen anderen Barcode, bleibt der unangetastet –
+  `uebernehmeArtikel()` setzt das Feld dann ohnehin auf dessen eigenen Code
+  zurück, und einem Artikel die Nummer eines anderen unterzuschieben wäre der
+  nächste teure Fehler.
 - **Jeder neue Artikel bekommt eine Artikelnummer**, immer aus dem
   Nummernkreis der Warengruppe (`next_sku()`) und nie aus einem Feld. Die
   `sku` auf dem Schild liest `uebernehmen()` grundsätzlich aus dem Stamm.
@@ -1046,9 +1058,10 @@ Der Scan steht oben im Formular, weil er den Rest bestimmt:
   pausiert, solange eine Abfrage läuft – käme der zweite Scan mitten in die
   Antwort des ersten, stünden die Angaben des einen Artikels unter dem Code
   des anderen.
-- **Geändert wird am Artikel nichts.** Preise, die hier nach einem Treffer
-  angepasst werden, gelten für das Schild. Ein Schilddruck, der still
-  Stammdaten überschreibt, wäre an der falschen Stelle wirksam.
+- **Geändert wird am Artikel sonst nichts.** Preise, die hier nach einem
+  Treffer angepasst werden, gelten für das Schild, nicht für den Artikel –
+  bis auf den nachgetragenen Barcode (siehe oben) wäre ein Schilddruck, der
+  still Stammdaten überschreibt, an der falschen Stelle wirksam.
 
 ---
 
