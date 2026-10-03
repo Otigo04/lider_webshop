@@ -612,8 +612,8 @@ export function PreisschildFrei({
          * Die Stammangaben übernehmen nur, wenn sie gerade eingetroffen sind.
          * War der Code schon abgeglichen, stehen sie längst im Formular –
          * womöglich mit einer Korrektur von Hand, und die soll aufs Papier.
-         * „Änderungen hier gelten nur für das Schild" steht so auch im
-         * Treffer-Hinweis; sie beim Ablegen zu verwerfen wäre das Gegenteil.
+         * Eine solche Korrektur beim Ablegen zu verwerfen wäre das Gegenteil
+         * dessen, was der Treffer-Hinweis verspricht.
          */
         werte = abgeglichen
           ? { ...werte, sku: artikel.sku }
@@ -1030,8 +1030,12 @@ export function PreisschildFrei({
                   <span className="font-medium">Artikel gefunden:</span>{" "}
                   <span className="tabular">{gefunden.sku}</span> · Bestand{" "}
                   <span className="tabular">{gefunden.bestand}</span>. Angaben
-                  übernommen. Änderungen hier gelten nur für das Schild, nicht
-                  für den Artikel.
+                  übernommen. Preis und Großhandelspreis schreiben beim
+                  Verlassen des Felds in den Artikel zurück
+                  {entwurf.vorher > 0
+                    ? " (außer dem Preis – der gilt nur für dieses rote Aktionsschild)"
+                    : ""}
+                  ; Bezeichnung, Symbol und Label gelten nur für das Schild.
                 </p>
                 {/* Einkaufspreis als Nebeninformation – er steht auf keinem
                     Schild, aber wer gerade bepreist, will ihn wissen. */}
