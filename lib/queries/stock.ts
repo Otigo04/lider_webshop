@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { sucheWortweise } from "@/lib/search";
 import type { StockEntry } from "@/lib/types";
 
 /**
@@ -47,8 +48,10 @@ export async function getStockEntries(
   if (term) {
     const sauber = term.replace(/[,()*\\%"]/g, " ").trim();
     if (sauber.length >= 2) {
-      query = query.or(
-        `product_name.ilike.%${sauber}%,product_sku.ilike.%${sauber}%,barcode.ilike.%${sauber}%`,
+      query = sucheWortweise(
+        query,
+        ["product_name", "product_sku", "barcode"],
+        sauber,
       );
     }
   }

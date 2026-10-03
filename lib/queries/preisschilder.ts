@@ -8,6 +8,7 @@ import {
   type SchildFormat,
 } from "@/lib/preisschild";
 import { baseUnitPrice } from "@/lib/pricing";
+import { sucheWortweise } from "@/lib/search";
 import { getImageUrls } from "@/lib/storage";
 import { createClient } from "@/lib/supabase/server";
 import type { PriceTier } from "@/lib/types";
@@ -94,7 +95,7 @@ export async function getPreisschildArtikel(
 
   const term = search?.replace(/[,()*\\%]/g, " ").trim();
   if (term) {
-    query = query.or(`name.ilike.%${term}%,sku.ilike.%${term}%,barcode.ilike.%${term}%`);
+    query = sucheWortweise(query, ["name", "sku", "barcode"], term);
   }
   // Ohne Grenze: die Werkbank will den ganzen Bestand im Browser haben, um
   // ohne Nachfrage filtern zu können. Die Trefferliste des freien Generators

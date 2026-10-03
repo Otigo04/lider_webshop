@@ -1192,6 +1192,34 @@ beiden Komponenten – nicht `<Input type="number">` mit Zahl im State.
 
 ---
 
+## 🔤 Wortweise Suche im Artikelstamm
+
+`lib/search.ts`, `sucheWortweise()`. Jede Suche nach Artikeln lief vorher
+phrasenweise: der ganze Suchbegriff musste als zusammenhängender Teilstring
+in Name, SKU oder Barcode stehen. „alpalium 16er" fand damit nichts, obwohl
+der Artikel „ALPALIUM Super Heavy Duty R03/AAA, 16er Blister" heißt – beide
+Wörter stehen drin, nur nicht nebeneinander.
+
+- **Jedes Wort bekommt eine eigene `.or()`-Bedingung.** PostgREST (und damit
+  supabase-js) UND-verknüpft mehrere `.or()`-Aufrufe auf derselben Abfrage
+  automatisch, innerhalb eines Aufrufs bleibt es ODER – siehe auch
+  `neuheitenFilter()` in `lib/queries/products.ts`, die sich auf genau dieses
+  Verhalten verlässt. Ergebnis: jedes Wort muss irgendwo in einer der
+  angegebenen Spalten stehen, in beliebiger Reihenfolge, aber alle Wörter
+  müssen treffen.
+- **An jeder Stelle gleich**, nicht nur dort, wo es gerade auffiel:
+  Admin-Artikelliste, Wareneingangsjournal, Preisschild-Werkbank und
+  Namenssuche im freien Generator, Kassen-/Wareneingangs-Namenssuche
+  (`PosInlineSuche`, `PosProductSearch`), Shop-Suche. Eine Stelle, die
+  phrasenweise sucht, und eine andere wortweise, wäre zwei Verhalten für
+  dieselbe Erwartung.
+- **Sanitizing bleibt beim Aufrufer.** `sucheWortweise()` bekommt den schon
+  bereinigten Begriff (Sonderzeichen wie `,()*\%` raus) – jede Stelle hatte
+  ihr eigenes Sanitizing schon vorher, meist mit leicht unterschiedlichen
+  Zeichenklassen, und das anzugleichen stand hier nicht zur Debatte.
+
+---
+
 ## 🔎 Schnellfilter der Artikelliste
 
 `lib/admin-product-filter.ts`. Sechs Fragen, die im Laden täglich anfallen –

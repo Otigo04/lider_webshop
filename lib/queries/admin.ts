@@ -1,6 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { toNumber } from "@/lib/format";
+import { sucheWortweise } from "@/lib/search";
 import type {
   AccessRequest,
   AppUser,
@@ -239,7 +240,7 @@ export async function getAdminProducts(
 
   const term = filter?.search?.replace(/[,()*\\%]/g, " ").trim();
   if (term) {
-    query = query.or(`name.ilike.%${term}%,sku.ilike.%${term}%`);
+    query = sucheWortweise(query, ["name", "sku"], term);
   }
 
   if (filter?.ohneBild) {

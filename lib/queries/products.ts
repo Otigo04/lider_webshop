@@ -6,6 +6,7 @@ import { getImageUrls } from "@/lib/storage";
 import { NEU_TAGE, istNeu } from "@/lib/product-flags";
 import { reduzierung } from "@/lib/pricing";
 import { gruppiere } from "@/lib/product-groups";
+import { sucheWortweise } from "@/lib/search";
 import type {
   Category,
   Product,
@@ -317,7 +318,7 @@ export async function getProducts(options?: {
 
   const term = options?.search ? sanitizeSearch(options.search) : "";
   if (term) {
-    query = query.or(`name.ilike.%${term}%,sku.ilike.%${term}%`);
+    query = sucheWortweise(query, ["name", "sku"], term);
   }
 
   const { data, error } = await query;
@@ -424,7 +425,7 @@ export async function getPublicProducts(options?: {
 
   const term = options?.search ? sanitizeSearch(options.search) : "";
   if (term) {
-    query = query.or(`name.ilike.%${term}%,sku.ilike.%${term}%`);
+    query = sucheWortweise(query, ["name", "sku"], term);
   }
 
   const { data: products, error } = await query;

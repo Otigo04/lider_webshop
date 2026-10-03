@@ -2,6 +2,7 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { toNumber } from "@/lib/format";
 import { baseUnitPrice, freeStock } from "@/lib/pricing";
+import { sucheWortweise } from "@/lib/search";
 import type {
   AppUser,
   PosSale,
@@ -204,13 +205,12 @@ export async function searchPosProducts(term: string, limit = 12): Promise<PosPr
   if (gesucht.length < 2) return [];
 
   const supabase = await createClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("products")
     .select(POS_COLUMNS)
-    .eq("is_active", true)
-    .or(`name.ilike.%${gesucht}%,sku.ilike.%${gesucht}%,barcode.ilike.%${gesucht}%`)
-    .order("name")
-    .limit(limit);
+    .eq("is_active", true);
+  query = sucheWortweise(query, ["name", "sku", "barcode"], gesucht);
+  const { data, error } = await query.order("name").limit(limit);
 
   if (error) {
     console.error("[kasse] Artikelsuche:", error.message);
