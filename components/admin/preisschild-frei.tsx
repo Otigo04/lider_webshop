@@ -107,6 +107,7 @@ const LEER: Entwurf = {
   iconId: null,
   labelKey: null,
   anzahl: 1,
+  productId: null,
 };
 
 /**
@@ -136,6 +137,7 @@ function alsEntwurf(artikel: PreisschildArtikel, basis: Entwurf): Entwurf {
     preis: artikel.preis ?? 0,
     vorher: artikel.vorher ?? 0,
     gh: artikel.grosshandel ?? 0,
+    productId: artikel.id,
   };
 }
 
@@ -433,40 +435,47 @@ export function PreisschildFrei({
    * dieses Schilds, keine neue Dauerpreisangabe.
    */
   async function preisSynchronisieren(neuerPreis: number) {
-    if (!gefunden || bearbeitet || entwurf.vorher > 0) return;
+    /*
+     * Über productId, nicht über `gefunden`: der ist nach bearbeiten() immer
+     * null (das zurückgeholte Schild wird nicht noch einmal abgeglichen),
+     * aber genau dort soll eine Preisänderung ebenfalls zurückgeschrieben
+     * werden – wer ein abgelegtes Schild korrigiert, korrigiert in aller
+     * Regel auch den tatsächlichen Preis, nicht nur das Papier.
+     */
+    if (!entwurf.productId || entwurf.vorher > 0) return;
     if (neuerPreis <= 0 || neuerPreis === basisPreis) return;
 
     const ergebnis = await updateProductField({
-      id: gefunden.id,
+      id: entwurf.productId,
       field: "retail_price",
       value: String(neuerPreis),
     });
     if (ergebnis.error) {
-      melden("warnung", ergebnis.error, gefunden.sku);
+      melden("warnung", ergebnis.error, entwurf.sku);
       return;
     }
     setBasisPreis(neuerPreis);
-    melden("treffer", `Ladenpreis aktualisiert`, gefunden.sku);
+    melden("treffer", `Ladenpreis aktualisiert`, entwurf.sku);
   }
 
   /** Dieselbe Rückschreibung für den Großhandelspreis, ohne Ausnahme für
    *  reduzierte Artikel: der verdeckte Code bleibt der tatsächliche
    *  Großhandelspreis. */
   async function ghSynchronisieren(neuerGh: number) {
-    if (!gefunden || bearbeitet) return;
+    if (!entwurf.productId) return;
     if (neuerGh <= 0 || neuerGh === basisGh) return;
 
     const ergebnis = await updateProductField({
-      id: gefunden.id,
+      id: entwurf.productId,
       field: "unit_price",
       value: String(neuerGh),
     });
     if (ergebnis.error) {
-      melden("warnung", ergebnis.error, gefunden.sku);
+      melden("warnung", ergebnis.error, entwurf.sku);
       return;
     }
     setBasisGh(neuerGh);
-    melden("treffer", `Großhandelspreis aktualisiert`, gefunden.sku);
+    melden("treffer", `Großhandelspreis aktualisiert`, entwurf.sku);
   }
 
   /**
@@ -663,7 +672,12 @@ export function PreisschildFrei({
          * als Staffelpreis, wenn kein Großhandelspreis kam) soll nicht
          * plötzlich als verdeckter Code auf dem Schild stehen.
          */
-        werte = { ...werte, name, sku: ergebnis.artikel.sku };
+        werte = {
+          ...werte,
+          name,
+          sku: ergebnis.artikel.sku,
+          productId: ergebnis.artikel.id,
+        };
       }
     } else {
       // Reines Schild oder nachträgliche Änderung: die Artikelnummer ist hier
@@ -728,15 +742,22 @@ export function PreisschildFrei({
       iconId: eintrag.iconId,
       labelKey: eintrag.labelKey,
       anzahl: eintrag.anzahl,
+      productId: eintrag.productId,
     });
     setBearbeitet(id);
     // Der Einkaufspreis gehört zum Anlegen eines Artikels, nicht zum
     // Korrigieren eines Zettels – ein stehen gebliebener Wert gehörte zum
     // vorigen Vorgang.
     setEinkauf(0);
+    // Vergleichsstand für preisSynchronisieren()/ghSynchronisieren(): das,
+    // was auf diesem Schild gerade steht – nicht der Stand eines früheren
+    // Treffers, der noch von einem ganz anderen Artikel stammen könnte.
+    setBasisPreis(eintrag.preis);
+    setBasisGh(eintrag.gh);
     // Ein zurückgeholtes Schild wird nicht noch einmal abgeglichen: es liegt
     // bereits auf dem Blatt, und sein Artikel – falls es einen gibt – ist
-    // beim Ablegen entstanden.
+    // beim Ablegen entstanden. productId bleibt aber erhalten (oben), sonst
+    // wüsste preisSynchronisieren() nicht, welcher Artikel gemeint ist.
     setAufgeloest(null);
     setTreffer(null);
     zurueckZumFeld("name");
@@ -748,6 +769,8 @@ export function PreisschildFrei({
     setAufgeloest(null);
     setTreffer(null);
     setBestand(0);
+    setBasisPreis(0);
+    setBasisGh(0);
     zurueckZumFeld();
   }
 

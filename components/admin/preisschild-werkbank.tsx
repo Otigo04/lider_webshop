@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ListPlus, Plus, Printer, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { NumericInput } from "@/components/numeric-input";
@@ -82,6 +83,7 @@ export function PreisschildWerkbank({
   formate: SchildFormat[];
   labels: LabelOption[];
 }) {
+  const router = useRouter();
   // Eigene Kopie, damit eine neu gewählte Farbe sofort in der Vorschau steht
   // und nicht erst nach dem Speichern.
   const [labelListe, setLabelListe] = useState(labels);
@@ -254,6 +256,15 @@ export function PreisschildWerkbank({
       ),
     );
     toast.success(`Ladenpreis von „${zeile.name}" aktualisiert.`);
+    /*
+     * `artikel` ist eine serverseitig einmal geladene Momentaufnahme des
+     * ganzen Katalogs (siehe getPreisschildArtikel() – die Werkbank will den
+     * Bestand ohne Nachfrage filtern können). Ohne refresh() bliebe sie auf
+     * dem Stand vor dieser Schreibung stehen: wer die Zeile entfernt und den
+     * Artikel erneut über die Suche hinzufügt, bekäme den alten Preis zurück,
+     * obwohl die Datenbank längst den neuen trägt.
+     */
+    router.refresh();
   }
 
   /**
@@ -279,6 +290,10 @@ export function PreisschildWerkbank({
       ),
     );
     toast.success(`Großhandelspreis von „${zeile.name}" aktualisiert.`);
+    // Derselbe Grund wie in preisSynchronisieren(): die Katalog-Momentaufnahme
+    // sonst stehenlassen hieße, einen entfernten und neu hinzugefügten
+    // Artikel mit dem alten Großhandelspreis wiederzubekommen.
+    router.refresh();
   }
 
   function entfernen(id: string) {

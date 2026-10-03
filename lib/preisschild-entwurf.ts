@@ -32,6 +32,14 @@ export interface FreiesSchild {
   iconId: string | null;
   labelKey: string | null;
   anzahl: number;
+  /**
+   * Der Artikel, aus dem dieses Schild entstand – null bei einem reinen
+   * Schild ohne Artikelstamm. Anders als `sku` (Text fürs Papier, frei
+   * änderbar) ist das die echte ID für den Rückschreibpfad: wird das Schild
+   * später erneut geöffnet und der Preis geändert, muss klar sein, welcher
+   * Artikel gemeint ist, auch wenn `sku` inzwischen von Hand geändert wurde.
+   */
+  productId: string | null;
 }
 
 export interface FreiStand {

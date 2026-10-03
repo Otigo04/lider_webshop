@@ -497,6 +497,7 @@ export async function updateProductField(input: {
 
   revalidatePath("/admin/products");
   revalidatePath("/admin");
+  revalidatePath("/admin/preisschilder");
   revalidatePath("/shop");
   revalidatePath(`/shop/product/${input.id}`);
   return { success: "Gespeichert." };

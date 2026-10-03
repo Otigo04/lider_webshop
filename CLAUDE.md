@@ -939,6 +939,17 @@ setzen, drucken – A4 mit Schnittlinien.
   `NumericInput` meldet während des Tippens Zwischenstände, und jeder davon
   eine Schreibung wäre ein Preis, der mitten im Tippen kurz falsch im Stamm
   steht.
+- **Die Werkbank hält den Katalog als Momentaufnahme** (`artikel`-Prop,
+  einmal serverseitig geladen – „die Werkbank will den ganzen Bestand im
+  Browser haben, um ohne Nachfrage filtern zu können"). Eine Preis- oder
+  Großhandelsänderung landet zwar sofort in der Datenbank, die Momentaufnahme
+  selbst bliebe aber auf dem alten Stand: wer die Zeile entfernt und den
+  Artikel über die Suche erneut hinzufügt, bekäme sonst den alten Preis
+  zurück. `preisSynchronisieren()`/`ghSynchronisieren()` rufen deshalb nach
+  einer erfolgreichen Schreibung `router.refresh()` – die Momentaufnahme
+  kommt frisch vom Server, ohne den Zustand der schon aufgebauten
+  Schilderliste zu verlieren. `updateProductField()` revalidiert dafür
+  zusätzlich `/admin/preisschilder`.
 
 ---
 
@@ -1089,15 +1100,21 @@ Der Scan steht oben im Formular, weil er den Rest bestimmt:
   pausiert, solange eine Abfrage läuft – käme der zweite Scan mitten in die
   Antwort des ersten, stünden die Angaben des einen Artikels unter dem Code
   des anderen.
-- **Preis und Großhandelspreis schreiben nach einem frischen Treffer in den
-  Artikel zurück** – dieselben `preisSynchronisieren()`/`ghSynchronisieren()`
-  wie im Bestandsgenerator, Vergleichsstand (`basisPreis`/`basisGh`) wird in
-  `uebernehmeArtikel()` gesetzt. Reduzierte Artikel (`vorher > 0`) sind beim
-  Preis ausgenommen, der Großhandelspreis nicht – gleiche Begründung wie dort.
-  **Nur für einen frisch gefundenen Artikel, nicht beim nachträglichen
-  Bearbeiten eines abgelegten Schilds** (`!bearbeitet`): dieselbe Grenze wie
-  beim Artikelabgleich selbst – wer ein Schild korrigiert, korrigiert Papier,
-  und das soll keine Nebenwirkung am Stamm auslösen, mit der niemand rechnet.
+- **Preis und Großhandelspreis schreiben in den Artikel zurück, sobald ein
+  Schild zu einem Artikel gehört** – dieselben
+  `preisSynchronisieren()`/`ghSynchronisieren()` wie im Bestandsgenerator.
+  Reduzierte Artikel (`vorher > 0`) sind beim Preis ausgenommen, der
+  Großhandelspreis nicht – gleiche Begründung wie dort.
+  **Maßgeblich ist `entwurf.productId`, nicht `gefunden`.** `gefunden` ist
+  nach `bearbeiten()` immer `null` (das zurückgeholte Schild wird nicht noch
+  einmal abgeglichen), aber genau dort soll eine Preiskorrektur ebenfalls
+  zurückgeschrieben werden – wer ein abgelegtes Schild korrigiert, korrigiert
+  meist auch den tatsächlichen Preis. `productId` ist deshalb ein eigenes Feld
+  an `FreiesSchild`/`Entwurf`, das `alsEntwurf()` beim Treffer setzt und
+  `bearbeiten()` beim Zurückholen erhält – anders als `sku` (Text fürs Papier,
+  frei änderbar) bleibt es die verlässliche Kennung für den Rückschreibpfad.
+  `bearbeiten()` setzt `basisPreis`/`basisGh` dabei auf den Stand **des
+  Schilds**, nicht auf den eines früheren, womöglich ganz anderen Treffers.
   Abgesehen davon und vom nachgetragenen Barcode (siehe oben) ändert sich am
   Artikel nichts.
 
