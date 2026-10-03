@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
+  ClipboardPaste,
   Loader2,
   PackagePlus,
   Plus,
@@ -15,6 +16,10 @@ import { setProductAttributes } from "@/lib/actions/attributes";
 import { recordStockEntries } from "@/lib/actions/stock";
 import type { PosProduct } from "@/lib/queries/pos";
 import { MerkmalAuswahl } from "@/components/admin/merkmal-auswahl";
+import {
+  WareneingangImport,
+  type ImportTreffer,
+} from "@/components/admin/wareneingang-import";
 import { NumericInput } from "@/components/numeric-input";
 import { PosProductSearch } from "@/components/pos/pos-product-search";
 import { KassenStatus, useKassenMeldung } from "@/components/pos/kassen-status";
@@ -102,6 +107,7 @@ export function Wareneingang({
   const [scan, setScan] = useState("");
   const [notiz, setNotiz] = useState("");
   const [suchend, setSuchend] = useState(false);
+  const [importOffen, setImportOffen] = useState(false);
   const [buchend, startBuchen] = useTransition();
 
   const scanRef = useRef<HTMLInputElement>(null);
@@ -265,6 +271,92 @@ export function Wareneingang({
       }
     },
     [aufnehmen, neueZeile, melden],
+  );
+
+  /**
+   * Geprüfte Importzeilen in die Aufnahme legen.
+   *
+   * Der Dialog hat bereits abgeglichen, hier wird nur noch eingereiht – und
+   * zwar nach derselben Regel wie beim Scannen: was schon in der Liste steht,
+   * bekommt Menge dazu statt einer zweiten Zeile. Sonst ließen sich zwei
+   * Zeilen desselben Artikels getrennt bepreisen, und welcher Preis am Ende
+   * am Artikel steht, hinge an der Reihenfolge.
+   *
+   * Zusammengelegt wird über die Artikel-ID, bei Neuanlagen über den Barcode.
+   * Zwei Neuanlagen ohne Code sind zwei Posten, auch wenn sie gleich heißen.
+   */
+  const importUebernehmen = useCallback(
+    (treffer: ImportTreffer[]) => {
+      setZeilen((aktuell) => {
+        const naechste = [...aktuell];
+
+        for (const { zeile, produkt } of treffer) {
+          const vorhanden = naechste.find((eintrag) =>
+            produkt
+              ? eintrag.productId === produkt.id
+              : eintrag.productId === null &&
+                zeile.barcode !== null &&
+                eintrag.barcode === zeile.barcode,
+          );
+
+          if (vorhanden) {
+            const index = naechste.indexOf(vorhanden);
+            naechste[index] = {
+              ...vorhanden,
+              menge: vorhanden.menge + zeile.menge,
+              // Ein gesetzter Preis aus der Liste gewinnt; ein leeres Feld
+              // heißt auch hier "unverändert" und löscht nichts.
+              ghPreis: zeile.ghPreis || vorhanden.ghPreis,
+              ehPreis: zeile.ehPreis || vorhanden.ehPreis,
+              ekPreis: zeile.ekPreis || vorhanden.ekPreis,
+            };
+            continue;
+          }
+
+          naechste.push({
+            key: crypto.randomUUID(),
+            productId: produkt?.id ?? null,
+            name: produkt?.name ?? zeile.name,
+            sku: produkt?.sku ?? null,
+            barcode: produkt?.barcode ?? zeile.barcode,
+            /*
+             * Warengruppe nur für Neuanlagen, und dieselbe Vorgabe wie beim
+             * Scannen: eine Lieferung kommt selten quer durch das Sortiment.
+             * Je Zeile ist sie in der Aufnahme änderbar.
+             */
+            categoryId: produkt
+              ? produkt.categoryId
+              : (naechste.at(-1)?.categoryId ??
+                zuletztKategorieId ??
+                categories[0]?.id ??
+                null),
+            menge: zeile.menge,
+            ghPreis: zeile.ghPreis,
+            ehPreis: zeile.ehPreis,
+            ekPreis: zeile.ekPreis,
+            bestand: produkt?.freeStock ?? null,
+            aktuellGh: produkt?.unitPrice ?? null,
+            aktuellEh: produkt?.retailPrice ?? null,
+            aktuellEk: produkt?.costPrice ?? null,
+            merkmale: [],
+          });
+        }
+
+        return naechste;
+      });
+
+      const neueArtikel = treffer.filter((eintrag) => eintrag.produkt === null).length;
+      melden(
+        "treffer",
+        `${formatQuantity(treffer.length)} ${
+          treffer.length === 1 ? "Position" : "Positionen"
+        } übernommen`,
+        neueArtikel > 0
+          ? `${formatQuantity(neueArtikel)} davon neu – Preise prüfen, dann buchen`
+          : "Preise prüfen, dann buchen",
+      );
+    },
+    [categories, melden, zuletztKategorieId],
   );
 
   function aendern(key: string, teil: Partial<Zeile>) {
@@ -442,7 +534,7 @@ export function Wareneingang({
           ihn zurück hierher.
         </p>
 
-        <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
+        <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto_auto]">
           {/* Zweiter Weg für Ware ohne lesbares Etikett – dieselbe Suche wie
               an der Kasse, deshalb keine zweite Umsetzung. */}
           <PosProductSearch preisModus="wholesale" onSelect={aufnehmen} />
@@ -450,8 +542,26 @@ export function Wareneingang({
             <Plus className="size-4" aria-hidden />
             Zeile ohne Barcode
           </Button>
+          {/* Dritter Weg: die Lieferung steht schon geschrieben auf der
+              Rechnung. Füllt dieselbe Liste, gebucht wird unverändert
+              unten in einem Rutsch. */}
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setImportOffen(true)}
+          >
+            <ClipboardPaste className="size-4" aria-hidden />
+            Liste einfügen
+          </Button>
         </div>
       </div>
+
+      <WareneingangImport
+        open={importOffen}
+        onOpenChange={setImportOffen}
+        onUebernehmen={importUebernehmen}
+        categories={categories}
+      />
 
       {/* ------------------------------------------------------------ Liste */}
       <div className="mt-6 overflow-hidden rounded-lg border border-border">

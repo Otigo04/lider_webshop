@@ -134,6 +134,58 @@ export async function findProductByCode(code: string): Promise<PosProduct | null
   return perSku ? zuPosProdukt(perSku as unknown as PosProductRow) : null;
 }
 
+/**
+ * Viele Codes auf einmal auflösen – für den Sammelimport im Wareneingang.
+ *
+ * Eine eingefügte Lieferliste hat hundert Zeilen. Jede einzeln über
+ * `findProductByCode()` zu schicken wären hundert Rundreisen zur Datenbank,
+ * und die Oberfläche stünde eine halbe Minute still. Zwei Abfragen genügen:
+ * eine über den Barcode, eine über die Artikelnummer für die Codes, die
+ * dabei übrig blieben – dieselbe Reihenfolge wie beim Scan, Barcode zuerst.
+ *
+ * Die Zuordnung kommt als Map zurück, Schlüssel ist der gesuchte Code. Ein
+ * Code ohne Treffer fehlt darin schlicht; das ist beim Wareneingang der
+ * Regelfall und kein Fehler.
+ */
+export async function findProductsByCodes(
+  codes: string[],
+): Promise<Map<string, PosProduct>> {
+  const gesucht = [...new Set(codes.map((code) => code.trim()).filter(Boolean))];
+  const treffer = new Map<string, PosProduct>();
+  if (gesucht.length === 0) return treffer;
+
+  const supabase = await createClient();
+
+  const { data: perBarcode, error } = await supabase
+    .from("products")
+    .select(POS_COLUMNS)
+    .in("barcode", gesucht);
+
+  if (error) {
+    console.error("[wareneingang] Stapelabgleich Barcode:", error.message);
+  }
+
+  for (const row of perBarcode ?? []) {
+    const produkt = zuPosProdukt(row as unknown as PosProductRow);
+    if (produkt.barcode) treffer.set(produkt.barcode, produkt);
+  }
+
+  const offen = gesucht.filter((code) => !treffer.has(code));
+  if (offen.length === 0) return treffer;
+
+  const { data: perSku } = await supabase
+    .from("products")
+    .select(POS_COLUMNS)
+    .in("sku", offen);
+
+  for (const row of perSku ?? []) {
+    const produkt = zuPosProdukt(row as unknown as PosProductRow);
+    treffer.set(produkt.sku, produkt);
+  }
+
+  return treffer;
+}
+
 /** Freitextsuche für den Fall, dass ein Etikett nicht lesbar ist. */
 export async function searchPosProducts(term: string, limit = 12): Promise<PosProduct[]> {
   // Zeichen mit Sonderbedeutung im PostgREST-Filter und in LIKE raus, sonst

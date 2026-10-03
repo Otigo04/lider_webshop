@@ -750,6 +750,42 @@ eine Liste, die beim Scannen wächst, und eine Sammelbuchung am Ende.
 - Das ausführliche Artikelformular (`/admin/products/new`) bleibt daneben für
   Fotos, Beschreibung und Staffeln und verweist oben hierher.
 
+### Sammelimport („Liste einfügen")
+
+`components/admin/wareneingang-import.tsx`, Regeln in
+`lib/wareneingang-import.ts`. Dritter Weg neben Scanner und Namenssuche – für
+die Lieferung, die mit einer Rechnung oder Preisliste kommt.
+
+- **Warum.** Der Scanner ist unschlagbar, solange die Ware vor einem steht.
+  Steht alles aber schon geschrieben auf dem Papier des Lieferanten, sind
+  hundert Positionen à sechs Feldern eine halbe Schicht Abtippen – und jede
+  getippte Ziffer eine Gelegenheit für einen Zahlendreher.
+- **Der Import schreibt nichts.** Er füllt dieselbe Aufnahmeliste, gebucht
+  wird unverändert unten über `record_stock_entries()`. Ein zweiter
+  Buchungsweg liefe über kurz oder lang neben dem ersten her.
+- **Feste Spaltenfolge**: `Barcode ; Bezeichnung ; Menge ; GH ; EH ; EK`.
+  Trenner ist Tabulator oder Semikolon – **nie das Komma**: im deutschen
+  Zahlenformat steht es im Preis, und aus „9,99" würden zwei Spalten. Eine
+  mitkopierte Kopfzeile wird erkannt und übersprungen.
+- **Die Zeile wird nicht als Ganzes getrimmt**, nur ihre Felder. Ein
+  führender Tabulator ist eine leere erste Spalte – genau das, was aus einer
+  Tabellenkalkulation kommt, wenn die Ware noch keinen Barcode hat.
+  Weggetrimmt rutschte die Bezeichnung in die Barcode-Spalte.
+- **Leeres Preisfeld heißt „unverändert"**, wie überall im Wareneingang.
+- **Nicht lesbare Zeilen werden gesammelt angezeigt**, nicht übergangen: eine
+  Lieferung, bei der drei von hundert Positionen lautlos fehlen, fällt erst
+  beim Zählen im Regal auf.
+- **Erst Vorschau, dann übernehmen.** Abgeglichen wird in **einer** Abfrage
+  (`findProductsByCodes()` / `lookupPosProducts()`, Barcode vor Artikelnummer
+  wie beim Scan) – hundert einzelne Rundreisen ließen die Oberfläche eine
+  halbe Minute stehen. Die Vorschau zeigt je Zeile „Zugang · Bestand x → y"
+  oder „wird angelegt".
+- **Zweimal derselbe Barcode heißt „zwei Stück"**, in der Liste wie beim
+  Übernehmen in die Aufnahme. Zwei Zeilen desselben Artikels ließen sich
+  getrennt bepreisen, und welcher Preis am Ende am Artikel steht, hinge an der
+  Reihenfolge. Zusammengelegt wird nur über den Code – zwei Zeilen ohne
+  Barcode sind zwei Posten, auch wenn sie gleich heißen.
+
 ---
 
 ## 🏷️ Preisschilder fürs Regal

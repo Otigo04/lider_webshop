@@ -10,6 +10,7 @@ import { buildPosReceiptPdfData, generateInvoicePdf } from "@/lib/invoice";
 import { getCompanySettings } from "@/lib/queries/settings";
 import {
   findProductByCode,
+  findProductsByCodes,
   getPosSale,
   searchPosProducts,
   type PosProduct,
@@ -39,6 +40,35 @@ export async function lookupPosProduct(code: string): Promise<PosLookupResult> {
   if (!sauber) return { product: null, code: "" };
 
   return { product: await findProductByCode(sauber), code: sauber };
+}
+
+/**
+ * Obergrenze des Stapelabgleichs.
+ *
+ * Eine eingefügte Lieferliste hat selten mehr Positionen; was darüber liegt,
+ * ist eher ein versehentlich kopiertes Dokument als eine Lieferung. Die Grenze
+ * steht hier und nicht in der Oberfläche – die Action ist über das Netz
+ * erreichbar.
+ */
+const STAPEL_MAX = 500;
+
+/**
+ * Viele Codes auf einmal auflösen – Sammelimport im Wareneingang.
+ *
+ * Gibt ein Objekt statt einer Map zurück: Server Actions reichen nur
+ * serialisierbare Werte an den Browser, und eine Map käme dort als leeres
+ * Objekt an.
+ */
+export async function lookupPosProducts(
+  codes: string[],
+): Promise<Record<string, PosProduct>> {
+  await requireAdmin();
+  const sauber = codes
+    .slice(0, STAPEL_MAX)
+    .map((code) => code.trim().slice(0, 64))
+    .filter(Boolean);
+
+  return Object.fromEntries(await findProductsByCodes(sauber));
 }
 
 /**
