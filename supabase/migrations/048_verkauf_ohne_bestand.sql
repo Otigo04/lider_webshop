@@ -13,15 +13,27 @@
 -- pos_sale_items. Nur products.stock_available – eine reine Vorratszahl –
 -- darf laut CHECK-Constraint nicht negativ werden, deshalb GREATEST(..., 0).
 --
--- Im Supabase SQL Editor ausführen. Idempotent (CREATE OR REPLACE).
+-- Korrigiert eine erste Fassung dieser Migration, die versehentlich mit einer
+-- veralteten, fünf Parameter kurzen Signatur geschrieben wurde (ohne
+-- p_prices_gross/p_vat_rate aus Migration 018) – CREATE OR REPLACE ersetzt nur
+-- bei exakt gleicher Signatur, sonst entsteht eine zweite, überladene Funktion.
+-- Genau das ist passiert: PostgREST meldete beim Checkout "Could not choose
+-- the best candidate function" zwischen den zwei Fassungen. Die falsche wird
+-- hier zuerst entfernt.
+--
+-- Im Supabase SQL Editor ausführen. Idempotent.
 -- =============================================================================
 
+DROP FUNCTION IF EXISTS public.create_pos_sale(JSONB, UUID, TEXT, TEXT, TEXT);
+
 CREATE OR REPLACE FUNCTION public.create_pos_sale(
-  p_items JSONB,
-  p_customer_id UUID DEFAULT NULL,
-  p_customer_label TEXT DEFAULT NULL,
-  p_payment_method TEXT DEFAULT 'cash',
-  p_note TEXT DEFAULT NULL
+  p_items          JSONB,
+  p_customer_id    UUID    DEFAULT NULL,
+  p_customer_label TEXT    DEFAULT NULL,
+  p_payment_method TEXT    DEFAULT 'cash',
+  p_note           TEXT    DEFAULT NULL,
+  p_prices_gross   BOOLEAN DEFAULT NULL,
+  p_vat_rate       NUMERIC DEFAULT NULL
 )
 RETURNS public.pos_sales
 LANGUAGE plpgsql
@@ -29,12 +41,17 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 DECLARE
-  v_row     RECORD;
-  v_product public.products;
-  v_sale    public.pos_sales;
-  v_rate    NUMERIC;
-  v_summe   NUMERIC := 0;
-  v_sub     NUMERIC;
+  v_sale     public.pos_sales;
+  v_settings public.company_settings;
+  v_row      RECORD;
+  v_product  public.products;
+  v_gross    BOOLEAN;
+  v_rate     NUMERIC(4, 2);
+  v_sub      NUMERIC(12, 2);
+  v_summe    NUMERIC(12, 2) := 0;   -- Summe der Positionen in der Eingabelesart
+  v_net      NUMERIC(12, 2);
+  v_vat      NUMERIC(12, 2);
+  v_total    NUMERIC(12, 2);
 BEGIN
   IF NOT public.is_admin() THEN
     RAISE EXCEPTION 'Keine Berechtigung.';
@@ -44,12 +61,23 @@ BEGIN
     RAISE EXCEPTION 'Der Bon ist leer.';
   END IF;
 
-  IF p_payment_method NOT IN ('cash', 'card', 'transfer') THEN
-    RAISE EXCEPTION 'Ungültige Zahlart.';
+  IF p_payment_method NOT IN ('cash', 'card') THEN
+    RAISE EXCEPTION 'Unbekannte Zahlart.';
   END IF;
 
-  SELECT COALESCE(pos_vat_rate, 19) INTO v_rate FROM public.company_settings LIMIT 1;
-  v_rate := COALESCE(v_rate, 19);
+  IF p_customer_id IS NOT NULL
+     AND NOT EXISTS (SELECT 1 FROM public.users WHERE id = p_customer_id) THEN
+    RAISE EXCEPTION 'Kunde nicht gefunden.';
+  END IF;
+
+  SELECT * INTO v_settings FROM public.company_settings WHERE id;
+
+  v_rate  := COALESCE(p_vat_rate, v_settings.pos_vat_rate, 19);
+  v_gross := COALESCE(p_prices_gross, v_settings.pos_prices_gross, true);
+
+  IF v_rate NOT IN (0, 7, 19) THEN
+    RAISE EXCEPTION 'Ungültiger Steuersatz.';
+  END IF;
 
   INSERT INTO public.pos_sales (
     customer_id, customer_label, cashier_id, payment_method,
@@ -91,10 +119,11 @@ BEGIN
         RAISE EXCEPTION 'Artikel nicht gefunden.';
       END IF;
 
-      -- Kein Abbruch mehr bei knappem oder fehlendem Bestand: der Verkauf
-      -- wird gebucht, als wäre die Ware da. Der Bestand fällt dabei nicht
-      -- unter 0 – das ist eine Vorratszahl, keine Schuld –, aber die Zeile
-      -- auf dem Bon zählt mit dem vollen Preis.
+      -- Kein Abbruch mehr bei knappem oder fehlendem Bestand (vorher: RAISE
+      -- EXCEPTION "Von X sind nur noch Y Stück verfügbar."): der Verkauf wird
+      -- gebucht, als wäre die Ware da. Der Bestand fällt dabei nicht unter 0
+      -- – das ist eine Vorratszahl, keine Schuld –, aber die Zeile auf dem
+      -- Bon zählt mit dem vollen Preis.
       UPDATE public.products
       SET stock_available = GREATEST(stock_available - v_row.quantity, 0)
       WHERE id = v_product.id;
@@ -113,19 +142,35 @@ BEGIN
       v_sale.id,
       v_row.product_id,
       COALESCE(NULLIF(btrim(COALESCE(v_row.name, '')), ''), v_product.name, 'Position'),
-      COALESCE(NULLIF(btrim(COALESCE(v_row.sku, '')), ''), v_product.sku, '-'),
+      COALESCE(NULLIF(btrim(COALESCE(v_row.sku, '')), ''), v_product.sku, '—'),
       COALESCE(v_row.barcode, v_product.barcode),
-      v_row.quantity, v_row.unit_price, v_sub
+      v_row.quantity,
+      v_row.unit_price,
+      v_sub
     );
   END LOOP;
 
+  IF v_gross THEN
+    -- Eingegebene Preise sind Endpreise: Steuer herausrechnen.
+    v_total := ROUND(v_summe, 2);
+    v_net   := ROUND(v_total / (1 + v_rate / 100), 2);
+    v_vat   := ROUND(v_total - v_net, 2);
+  ELSE
+    v_net   := ROUND(v_summe, 2);
+    v_vat   := ROUND(v_net * v_rate / 100, 2);
+    v_total := ROUND(v_net + v_vat, 2);
+  END IF;
+
   UPDATE public.pos_sales
-  SET net_amount   = ROUND(v_summe / (1 + v_rate / 100), 2),
-      vat_amount   = v_summe - ROUND(v_summe / (1 + v_rate / 100), 2),
-      total_amount = v_summe
+  SET net_amount = v_net, vat_amount = v_vat, total_amount = v_total
   WHERE id = v_sale.id
   RETURNING * INTO v_sale;
 
   RETURN v_sale;
 END;
 $$;
+
+REVOKE ALL ON FUNCTION public.create_pos_sale(JSONB, UUID, TEXT, TEXT, TEXT, BOOLEAN, NUMERIC)
+  FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.create_pos_sale(JSONB, UUID, TEXT, TEXT, TEXT, BOOLEAN, NUMERIC)
+  TO authenticated;
