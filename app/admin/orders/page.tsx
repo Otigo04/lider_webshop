@@ -133,6 +133,11 @@ export default async function AdminOrdersPage({
                         order.customer?.full_name ||
                         order.customer?.email ||
                         "–"}
+                      {order.customer?.customer_number ? (
+                        <span className="block text-xs tabular text-muted-foreground">
+                          {order.customer.customer_number}
+                        </span>
+                      ) : null}
                     </td>
                     <td className="py-3 pr-4 tabular text-muted-foreground">
                       {order.items?.length ?? 0}

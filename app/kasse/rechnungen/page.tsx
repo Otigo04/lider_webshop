@@ -96,6 +96,11 @@ export default async function AdminInvoicesPage({
                       {invoice.customer?.company_name ||
                         invoice.customer?.full_name ||
                         "–"}
+                      {invoice.customer?.customer_number ? (
+                        <span className="block text-xs tabular text-muted-foreground">
+                          {invoice.customer.customer_number}
+                        </span>
+                      ) : null}
                     </td>
                     <td className="py-3 pr-4 text-muted-foreground">
                       {invoice.type === "order" ? "Bestellung" : "Frei"}

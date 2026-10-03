@@ -284,6 +284,11 @@ export function buildReceiptHtml(
     sale.customer?.full_name ||
     sale.customer_label ||
     null;
+  /*
+   * Kundennummer nur beim Händlerkonto (Migration 046). Ein Barverkauf hat
+   * keine, und eine leere Zeile auf 80 mm Papier ist verschenkte Rolle.
+   */
+  const kundennummer = sale.customer?.customer_number ?? null;
 
   const positionen = items
     .map(
@@ -315,6 +320,11 @@ export function buildReceiptHtml(
     zeitpunktFormat.format(new Date(sale.created_at)),
   )}</span></div>
   ${kunde ? `<div class="row"><span>Kunde</span><span>${esc(kunde)}</span></div>` : ""}
+  ${
+    kundennummer
+      ? `<div class="row"><span>Kundennummer</span><span class="fett">${esc(kundennummer)}</span></div>`
+      : ""
+  }
 
   <hr>
 

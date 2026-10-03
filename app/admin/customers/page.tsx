@@ -39,6 +39,10 @@ export default async function AdminCustomersPage({
             <table className="w-full min-w-3xl border-collapse text-sm">
               <thead>
                 <tr className="border-b border-border text-left text-muted-foreground">
+                  {/* Kundennummer ganz vorn: danach wird gesucht, wenn ein
+                      Kunde anruft oder eine Überweisung zugeordnet werden
+                      muss. */}
+                  <th className="py-2 pr-4 font-medium">Nr.</th>
                   <th className="py-2 pr-4 font-medium">Firma</th>
                   <th className="py-2 pr-4 font-medium">Ansprechpartner</th>
                   <th className="py-2 pr-4 font-medium">E-Mail</th>
@@ -55,6 +59,9 @@ export default async function AdminCustomersPage({
                       key={customer.id}
                       className="border-b border-border last:border-0"
                     >
+                      <td className="py-3 pr-4 tabular font-medium">
+                        {customer.customer_number ?? "–"}
+                      </td>
                       <td className="py-3 pr-4 font-medium">
                         {customer.company_name || "–"}
                         {customer.role === "admin" ? (

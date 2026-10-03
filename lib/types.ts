@@ -159,6 +159,12 @@ export interface AppUser {
   company_name: string | null;
   /** USt-IdNr. des Kunden – nötig für Rechnungen an EU-Abnehmer (Migration 028) */
   vat_id: string | null;
+  /**
+   * Kundennummer, `K` + fünf Ziffern (Migration 046). Vergibt die Datenbank
+   * beim Anlegen; sie steht auf Rechnung, Lieferschein und Beleg und wird nie
+   * wiederverwendet. null nur bei Admins und solange die Migration fehlt.
+   */
+  customer_number: string | null;
   role: UserRole;
   is_active: boolean;
   created_at: string;

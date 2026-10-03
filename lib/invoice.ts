@@ -46,6 +46,15 @@ export interface InvoicePdfData {
   /** z. B. "Bestellung LG-2026-00012" oder eine Notiz zur freien Rechnung */
   reference?: string;
   customerName: string;
+  /**
+   * Kundennummer des Empfängers (Migration 046).
+   *
+   * Steht im Eckdatenkasten neben Belegnummer und Datum – dort, wo am Telefon
+   * nachgesehen wird. Ohne sie lässt sich eine Zahlung oder Rückfrage nur über
+   * Name und Anschrift zuordnen, und davon gibt es im Zweifel zwei gleiche.
+   * Fehlt sie (Barverkauf, freie Rechnung ohne Konto), bleibt die Zeile weg.
+   */
+  customerNumber?: string | null;
   customerStreet?: string | null;
   customerZip?: string | null;
   customerCity?: string | null;
@@ -130,6 +139,9 @@ export function buildPosReceiptPdfData(
       customer?.full_name ||
       sale.customer_label ||
       "Barverkauf",
+    // Nur bei einem Händlerkonto. Ein Barverkauf hat keinen Kunden – dort
+    // stünde eine leere Zeile im Kasten.
+    customerNumber: customer?.customer_number ?? null,
     customerStreet: customer?.billing_street ?? null,
     customerZip: customer?.billing_zip ?? null,
     customerCity: customer?.billing_city ?? null,
@@ -238,6 +250,7 @@ export function buildOrderInvoicePdfData(
     issuedAt: issuedAt ?? new Date().toISOString(),
     reference: `Bestellung ${order.order_number}`,
     customerName: customer?.company_name || customer?.full_name || "–",
+    customerNumber: customer?.customer_number ?? null,
     customerStreet: customer?.billing_street,
     customerZip: customer?.billing_zip,
     customerCity: customer?.billing_city,
@@ -304,6 +317,9 @@ export function buildDeliveryNotePdfData(
     issuedAt: new Date().toISOString(),
     reference: bezug,
     customerName: empfaenger[0] || customer?.company_name || customer?.full_name || "–",
+    // Auch auf dem Lieferschein: beim Auspacken wird die Lieferung dem Konto
+    // zugeordnet, und der Zettel trägt sonst keine Kennung des Kunden.
+    customerNumber: customer?.customer_number ?? null,
     customerStreet: empfaenger[1] ?? null,
     customerCity: empfaenger[2] ?? null,
     items: (order.items ?? []).map((item) => ({
@@ -350,6 +366,7 @@ export function buildManualInvoicePdfData(
     issuedAt: invoice.issued_at,
     reference: invoice.notes ?? undefined,
     customerName: customer.company_name || customer.full_name || "–",
+    customerNumber: customer.customer_number ?? null,
     customerStreet: customer.billing_street,
     customerZip: customer.billing_zip,
     customerCity: customer.billing_city,
@@ -829,6 +846,11 @@ export async function generateInvoicePdf(data: InvoicePdfData): Promise<Buffer> 
     [`${titel}-Nr.`, data.invoiceNumber],
     ["Datum", formatDate(data.issuedAt)],
   ];
+  // Kundennummer direkt unter dem Datum: sie gehört zu den drei Angaben, nach
+  // denen bei einer Rückfrage als Erstes gesucht wird.
+  if (data.customerNumber) {
+    eckdaten.push(["Kundennummer", data.customerNumber]);
+  }
   // Ein Zahlungsziel gibt es nur auf Rechnung. Ein bar bezahlter Kassenbeleg
   // trägt stattdessen den Zahlungsvermerk und darf kein Fälligkeitsdatum
   // zeigen – das läse sich wie eine offene Forderung.

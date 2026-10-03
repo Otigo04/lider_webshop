@@ -52,7 +52,7 @@ export default async function OrderDetailPage({
 }: PageProps<"/orders/[id]">) {
   const { id } = await params;
   const query = await searchParams;
-  await requireUser(`/orders/${id}`);
+  const kunde = await requireUser(`/orders/${id}`);
 
   // RLS liefert fremde Bestellungen gar nicht erst aus – hier landet dann null.
   const order = await getOrder(id);
@@ -315,6 +315,15 @@ export default async function OrderDetailPage({
                       <Zeile
                         label="Verwendungszweck"
                         value={<span className="code">{invoice.invoice_number}</span>}
+                      />
+                    ) : null}
+                    {/* Kundennummer mit in den Zahlungsblock: geht eine
+                        Überweisung ohne Rechnungsnummer ein, lässt sie sich
+                        darüber noch zuordnen. */}
+                    {kunde.customer_number ? (
+                      <Zeile
+                        label="Kundennummer"
+                        value={<span className="code">{kunde.customer_number}</span>}
                       />
                     ) : null}
                     <Zeile label="Betrag" value={formatPrice(betraege.brutto)} />

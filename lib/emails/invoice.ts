@@ -19,6 +19,14 @@ export function invoiceEmail(
     `Verwendungszweck: ${invoiceNumber}`,
   ].filter(Boolean);
 
+  /*
+   * Kundennummer in der Mail, nicht nur im PDF-Anhang: wer überweist, hat die
+   * Mail offen und das PDF womöglich nicht. Steht sie im Verwendungszweck
+   * nicht mit drin, landet eine Zahlung ohne Rechnungsnummer bei uns ohne
+   * jeden Bezug.
+   */
+  const kundennummer = order.customer?.customer_number ?? null;
+
   // Der Betrag steht brutto im Text: das ist die Zahl, die auf den
   // Überweisungsträger gehört.
   const body = `
@@ -27,6 +35,11 @@ export function invoiceEmail(
       ${order.order_number} über <strong>${formatPrice(betraege.brutto)}</strong>
       (${formatPrice(betraege.netto)} netto zzgl. ${betraege.satz.toFixed(0)} % USt.).
     </p>
+    ${
+      kundennummer
+        ? `<p style="font-size:13px;color:#6b7280;margin-top:8px;">Ihre Kundennummer: <strong>${kundennummer}</strong></p>`
+        : ""
+    }
     ${
       ueberweisung
         ? `<p style="font-size:13px;color:#6b7280;margin-top:12px;">${bankzeilen.join("<br/>")}</p>`

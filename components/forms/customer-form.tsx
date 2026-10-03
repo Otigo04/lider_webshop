@@ -49,6 +49,17 @@ export function CustomerForm({ customer }: { customer?: AppUser }) {
     <form action={formAction} className="space-y-4">
       {customer ? <input type="hidden" name="id" value={customer.id} /> : null}
 
+      {/* Kundennummer vergibt die Datenbank (Migration 046) und steht auf
+          gestellten Rechnungen – sie wird gezeigt, nicht bearbeitet. Ein
+          Eingabefeld dafür wäre eine Einladung, eine Nummer zu ändern, die
+          schon auf Papier steht. */}
+      {customer?.customer_number ? (
+        <div className="flex items-baseline justify-between rounded-md border border-border bg-muted/40 px-3 py-2">
+          <span className="text-sm text-muted-foreground">Kundennummer</span>
+          <span className="tabular font-medium">{customer.customer_number}</span>
+        </div>
+      ) : null}
+
       <div className="space-y-2">
         <Label htmlFor="email">E-Mail</Label>
         <Input

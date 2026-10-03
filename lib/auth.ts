@@ -34,7 +34,7 @@ export async function getCurrentUser(): Promise<AppUser | null> {
 
   const { data, error } = await supabase
     .from("users")
-    .select(`${PROFIL_SPALTEN}, vat_id`)
+    .select(`${PROFIL_SPALTEN}, vat_id, customer_number`)
     .eq("id", user.id)
     .single();
 
@@ -42,17 +42,20 @@ export async function getCurrentUser(): Promise<AppUser | null> {
 
   /*
    * 42703 = "column does not exist". Tritt genau dann auf, wenn
-   * supabase/migrations/028_kunden_ust_id.sql noch nicht eingespielt ist.
+   * supabase/migrations/028_kunden_ust_id.sql (vat_id) oder
+   * 046_kundennummern.sql (customer_number) noch nicht eingespielt ist.
    *
    * Ohne diesen Rückfall bräche an dieser Stelle nicht ein Feld, sondern die
    * gesamte Anmeldung: ein Profil, das nicht lädt, gilt überall als "nicht
    * eingeloggt". Ein Nachrüsten der Spalte ist Betriebssache und darf keinen
-   * Kunden aussperren. Der Zweig kann weg, sobald die Migration überall läuft.
+   * Kunden aussperren. Der Zweig kann weg, sobald beide Migrationen überall
+   * laufen.
    */
   if (error.code === "42703") {
     console.warn(
-      "[auth] Spalte users.vat_id fehlt – Migration 028 noch nicht eingespielt. " +
-        "Profil wird ohne USt-IdNr. geladen.",
+      "[auth] Spalte users.vat_id oder users.customer_number fehlt – " +
+        "Migration 028 bzw. 046 noch nicht eingespielt. Profil wird ohne " +
+        "USt-IdNr. und Kundennummer geladen.",
     );
     const { data: ohneUstId, error: zweiterFehler } = await supabase
       .from("users")
@@ -61,7 +64,11 @@ export async function getCurrentUser(): Promise<AppUser | null> {
       .single();
 
     if (!zweiterFehler) {
-      return { ...(ohneUstId as Omit<AppUser, "vat_id">), vat_id: null };
+      return {
+        ...(ohneUstId as Omit<AppUser, "vat_id" | "customer_number">),
+        vat_id: null,
+        customer_number: null,
+      };
     }
     console.error(
       "[auth] Profil konnte nicht geladen werden:",

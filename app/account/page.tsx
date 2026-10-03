@@ -40,6 +40,14 @@ export default async function AccountPage() {
         <div className="min-w-0">
           <p className="truncate font-medium">{name}</p>
           <p className="truncate text-sm text-muted-foreground">{user.email}</p>
+          {/* Kundennummer direkt unter dem Namen: sie steht auf jeder Rechnung
+              und wird am Telefon als Erstes gefragt. */}
+          {user.customer_number ? (
+            <p className="mt-1 text-sm">
+              <span className="text-muted-foreground">Kundennummer </span>
+              <span className="font-medium tabular">{user.customer_number}</span>
+            </p>
+          ) : null}
         </div>
         <p className="ml-auto shrink-0 text-right text-xs text-muted-foreground">
           Kunde seit

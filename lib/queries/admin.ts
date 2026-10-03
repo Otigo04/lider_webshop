@@ -29,7 +29,13 @@ export interface AdminProductRow extends Omit<Product, "category" | "group"> {
 }
 
 export interface AdminOrderRow extends Omit<Order, "customer"> {
-  customer: Pick<AppUser, "id" | "email" | "full_name" | "company_name"> | null;
+  /*
+   * Ganzes Profil statt einer Spaltenauswahl: `users (*)` überlebt eine noch
+   * nicht eingespielte Migration. Eine feste Liste mit `customer_number`
+   * darin ließe PostgREST mit 42703 abbrechen, und dann zeigte die
+   * Bestellliste gar nichts mehr statt nur eine Spalte weniger.
+   */
+  customer: AppUser | null;
   items: OrderItem[];
   /**
    * Rechnung zur Bestellung, sofern bereits gestellt. PostgREST liefert die
@@ -109,7 +115,7 @@ export async function getRecentOrders(limit = 10): Promise<AdminOrderRow[]> {
   const { data, error } = await supabase
     .from("orders")
     .select(
-      `*, customer:users (id, email, full_name, company_name),
+      `*, customer:users (*),
        items:order_items (id, order_id, product_variant_id, product_name,
                           product_sku, quantity, unit_price, subtotal, created_at)`,
     )
@@ -304,7 +310,7 @@ export async function getAdminOrders(
   let query = supabase
     .from("orders")
     .select(
-      `*, customer:users (id, email, full_name, company_name),
+      `*, customer:users (*),
        items:order_items (id, order_id, product_variant_id, product_name,
                           product_sku, quantity, unit_price, subtotal, created_at),
        invoices (id, invoice_number, status)`,
@@ -339,7 +345,7 @@ export async function getAdminOrder(id: string): Promise<AdminOrderRow | null> {
   const { data, error } = await supabase
     .from("orders")
     .select(
-      `*, customer:users (id, email, full_name, company_name),
+      `*, customer:users (*),
        items:order_items (id, order_id, product_variant_id, product_name,
                           product_sku, quantity, unit_price, subtotal, created_at)`,
     )
@@ -372,7 +378,7 @@ export async function getAccessRequests(status?: string): Promise<AccessRequest[
 }
 
 export interface AdminInvoiceRow extends Omit<Invoice, "customer"> {
-  customer: Pick<AppUser, "id" | "email" | "full_name" | "company_name"> | null;
+  customer: AppUser | null;
   // Nur bei type "order" gesetzt – liefert Bestellnummer und Betrag, weil
   // Bestellungs-Rechnungen ihre Summe nicht selbst tragen (siehe net_amount/
   // total_amount in Invoice, nur für freie Rechnungen befüllt).
@@ -393,7 +399,7 @@ export async function getAdminInvoices(options?: {
   let query = supabase
     .from("invoices")
     .select(
-      `*, customer:users (id, email, full_name, company_name),
+      `*, customer:users (*),
        order:orders (order_number, total_amount)`,
     )
     .order("issued_at", { ascending: false });

@@ -52,6 +52,11 @@ export default async function AdminInvoiceDetailPage({
           <dt className="text-muted-foreground">Kunde</dt>
           <dd className="mt-1">
             {invoice.customer.company_name || invoice.customer.full_name || "–"}
+            {invoice.customer.customer_number ? (
+              <span className="ml-2 tabular text-muted-foreground">
+                {invoice.customer.customer_number}
+              </span>
+            ) : null}
           </dd>
         </div>
         <div>

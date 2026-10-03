@@ -74,6 +74,11 @@ export default async function AdminOrderDetailPage({
           <dt className="text-muted-foreground">Kunde</dt>
           <dd className="mt-1">
             {order.customer?.company_name || order.customer?.full_name || "–"}
+            {order.customer?.customer_number ? (
+              <span className="ml-2 tabular text-muted-foreground">
+                {order.customer.customer_number}
+              </span>
+            ) : null}
           </dd>
         </div>
         <div>

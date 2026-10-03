@@ -43,7 +43,14 @@ export function CustomerCombobox({
     const term = query.trim().toLowerCase();
     const pool = term
       ? customers.filter((customer) =>
-          [customer.company_name, customer.full_name, customer.email]
+          [
+            customer.company_name,
+            customer.full_name,
+            customer.email,
+            // Kundennummer mitdurchsuchen: am Telefon nennt der Kunde sie,
+            // nicht seine E-Mail-Adresse.
+            customer.customer_number,
+          ]
             .filter(Boolean)
             .some((value) => value!.toLowerCase().includes(term)),
         )
@@ -102,6 +109,11 @@ export function CustomerCombobox({
                   {customer.company_name || customer.full_name || "–"}
                 </span>
                 <span className="block text-xs text-muted-foreground">
+                  {customer.customer_number ? (
+                    <span className="tabular">
+                      {customer.customer_number} ·{" "}
+                    </span>
+                  ) : null}
                   {customer.email}
                 </span>
               </button>
