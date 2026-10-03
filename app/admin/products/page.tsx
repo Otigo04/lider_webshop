@@ -331,9 +331,10 @@ export default async function AdminProductsPage({
       </nav>
 
       <p className="mt-4 rounded-md border border-brand/25 bg-brand-soft px-3 py-2 text-sm text-brand">
-        Bezeichnung, Barcode, Warengruppe, alle drei Preise (GH = Großhandel,
-        EH = Einzelhandel, vorher = Streichpreis) und der Bestand lassen sich
-        direkt in der Tabelle ändern – anklicken, tippen, Enter.
+        Bezeichnung, Barcode, Warengruppe, alle vier Preise (GH = Großhandel,
+        EH = Einzelhandel, vorher = Streichpreis, EK = Einkauf, nur intern)
+        und der Bestand lassen sich direkt in der Tabelle ändern – anklicken,
+        tippen, Enter.
       </p>
 
       {products.length === 0 ? (

@@ -1199,9 +1199,10 @@ export function PreisschildFrei({
                     : "Aufs Blatt legen"}
             </Button>
             <p className="text-[11px] text-muted-foreground">
-              Enter in jedem Feld legt das Schild aufs Blatt; im Scannerfeld
-              schlägt es erst den Code nach. Symbol und Label bleiben für das
-              nächste Schild stehen, Bezeichnung und Preise nicht.
+              Enter in jedem Feld legt das Schild aufs Blatt – ein bekannter
+              Code wird dabei nachgeschlagen und gleich übernommen. Symbol und
+              Label bleiben für das nächste Schild stehen, Bezeichnung und
+              Preise nicht.
             </p>
           </form>
 

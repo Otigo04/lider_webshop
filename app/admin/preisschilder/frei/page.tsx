@@ -48,10 +48,11 @@ export default async function PreisschilderFreiPage() {
           <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
             Scannen oder tippen, Enter – das Schild liegt auf dem A4-Blatt.
             Noch eins, noch eins, drucken. Ein bekannter Barcode füllt
-            Bezeichnung und Preise aus dem Artikelstamm, ein unbekannter legt
-            den Artikel gleich mit an. Ohne Barcode bleibt es ein reines
-            Schild. Ein Vorher-Preis über dem Preis macht daraus ein rotes
-            Aktionsschild.
+            Bezeichnung und Preise aus dem Artikelstamm und legt das Schild
+            gleich ab, ein unbekannter legt den Artikel mit an. Ohne Barcode
+            findet die Bezeichnung den Artikel im Bestand; ohne Treffer bleibt
+            es ein reines Schild. Ein Vorher-Preis über dem Preis macht daraus
+            ein rotes Aktionsschild.
           </p>
         </div>
         <PreisschildNav />
