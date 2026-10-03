@@ -1149,10 +1149,26 @@ export function PreisschildFrei({
                     melden("treffer", artikel.name, artikel.sku);
                   }
 
-                  // Weiter zum Preis: die nächste Frage ist „stimmt er noch?"
-                  requestAnimationFrame(() =>
-                    document.getElementById("frei-preis")?.focus(),
-                  );
+                  if (code) {
+                    /*
+                     * Der Scanner hat entschieden, nicht die Tastatur: der
+                     * nächste Handgriff ist der nächste Scan. Bliebe der
+                     * Fokus im Preisfeld stehen, liefe der nächste gescannte
+                     * Code dort hinein statt ins Scannerfeld – mit einer
+                     * Ziffernfolge als "Preis" und einem Enter, das mitten in
+                     * der Auswahl das halbfertige Schild abschickt. Genau das
+                     * sah aus wie "alles ändert sich, Schilder gehen
+                     * verloren".
+                     */
+                    zurueckZumFeld("scan");
+                  } else {
+                    // Keine Scannersitzung im Gang (Namenssuche ohne Code):
+                    // weiter zum Preis, die nächste Frage ist „stimmt er
+                    // noch?".
+                    requestAnimationFrame(() =>
+                      document.getElementById("frei-preis")?.focus(),
+                    );
+                  }
                 }}
               />
             </Feld>

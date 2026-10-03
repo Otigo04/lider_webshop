@@ -1024,6 +1024,18 @@ Der Scan steht oben im Formular, weil er den Rest bestimmt:
   gedruckt wird; dieser Schutz wandert von „vor dem Ablegen" nach „vor dem
   Drucken": das Blatt ist die Liste, jedes Schild steht dort in
   Originalmaßen, ein Klick holt es zurück, gedruckt wird erst auf Knopfdruck.
+- **Der Fokus kehrt nach jeder Aktion zurück, die ein Scan ausgelöst hat –
+  aber nur dorthin.** `zurueckZumFeld()` zielt standardmäßig aufs Scannerfeld,
+  weil ein Handscanner meldet sich wie eine Tastatur: was er sendet, landet
+  im gerade fokussierten Feld, nicht zwingend im Scannerfeld. Jede Stelle, die
+  nach einem Scan **woanders** hinfokussiert (etwa die Namenssuche, die „weiter
+  zum Preis" springt, wenn ein Treffer die nächste Frage „stimmt er noch?"
+  aufwirft), darf das nur tun, wenn gerade **kein** Scan im Gang war – sonst
+  tippt der nächste physische Scan seine Ziffern ins falsche Feld und ein
+  Enter reißt mitten in der Eingabe das halbfertige Schild los. Genau das
+  brach einmal, als die Namenssuche auch bei unbekanntem Code aktiviert wurde:
+  der Fokus sprang weiter ins Preisfeld, obwohl gerade am Scanner gestanden
+  wurde, und der nächste Scan landete dort statt im Scannerfeld.
 - **Abgelegt wird aus dem Rückgabewert des Abgleichs**, nicht aus dem
   Formularzustand: `setEntwurf()` ist innerhalb derselben Funktion noch nicht
   wirksam, und das Schild käme mit der alten, womöglich leeren Bezeichnung
