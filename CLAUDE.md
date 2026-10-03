@@ -622,12 +622,28 @@ Wer den Bestand anfasst und wie:
 |---------|---------|
 | Checkout des Kunden (`create_order`) | `stock_reserved` +Menge – Ware ist noch da, aber vergeben |
 | Admin legt Bestellung an (`create_admin_order`) | `stock_available` −Menge (Migration 023) – die Bestellung ist sofort `confirmed`, die Ware geht raus |
-| Kassenverkauf (`create_pos_sale`) | `stock_available` −Menge |
+| Kassenverkauf (`create_pos_sale`) | `stock_available` −Menge, nach unten bei 0 begrenzt (Migration 048) |
 | Wareneingang (`record_stock_entries`) | `stock_available` ±Menge, Journalzeile in `stock_entries` |
 
 Freie Rechnungen (`create_manual_invoice`) rühren den Bestand **nicht** an:
 ihre Positionen sind Freitext ohne Artikelbezug. Wer Ware abbuchen will, legt
 die Rechnung über „Aus Katalog" an.
+
+**Kein Bestand ist kein Verkaufsverbot.** Bis Migration 048 lehnte
+`create_pos_sale()` eine Zeile ab, sobald die Menge den freien Bestand
+überstieg – am Tresen die falsche Reihenfolge: der Kunde hat die Ware in der
+Hand, dass sie im System noch fehlt (Inventurdifferenz, Wareneingang noch
+nicht gebucht), ist nicht sein Problem. Scan und Namenssuche nehmen den
+Artikel jetzt immer auf, Mengenänderung in der Bonzeile ebenso; es steht nur
+eine Warnung in der Statusleiste ("kein Bestand – wird trotzdem gebucht").
+Gebucht wird so, als wäre der Bestand da. `stock_available` selbst fällt
+dabei nicht unter 0 (`GREATEST(..., 0)`) – das ist eine Vorratszahl, keine
+Schuld –, die tatsächlich verkaufte Menge steht wie immer vollständig in
+`pos_sale_items`. Dieselbe Regel gilt für `PosProductSearch`
+(`components/pos/pos-product-search.tsx`): ein ausverkaufter Treffer ist
+weiterhin rot markiert ("ausverkauft"), aber anklickbar – vorher sperrte
+`disabled` die Zeile auch im Wareneingang, wo man gerade deshalb sucht, weil
+ein Artikel ohne Bestand dasteht.
 
 ---
 

@@ -193,11 +193,9 @@ export function PosProductSearch({
                 aria-selected={index === markiert}
                 onMouseEnter={() => setMarkiert(index)}
                 onClick={() => uebernehmen(product)}
-                disabled={product.freeStock <= 0}
                 className={cn(
                   "flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors",
                   index === markiert ? "bg-brand-soft" : "hover:bg-muted",
-                  product.freeStock <= 0 && "opacity-50",
                 )}
               >
                 <span className="min-w-0 flex-1">

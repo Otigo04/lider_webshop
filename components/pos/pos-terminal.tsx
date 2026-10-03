@@ -164,31 +164,23 @@ export function PosTerminal({
   }, [preisModus]);
 
   /**
-   * `false` = nicht aufgenommen (kein Bestand). `"ohnePreis"` = aufgenommen,
-   * aber ohne gepflegten Preis: die Zeile steht mit 0,00 € auf dem Bon. Der
-   * Aufrufer meldet das als Warnung statt als Treffer – ein Artikel, der
-   * stillschweigend für nichts über den Tresen geht, ist der teuerste Fehler,
-   * den diese Kasse machen kann.
+   * `"ohneBestand"` = aufgenommen, obwohl der freie Bestand nicht reicht oder
+   * bei 0 steht: der Kunde hat die Ware in der Hand, dass sie im System noch
+   * fehlt, ist sein Problem nicht. Gebucht wird so, als wäre sie da; der
+   * Lagerbestand selbst fällt dabei nicht unter 0 (siehe create_pos_sale,
+   * Migration 048). `"ohnePreis"` = aufgenommen, aber ohne gepflegten Preis:
+   * die Zeile steht mit 0,00 € auf dem Bon. Beides meldet der Aufrufer als
+   * Warnung statt als Treffer – ein Artikel, der stillschweigend für nichts
+   * oder unbemerkt ohne Bestand über den Tresen geht, ist der teuerste
+   * Fehler, den diese Kasse machen kann.
    */
-  type BonErgebnis = false | "ok" | "ohnePreis";
+  type BonErgebnis = "ok" | "ohnePreis" | "ohneBestand";
 
   const aufDenBon = useCallback((product: PosProduct, menge = 1): BonErgebnis => {
     const aktuell = bonRef.current;
     const index = aktuell.findIndex((zeile) => zeile.productId === product.id);
     const neueMenge = (index >= 0 ? aktuell[index].quantity : 0) + menge;
-
-    if (product.freeStock <= 0) {
-      melden("warnung", `${product.name} ist nicht mehr am Lager.`, product.sku);
-      return false;
-    }
-    if (neueMenge > product.freeStock) {
-      melden(
-        "warnung",
-        `${product.name}: nur noch ${formatQuantity(product.freeStock)} Stück verfügbar.`,
-        product.sku,
-      );
-      return false;
-    }
+    const ohneBestand = neueMenge > product.freeStock;
 
     // Händler mit Konto zahlen die Shop-Staffel, Privatkundschaft den
     // Ladenpreis des Artikels (lib/pricing.ts).
@@ -215,8 +207,9 @@ export function PosTerminal({
         },
       ]);
     }
-    return preis > 0 ? "ok" : "ohnePreis";
-  }, [melden]);
+    if (preis <= 0) return "ohnePreis";
+    return ohneBestand ? "ohneBestand" : "ok";
+  }, []);
 
   /**
    * Freie Position auf den Bon.
@@ -251,7 +244,13 @@ export function PosTerminal({
             `${product.name} hat keinen Preis – steht mit 0,00 € auf dem Bon.`,
             `${product.sku} · Preis in der Zeile eintragen`,
           );
-        } else if (ergebnis) {
+        } else if (ergebnis === "ohneBestand") {
+          melden(
+            "warnung",
+            `${product.name}: kein Bestand – wird trotzdem gebucht.`,
+            product.sku,
+          );
+        } else {
           melden(
             "treffer",
             product.name,
@@ -300,13 +299,14 @@ export function PosTerminal({
       entfernen(index);
       return;
     }
+    // Kein Abbruch mehr über dem Bestand – nur ein Hinweis. Gebucht wird
+    // trotzdem, wie beim Scan (create_pos_sale, Migration 048).
     if (zeile.maxStock !== null && neu > zeile.maxStock) {
       melden(
         "warnung",
-        `${zeile.name}: nur noch ${formatQuantity(zeile.maxStock)} Stück verfügbar.`,
+        `${zeile.name}: kein Bestand mehr – wird trotzdem gebucht.`,
         zeile.sku ?? undefined,
       );
-      return;
     }
 
     /*
@@ -605,7 +605,13 @@ export function PosTerminal({
                     `${product.name} hat keinen Preis – steht mit 0,00 € auf dem Bon.`,
                     `${product.sku} · Preis in der Zeile eintragen`,
                   );
-                } else if (ergebnis) {
+                } else if (ergebnis === "ohneBestand") {
+                  melden(
+                    "warnung",
+                    `${product.name}: kein Bestand – wird trotzdem gebucht.`,
+                    product.sku,
+                  );
+                } else {
                   melden("treffer", product.name, product.sku);
                 }
               }}
