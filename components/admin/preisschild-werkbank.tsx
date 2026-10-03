@@ -16,6 +16,7 @@ import {
   barcodeMasse,
   formatMass,
   ghCode,
+  markenSymbol,
   proBogen,
   schildMasse,
   schildPreis,
@@ -187,7 +188,10 @@ export function PreisschildWerkbank({
           preis: a.preis ?? 0,
           vorher: a.vorher ?? 0,
           gh: a.grosshandel ?? 0,
-          iconId: null,
+          // Trifft der Artikelname eine vorhandene Marke in der
+          // Symbolbibliothek (z. B. "LEGO"), steht ihr Logo gleich auf der
+          // neuen Zeile – nachträglich in der Spalte "Symbol" änderbar.
+          iconId: markenSymbol(a.name, icons),
           labelKey: null,
           anzahl: 1,
         },

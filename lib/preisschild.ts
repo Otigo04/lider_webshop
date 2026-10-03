@@ -828,6 +828,31 @@ export function ghCode(preis: number | string | null | undefined): string | null
 }
 
 /**
+ * Symbol automatisch vorschlagen, wenn der Artikelname mit dem Namen eines
+ * vorhandenen Symbols beginnt – "LEGO City Polizeiauto" bei einem Symbol
+ * "LEGO", ohne dass die Marke hier irgendwo als Zeichenkette steht. Ein
+ * später hochgeladenes "Bruder"-Logo greift genauso, ohne Codeänderung: die
+ * Zuordnung steht allein in der Symbolbibliothek.
+ *
+ * Nur ein Vorschlag beim Hinzufügen zur Werkbank – das Dropdown der Zeile
+ * bleibt danach frei änderbar, falls der Treffer einmal nicht passt.
+ */
+export function markenSymbol(
+  name: string,
+  icons: { id: string; name: string }[],
+): string | null {
+  const text = name.trim().toLowerCase();
+  const treffer = icons.find((icon) => {
+    const marke = icon.name.trim().toLowerCase();
+    if (!marke || !text.startsWith(marke)) return false;
+    // Wortgrenze danach prüfen: "LEGO" soll nicht auf "Legoland" zuschlagen.
+    const danach = text[marke.length];
+    return danach === undefined || !/[a-zäöüß0-9]/.test(danach);
+  });
+  return treffer?.id ?? null;
+}
+
+/**
  * Fußzeile des Schilds als reiner Text: Artikelnummer, verdeckter Code und –
  * nur als Rückfall – die Barcodenummer im Klartext.
  *
