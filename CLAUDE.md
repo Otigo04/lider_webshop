@@ -765,6 +765,24 @@ eine Liste, die beim Scannen wächst, und eine Sammelbuchung am Ende.
   keine EAN ist kürzer.
 - Das ausführliche Artikelformular (`/admin/products/new`) bleibt daneben für
   Fotos, Beschreibung und Staffeln und verweist oben hierher.
+- **Namenssuche in der Neuanlage-Zeile** (`components/pos/pos-inline-suche.tsx`,
+  über `PosProduct`/`searchPosProductsAction` – dieselbe Suche wie an der
+  Kasse und im freien Preisschild-Generator, nur anderer Rückgabetyp). Nicht
+  jede Rechnung hat eine EAN (Alpalium keine, Iden schon): ohne Barcode landet
+  jeder Scan bei „unbekannt", auch wenn der Artikel längst im Stamm steht –
+  etwa weil er selbst ohne Barcode angelegt wurde. Ein Treffer wandelt die
+  Zeile an Ort und Stelle in einen bekannten Artikel um (Preise, Warengruppe,
+  Bestand aus dem Treffer, die schon getippte Menge bleibt), statt eine
+  Dublette unter neuem Namen anzulegen. Steht der Treffer schon als eigene
+  Zeile in der Liste, gilt dieselbe Regel wie beim Scannen: zusammenlegen,
+  nicht zwei Zeilen. Der ursprünglich gescannte Code wird dabei **nicht** an
+  den gefundenen Artikel gehängt – ein Scan, der nicht zuzuordnen war, soll
+  nicht ungeprüft zu dessen neuem Barcode werden.
+- **Dieselbe Namenssuche im Kassen-Anlegedialog**
+  (`components/pos/pos-new-product-dialog.tsx`, Prop `onExisting`): öffnet
+  sich automatisch bei unbekanntem Scan, und auch dort ist der Code oft nur
+  unbekannt, nicht die Ware. Ein Treffer schließt den Dialog und kommt direkt
+  auf den Bon, ohne Neuanlage.
 
 ### Sammelimport („Liste einfügen")
 

@@ -878,6 +878,27 @@ export function PosTerminal({
           aufDenBon(product);
           melden("neu", `${product.name} angelegt und gebucht.`, product.sku);
         }}
+        onExisting={(product) => {
+          // Die Namenssuche im Dialog hat einen bestehenden Artikel
+          // gefunden – der Code war unbekannt, die Ware nicht. Dieselbe
+          // Meldung wie bei jedem anderen Treffer, keine Neuanlage.
+          const ergebnis = aufDenBon(product);
+          if (ergebnis === "ohnePreis") {
+            melden(
+              "warnung",
+              `${product.name} hat keinen Preis – steht mit 0,00 € auf dem Bon.`,
+              `${product.sku} · Preis in der Zeile eintragen`,
+            );
+          } else if (ergebnis === "ohneBestand") {
+            melden(
+              "warnung",
+              `${product.name}: kein Bestand – wird trotzdem gebucht.`,
+              product.sku,
+            );
+          } else {
+            melden("treffer", product.name, product.sku);
+          }
+        }}
       />
 
       {/* ----------------------------------------------------- Rückfrage */}

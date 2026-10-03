@@ -21,6 +21,7 @@ import {
   type ImportTreffer,
 } from "@/components/admin/wareneingang-import";
 import { NumericInput } from "@/components/numeric-input";
+import { PosInlineSuche } from "@/components/pos/pos-inline-suche";
 import { PosProductSearch } from "@/components/pos/pos-product-search";
 import { KassenStatus, useKassenMeldung } from "@/components/pos/kassen-status";
 import { Button } from "@/components/ui/button";
@@ -359,6 +360,73 @@ export function Wareneingang({
     [categories, melden, zuletztKategorieId],
   );
 
+  /**
+   * Neuanlage-Zeile über die Namenssuche doch als bekannten Artikel erkannt.
+   *
+   * Ohne EAN auf der Rechnung (Alpalium hatte keine) landet jeder Scan bei
+   * "unbekannt", auch für Artikel, die längst im Stamm stehen – etwa weil sie
+   * selbst ohne Barcode angelegt wurden. Die Zeile wird deshalb nicht
+   * verworfen und neu angelegt, sondern an Ort und Stelle umgewandelt: Preise,
+   * Warengruppe und Bestand kommen aus dem Treffer, die bereits getippte
+   * Menge bleibt stehen.
+   *
+   * Steht der getroffene Artikel schon als eigene Zeile in der Liste (zweimal
+   * gescannt, einmal über den Namen gefunden), gilt dieselbe Regel wie beim
+   * Scannen: zweimal derselbe Artikel heißt "zwei Stück", nicht zwei Zeilen.
+   * Die Namenssuche setzt dabei keinen Barcode an den Artikel – ein Scan, der
+   * nicht zugeordnet werden konnte, soll nicht ungeprüft zu dessen neuem Code
+   * werden.
+   */
+  const bekannterArtikelGewaehlt = useCallback(
+    (key: string, product: PosProduct) => {
+      setZeilen((aktuell) => {
+        const eigene = aktuell.find((zeile) => zeile.key === key);
+        if (!eigene) return aktuell;
+
+        const vorhanden = aktuell.find(
+          (zeile) => zeile.key !== key && zeile.productId === product.id,
+        );
+
+        if (vorhanden) {
+          return aktuell
+            .map((zeile) =>
+              zeile.key === vorhanden.key
+                ? { ...zeile, menge: zeile.menge + eigene.menge }
+                : zeile,
+            )
+            .filter((zeile) => zeile.key !== key);
+        }
+
+        return aktuell.map((zeile) =>
+          zeile.key === key
+            ? {
+                ...zeile,
+                productId: product.id,
+                name: product.name,
+                sku: product.sku,
+                barcode: product.barcode,
+                categoryId: product.categoryId,
+                bestand: product.freeStock,
+                aktuellGh: product.unitPrice,
+                aktuellEh: product.retailPrice,
+                aktuellEk: product.costPrice,
+                // Merkmale galten für die Neuanlage – der Artikel existiert
+                // jetzt schon, seine Merkmale werden hier nicht verändert.
+                merkmale: [],
+              }
+            : zeile,
+        );
+      });
+
+      melden(
+        "treffer",
+        product.name,
+        `${product.sku} · als bestehenden Artikel erkannt`,
+      );
+    },
+    [melden],
+  );
+
   function aendern(key: string, teil: Partial<Zeile>) {
     setZeilen((aktuell) =>
       aktuell.map((zeile) => (zeile.key === key ? { ...zeile, ...teil } : zeile)),
@@ -610,13 +678,20 @@ export function Wareneingang({
                     <td className="px-4 py-2.5">
                       {zeile.productId === null ? (
                         <>
-                          <Input
+                          {/* Abgleich über den Namen: ohne EAN auf der
+                              Rechnung landet jeder Scan bei "unbekannt", auch
+                              wenn der Artikel längst im Stamm steht (z. B.
+                              weil er selbst ohne Barcode angelegt wurde).
+                              Ein Treffer füllt Preise und Warengruppe aus der
+                              Zeile unten aus – kein zweiter Artikel unter
+                              neuem Namen. */}
+                          <PosInlineSuche
                             id={`name-${zeile.key}`}
                             value={zeile.name}
-                            maxLength={200}
-                            placeholder="Bezeichnung"
-                            onChange={(event) =>
-                              aendern(zeile.key, { name: event.target.value })
+                            preisModus="wholesale"
+                            onChange={(wert) => aendern(zeile.key, { name: wert })}
+                            onSelect={(product) =>
+                              bekannterArtikelGewaehlt(zeile.key, product)
                             }
                             className="h-9 min-w-56"
                           />

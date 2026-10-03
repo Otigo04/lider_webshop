@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { createQuickProduct } from "@/lib/actions/pos";
 import type { PosProduct } from "@/lib/queries/pos";
 import { MerkmalAuswahl } from "@/components/admin/merkmal-auswahl";
+import { PosInlineSuche } from "@/components/pos/pos-inline-suche";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -36,6 +37,7 @@ export function PosNewProductDialog({
   attributes,
   zuletztKategorieId,
   onCreated,
+  onExisting,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -46,6 +48,12 @@ export function PosNewProductDialog({
   /** Warengruppe des zuletzt angelegten Artikels, nicht die alphabetisch erste */
   zuletztKategorieId: string | null;
   onCreated: (product: PosProduct) => void;
+  /**
+   * Die Namenssuche hat einen bestehenden Artikel gefunden – der Code war
+   * unbekannt, die Ware nicht. Keine Neuanlage, der Treffer kommt direkt auf
+   * den Bon; der Aufrufer meldet das als Treffer, nicht als "angelegt".
+   */
+  onExisting: (product: PosProduct) => void;
 }) {
   const [pending, startTransition] = useTransition();
   const [fehler, setFehler] = useState<string | null>(null);
@@ -108,14 +116,21 @@ export function PosNewProductDialog({
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2 sm:col-span-2">
             <Label htmlFor="pos-name">Bezeichnung</Label>
-            <Input
+            {/* Namenssuche: der Barcode war unbekannt, das heißt nicht, dass
+                der Artikel es ist – manche Lieferungen haben gar keine EAN
+                (z. B. Alpalium). Ein Treffer kommt direkt auf den Bon statt
+                als Dublette neu angelegt zu werden. */}
+            <PosInlineSuche
               id="pos-name"
               value={felder.name}
               autoFocus
-              maxLength={200}
-              onChange={(event) =>
-                setFelder((f) => ({ ...f, name: event.target.value }))
-              }
+              preisModus="retail"
+              placeholder="Bezeichnung"
+              onChange={(wert) => setFelder((f) => ({ ...f, name: wert }))}
+              onSelect={(product) => {
+                onExisting(product);
+                onOpenChange(false);
+              }}
             />
           </div>
 
