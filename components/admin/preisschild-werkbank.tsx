@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { ListPlus, Plus, Printer, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { NumericInput } from "@/components/numeric-input";
+import { updateProductField } from "@/lib/actions/admin-products";
 import { PreisschildGroessen } from "@/components/admin/preisschild-groessen";
 import { PreisschildLabels } from "@/components/admin/preisschild-labels";
 import { PreisschildSymbole } from "@/components/admin/preisschild-symbole";
@@ -53,6 +54,14 @@ interface Zeile {
   vorher: number;
   /** Großhandelspreis in Euro; 0 = kein Code hinter der Artikelnummer. */
   gh: number;
+  /**
+   * Preis und Großhandelspreis, wie sie beim Hinzufügen aus dem Stamm kamen.
+   * Nur zum Vergleich: ändert sich der Preis gegenüber diesem Stand, wird
+   * beim Verlassen des Felds der Artikel selbst nachgezogen (siehe
+   * `preisSynchronisieren()`), nicht nur das Schild.
+   */
+  basisPreis: number;
+  basisGh: number;
   iconId: string | null;
   /** Schlüssel des Labels in der Fußzeile, null = keins */
   labelKey: string | null;
@@ -188,6 +197,8 @@ export function PreisschildWerkbank({
           preis: a.preis ?? 0,
           vorher: a.vorher ?? 0,
           gh: a.grosshandel ?? 0,
+          basisPreis: a.preis ?? 0,
+          basisGh: a.grosshandel ?? 0,
           // Trifft der Artikelname eine vorhandene Marke in der
           // Symbolbibliothek (z. B. "LEGO"), steht ihr Logo gleich auf der
           // neuen Zeile – nachträglich in der Spalte "Symbol" änderbar.
@@ -208,6 +219,66 @@ export function PreisschildWerkbank({
   function aendern(id: string, feld: Partial<Zeile>) {
     setAktiv(id);
     setZeilen((alt) => alt.map((z) => (z.productId === id ? { ...z, ...feld } : z)));
+  }
+
+  /**
+   * Preis beim Verlassen des Felds an den Artikel zurückschreiben.
+   *
+   * Wer hier den Preis ändert, ändert meistens den tatsächlichen Ladenpreis
+   * fürs Regal – das Preisschild ist das Werkzeug dafür, nicht eine Kopie
+   * davon. Ausgenommen ein reduzierter Artikel (`vorher > 0`): dort ist der
+   * Preis die Aktion dieses Schilds, nicht die neue Dauerpreisangabe, und
+   * soll den regulären Ladenpreis im Stamm nicht überschreiben.
+   *
+   * Ausgelöst auf `onBlur`, nicht auf jeden Tastendruck: `NumericInput` ruft
+   * `onChange` während des Tippens mit Zwischenständen auf, und jeder davon
+   * eine Serverschreibung wäre unnötige Last und ein Preis, der mitten im
+   * Tippen kurz falsch im Stamm steht.
+   */
+  async function preisSynchronisieren(zeile: Zeile, neuerPreis: number) {
+    if (zeile.vorher > 0) return;
+    if (neuerPreis <= 0 || neuerPreis === zeile.basisPreis) return;
+
+    const ergebnis = await updateProductField({
+      id: zeile.productId,
+      field: "retail_price",
+      value: String(neuerPreis),
+    });
+    if (ergebnis.error) {
+      toast.error(ergebnis.error);
+      return;
+    }
+    setZeilen((alt) =>
+      alt.map((z) =>
+        z.productId === zeile.productId ? { ...z, basisPreis: neuerPreis } : z,
+      ),
+    );
+    toast.success(`Ladenpreis von „${zeile.name}" aktualisiert.`);
+  }
+
+  /**
+   * Dieselbe Rückschreibung für den Großhandelspreis – hier ohne Ausnahme
+   * für reduzierte Artikel: der verdeckte Code ist immer der tatsächliche
+   * Großhandelspreis, eine Aktion ändert daran nichts.
+   */
+  async function ghSynchronisieren(zeile: Zeile, neuerGh: number) {
+    if (neuerGh <= 0 || neuerGh === zeile.basisGh) return;
+
+    const ergebnis = await updateProductField({
+      id: zeile.productId,
+      field: "unit_price",
+      value: String(neuerGh),
+    });
+    if (ergebnis.error) {
+      toast.error(ergebnis.error);
+      return;
+    }
+    setZeilen((alt) =>
+      alt.map((z) =>
+        z.productId === zeile.productId ? { ...z, basisGh: neuerGh } : z,
+      ),
+    );
+    toast.success(`Großhandelspreis von „${zeile.name}" aktualisiert.`);
   }
 
   function entfernen(id: string) {
@@ -598,6 +669,11 @@ export function PreisschildWerkbank({
                         dezimal
                         value={z.preis}
                         onChange={(wert) => aendern(z.productId, { preis: wert })}
+                        onBlur={(event) => {
+                          const zahl =
+                            Number(event.currentTarget.value.replace(",", ".")) || 0;
+                          void preisSynchronisieren(z, zahl);
+                        }}
                         className="h-9"
                       />
                     </Feld>
@@ -621,6 +697,11 @@ export function PreisschildWerkbank({
                         dezimal
                         value={z.gh}
                         onChange={(wert) => aendern(z.productId, { gh: wert })}
+                        onBlur={(event) => {
+                          const zahl =
+                            Number(event.currentTarget.value.replace(",", ".")) || 0;
+                          void ghSynchronisieren(z, zahl);
+                        }}
                         className="h-9"
                       />
                     </Feld>

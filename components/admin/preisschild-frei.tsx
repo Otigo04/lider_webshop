@@ -225,6 +225,15 @@ export function PreisschildFrei({
    */
   const [einkauf, setEinkauf] = useState(0);
 
+  /**
+   * Preis und Großhandelspreis, wie sie beim Treffer aus dem Stamm kamen.
+   * Nur zum Vergleich, wie `einkauf`: ändert sich der Preis gegenüber diesem
+   * Stand, zieht `preisSynchronisieren()`/`ghSynchronisieren()` den Artikel
+   * nach, nicht nur das Schild.
+   */
+  const [basisPreis, setBasisPreis] = useState(0);
+  const [basisGh, setBasisGh] = useState(0);
+
   const { meldung, melden } = useKassenMeldung();
 
   /*
@@ -406,7 +415,59 @@ export function PreisschildFrei({
     // gepflegt ist – sonst stünde der des vorigen Artikels daneben und man
     // verhandelte gegen die falsche Zahl.
     setEinkauf(artikel.einkauf ?? 0);
+    // Vergleichsstand für die Preisrückschreibung – derselbe Grund wie beim
+    // Einkaufspreis: ohne Reset gälte der Stand des vorigen Treffers.
+    setBasisPreis(artikel.preis ?? 0);
+    setBasisGh(artikel.grosshandel ?? 0);
   }, []);
+
+  /**
+   * Preis beim Verlassen des Felds an den Artikel zurückschreiben.
+   *
+   * Nur für einen frisch gefundenen Artikel (`gefunden`, kein nachträglich
+   * bearbeitetes Schild aus dem Blatt – dieselbe Grenze wie beim
+   * Artikelabgleich selbst: „Abgeglichen wird nur ein neues Schild"). Wer den
+   * Preis eines bekannten Artikels hier ändert, ändert meistens den
+   * tatsächlichen Ladenpreis – das Schild ist das Werkzeug dafür. Ausgenommen
+   * ein reduzierter Artikel (`entwurf.vorher > 0`): der Preis ist die Aktion
+   * dieses Schilds, keine neue Dauerpreisangabe.
+   */
+  async function preisSynchronisieren(neuerPreis: number) {
+    if (!gefunden || bearbeitet || entwurf.vorher > 0) return;
+    if (neuerPreis <= 0 || neuerPreis === basisPreis) return;
+
+    const ergebnis = await updateProductField({
+      id: gefunden.id,
+      field: "retail_price",
+      value: String(neuerPreis),
+    });
+    if (ergebnis.error) {
+      melden("warnung", ergebnis.error, gefunden.sku);
+      return;
+    }
+    setBasisPreis(neuerPreis);
+    melden("treffer", `Ladenpreis aktualisiert`, gefunden.sku);
+  }
+
+  /** Dieselbe Rückschreibung für den Großhandelspreis, ohne Ausnahme für
+   *  reduzierte Artikel: der verdeckte Code bleibt der tatsächliche
+   *  Großhandelspreis. */
+  async function ghSynchronisieren(neuerGh: number) {
+    if (!gefunden || bearbeitet) return;
+    if (neuerGh <= 0 || neuerGh === basisGh) return;
+
+    const ergebnis = await updateProductField({
+      id: gefunden.id,
+      field: "unit_price",
+      value: String(neuerGh),
+    });
+    if (ergebnis.error) {
+      melden("warnung", ergebnis.error, gefunden.sku);
+      return;
+    }
+    setBasisGh(neuerGh);
+    melden("treffer", `Großhandelspreis aktualisiert`, gefunden.sku);
+  }
 
   /**
    * Code im Artikelstamm nachschlagen.
@@ -1103,6 +1164,11 @@ export function PreisschildFrei({
                   dezimal
                   value={entwurf.preis}
                   onChange={(wert) => feld({ preis: wert })}
+                  onBlur={(event) => {
+                    const zahl =
+                      Number(event.currentTarget.value.replace(",", ".")) || 0;
+                    void preisSynchronisieren(zahl);
+                  }}
                   className="h-9"
                 />
               </Feld>
@@ -1154,6 +1220,11 @@ export function PreisschildFrei({
                   dezimal
                   value={entwurf.gh}
                   onChange={(wert) => feld({ gh: wert })}
+                  onBlur={(event) => {
+                    const zahl =
+                      Number(event.currentTarget.value.replace(",", ".")) || 0;
+                    void ghSynchronisieren(zahl);
+                  }}
                   className="h-9"
                 />
               </Feld>

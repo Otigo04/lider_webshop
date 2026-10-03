@@ -920,6 +920,20 @@ setzen, drucken – A4 mit Schnittlinien.
   Artikel-Flags aus den Einstellungen, farbig unten rechts in der Fußzeile.
   Angelegt werden sie nicht hier, nur ihre Farbe wird gewählt und gespeichert.
   Schriftfarbe schwarz/weiß nach Leuchtdichte (`labelSchrift()`).
+- **Preis und Großhandelspreis schreiben beim Verlassen des Felds in den
+  Artikel zurück** (`preisSynchronisieren()`/`ghSynchronisieren()`, über
+  `updateProductField()` – dieselbe Funktion wie die Inline-Bearbeitung der
+  Artikelliste). Das Preisschild ist das Werkzeug, mit dem der Ladenpreis
+  geändert wird, keine Kopie davon: wer hier aus 1,99 € 3,50 € macht, soll
+  nicht hinterher noch einmal ins Artikelformular. **Ausgenommen ein
+  reduzierter Artikel** (`vorher > 0`): dort ist der Preis die Aktion dieses
+  Schilds, keine neue Dauerpreisangabe, und soll den Ladenpreis im Stamm nicht
+  überschreiben. Der Großhandelspreis hat diese Ausnahme nicht – der
+  verdeckte Code ist immer der tatsächliche Einkaufskanal, eine Aktion ändert
+  daran nichts. Ausgelöst auf `onBlur`, nicht auf jeden Tastendruck:
+  `NumericInput` meldet während des Tippens Zwischenstände, und jeder davon
+  eine Schreibung wäre ein Preis, der mitten im Tippen kurz falsch im Stamm
+  steht.
 
 ---
 
@@ -1058,10 +1072,17 @@ Der Scan steht oben im Formular, weil er den Rest bestimmt:
   pausiert, solange eine Abfrage läuft – käme der zweite Scan mitten in die
   Antwort des ersten, stünden die Angaben des einen Artikels unter dem Code
   des anderen.
-- **Geändert wird am Artikel sonst nichts.** Preise, die hier nach einem
-  Treffer angepasst werden, gelten für das Schild, nicht für den Artikel –
-  bis auf den nachgetragenen Barcode (siehe oben) wäre ein Schilddruck, der
-  still Stammdaten überschreibt, an der falschen Stelle wirksam.
+- **Preis und Großhandelspreis schreiben nach einem frischen Treffer in den
+  Artikel zurück** – dieselben `preisSynchronisieren()`/`ghSynchronisieren()`
+  wie im Bestandsgenerator, Vergleichsstand (`basisPreis`/`basisGh`) wird in
+  `uebernehmeArtikel()` gesetzt. Reduzierte Artikel (`vorher > 0`) sind beim
+  Preis ausgenommen, der Großhandelspreis nicht – gleiche Begründung wie dort.
+  **Nur für einen frisch gefundenen Artikel, nicht beim nachträglichen
+  Bearbeiten eines abgelegten Schilds** (`!bearbeitet`): dieselbe Grenze wie
+  beim Artikelabgleich selbst – wer ein Schild korrigiert, korrigiert Papier,
+  und das soll keine Nebenwirkung am Stamm auslösen, mit der niemand rechnet.
+  Abgesehen davon und vom nachgetragenen Barcode (siehe oben) ändert sich am
+  Artikel nichts.
 
 ---
 
