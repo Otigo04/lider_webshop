@@ -15,6 +15,7 @@ import {
   PreisschildBogenVorschau,
   type BogenPlatz,
 } from "@/components/admin/preisschild-bogen-vorschau";
+import { PreisschildArtikelSuche } from "@/components/admin/preisschild-artikel-suche";
 import { PreisschildVorschau } from "@/components/admin/preisschild-vorschau";
 import { KassenStatus, useKassenMeldung } from "@/components/pos/kassen-status";
 import { Button } from "@/components/ui/button";
@@ -60,15 +61,22 @@ import type { Category } from "@/lib/types";
  * Artikelstamm und setzt voraus, dass die Ware dort schon steht. Hier wird
  * getippt – und der Barcode entscheidet, was daraus wird:
  *
- *  - **Bekannter Code** füllt Bezeichnung, Artikelnummer und alle drei Preise
- *    aus dem Artikelstamm. Niemand tippt ab, was schon in der Datenbank steht.
+ *  - **Bekannter Code** füllt Bezeichnung, Artikelnummer und alle Preise aus
+ *    dem Artikelstamm und legt das Schild **in einem Zug** aufs Blatt. Ein
+ *    Scan, ein Schild: ein Handscanner schließt mit Enter ab, und zwei Enter
+ *    je Artikel sind bei einem Regal voll Ware einer zu viel.
  *  - **Unbekannter Code** wird beim Ablegen zu einem neuen Artikel. Vorher
  *    entstand hier für neue Ware ein Zettel und sonst nichts: dieselben
  *    Angaben mussten danach im Artikelformular ein zweites Mal getippt
  *    werden, und bis dahin ließ sich die Ware weder scannen noch verkaufen.
  *  - **Ohne Barcode** bleibt es ein reines Schild, wie bisher – für den
  *    Aktionsstapel vor der Tür oder eine Dienstleistung an der Wand, die kein
- *    Artikel werden soll.
+ *    Artikel werden soll. Dann hilft die **Namenssuche** im
+ *    Bezeichnungsfeld: Ware ohne lesbares Etikett steht trotzdem im Stamm.
+ *
+ * Geprüft wird nicht vor dem Ablegen, sondern vor dem Drucken: das Blatt ist
+ * die Liste, jedes Schild steht dort in Originalmaßen, ein Klick holt es
+ * zurück, und gedruckt wird erst auf Knopfdruck.
  *
  * Dieselbe Haltung wie an der Kasse und im Wareneingang: wer Ware in der Hand
  * hat, erfasst sie einmal und nicht an drei Stellen. Deshalb auch dieselben
@@ -106,6 +114,55 @@ const LEER: Entwurf = {
  * erst beim Öffnen mit einem Fehler abbricht.
  */
 const MAX_SCHILDER = 1000;
+
+/**
+ * Angaben eines Artikels in Entwurfswerte überführen.
+ *
+ * Getrennt von `uebernehmeArtikel()`, das dasselbe fürs Formular tut: beim
+ * Ablegen wird der Wert *gerechnet*, im Formular wird er *angezeigt*, und auf
+ * React-State ist beim Ablegen kein Verlass (siehe uebernehmen()).
+ *
+ * Der Streichpreis kommt mit, auch wenn er leer ist – sonst bliebe die
+ * Reduzierung des vorigen Artikels stehen und das nächste Schild wäre
+ * fälschlich rot.
+ */
+function alsEntwurf(artikel: PreisschildArtikel, basis: Entwurf): Entwurf {
+  return {
+    ...basis,
+    name: artikel.name,
+    sku: artikel.sku,
+    barcode: artikel.barcode ?? basis.barcode,
+    preis: artikel.preis ?? 0,
+    vorher: artikel.vorher ?? 0,
+    gh: artikel.grosshandel ?? 0,
+  };
+}
+
+/**
+ * Schild aufs Blatt legen – oder die Stückzahl eines vorhandenen erhöhen.
+ *
+ * Zweimal derselbe Artikel heißt „zwei Stück", nicht „zwei Zeilen". Mit der
+ * Auto-Ablage ist zweimal scannen der naheliegende Weg zu zwei Schildern;
+ * zwei getrennte Zeilen ließen sich getrennt bepreisen, und das fiele erst
+ * auf dem Papier auf. Dieselbe Regel wie im Bestandsgenerator und bei der
+ * Mengenerfassung im Wareneingang.
+ *
+ * Zusammengelegt wird über die **Artikelnummer**, nicht über die Bezeichnung:
+ * zwei frei getippte Schilder mit demselben Wortlaut, aber verschiedenen
+ * Preisen sind zwei Schilder. Ein Schild ohne Artikelnummer wird nie
+ * zusammengelegt.
+ */
+function legeAb(alt: FreiesSchild[], werte: Entwurf): FreiesSchild[] {
+  const sku = werte.sku.trim();
+  const vorhanden = sku ? alt.findIndex((e) => e.sku.trim() === sku) : -1;
+
+  if (vorhanden >= 0) {
+    return alt.map((e, i) =>
+      i === vorhanden ? { ...werte, id: e.id, anzahl: e.anzahl + werte.anzahl } : e,
+    );
+  }
+  return [...alt, { ...werte, id: `s-${Date.now()}-${alt.length}` }];
+}
 
 export function PreisschildFrei({
   icons,
@@ -156,6 +213,16 @@ export function PreisschildFrei({
     () => vorgabeKategorie ?? kategorien[0]?.id ?? "",
   );
   const [bestand, setBestand] = useState(0);
+  /**
+   * Einkaufspreis (Migration 047) – nur fürs Haus.
+   *
+   * Steht außerhalb von `entwurf` und damit außerhalb des Browser-Stores:
+   * er gehört an den Artikel und nicht an das Schild, und ein Stapel
+   * Einkaufspreise hätte in `lib/preisschild-entwurf.ts` nichts zu suchen.
+   * Aufs Papier kommt er nie – der verdeckte Code trägt weiter den
+   * Großhandelspreis.
+   */
+  const [einkauf, setEinkauf] = useState(0);
 
   const { meldung, melden } = useKassenMeldung();
 
@@ -332,16 +399,12 @@ export function PreisschildFrei({
    * stehen und das nächste Schild wäre fälschlich rot.
    */
   const uebernehmeArtikel = useCallback((artikel: PreisschildArtikel) => {
-    setEntwurf((alt) => ({
-      ...alt,
-      name: artikel.name,
-      sku: artikel.sku,
-      barcode: artikel.barcode ?? alt.barcode,
-      preis: artikel.preis ?? 0,
-      vorher: artikel.vorher ?? 0,
-      gh: artikel.grosshandel ?? 0,
-    }));
+    setEntwurf((alt) => alsEntwurf(artikel, alt));
     setKategorieId(artikel.kategorieId);
+    // Der Einkaufspreis des Artikels, zur Ansicht. Auf 0 zurück, wenn keiner
+    // gepflegt ist – sonst stünde der des vorigen Artikels daneben und man
+    // verhandelte gegen die falsche Zahl.
+    setEinkauf(artikel.einkauf ?? 0);
   }, []);
 
   /**
@@ -432,13 +495,6 @@ export function PreisschildFrei({
   async function uebernehmen() {
     if (sucht || legtAn) return;
 
-    const name = entwurf.name.trim();
-    if (!name) {
-      toast.warning("Ohne Bezeichnung kein Schild.");
-      zurueckZumFeld("name");
-      return;
-    }
-
     const anzahl = Math.max(1, Math.round(entwurf.anzahl));
     const alterStand = bearbeitet
       ? (schilder.find((e) => e.id === bearbeitet)?.anzahl ?? 0)
@@ -448,7 +504,15 @@ export function PreisschildFrei({
       return;
     }
 
-    let sku = entwurf.sku.trim();
+    /*
+     * Die abzulegenden Werte entstehen hier und nicht aus `entwurf`.
+     *
+     * Bei einem Treffer fließen die Angaben des Artikels gleichzeitig über
+     * setEntwurf() ins Formular – React hat den State bis zum Ende dieser
+     * Funktion aber nicht aktualisiert. Aus `entwurf` gelesen käme das Schild
+     * mit der alten, womöglich leeren Bezeichnung aufs Blatt.
+     */
+    let werte: Entwurf = { ...entwurf, anzahl };
 
     /*
      * Der Artikelabgleich gilt nur für neue Schilder. Wer ein Schild
@@ -456,31 +520,66 @@ export function PreisschildFrei({
      * anzulegen wäre eine Nebenwirkung, mit der niemand rechnet.
      */
     if (code && !bearbeitet) {
-      let artikel = abgeglichen ? treffer : await aufloesen(code);
-
       /*
-       * Noch nicht nachgesehen und der Code ist bekannt: dann sind gerade
-       * Bezeichnung und Preise aus dem Artikelstamm ins Formular gelaufen.
-       * Jetzt abzulegen hieße, die eben überschriebenen Angaben zu drucken,
-       * ohne dass jemand sie gesehen hat.
+       * Bekannter Code heißt: füllen und ablegen, in einem Zug. Ein
+       * Handscanner schließt mit Enter ab; früher brauchte es deshalb zwei
+       * Enter je Artikel – eines zum Nachsehen, eines zum Ablegen. Bei einem
+       * Regal voll Ware ist das ein Tastendruck zu viel pro Artikel.
+       *
+       * Der alte Abbruch sollte verhindern, dass ein ungeprüfter Preis
+       * gedruckt wird. Dieser Schutz bleibt, er wandert nur von „vor dem
+       * Ablegen" nach „vor dem Drucken": jedes abgelegte Schild steht in
+       * Originalmaßen auf dem Blatt, ein Klick holt es zurück, und gedruckt
+       * wird erst auf Knopfdruck.
        */
-      if (!abgeglichen && artikel) {
-        toast.info("Angaben aus dem Artikelstamm übernommen – prüfen, dann ablegen.");
-        return;
-      }
+      const artikel = abgeglichen
+        ? treffer
+        : await aufloesen(code, { still: true });
 
-      if (!artikel) {
+      if (artikel) {
+        /*
+         * Die Stammangaben übernehmen nur, wenn sie gerade eingetroffen sind.
+         * War der Code schon abgeglichen, stehen sie längst im Formular –
+         * womöglich mit einer Korrektur von Hand, und die soll aufs Papier.
+         * „Änderungen hier gelten nur für das Schild" steht so auch im
+         * Treffer-Hinweis; sie beim Ablegen zu verwerfen wäre das Gegenteil.
+         */
+        werte = abgeglichen
+          ? { ...werte, sku: artikel.sku }
+          : alsEntwurf(artikel, werte);
+        melden("treffer", artikel.name, artikel.sku);
+      } else {
+        // Ohne Treffer entsteht ein Artikel – dafür braucht es die getippten
+        // Angaben, allen voran eine Bezeichnung.
+        const name = werte.name.trim();
+        if (!name) {
+          /*
+           * Der vertraute Zweiklang für „Code ohne Treffer", nicht der
+           * Warnton: es ist kein Fehler, sondern der Anfang einer Neuanlage.
+           * Deshalb löst uebernehmen() stumm auf und meldet hier selbst –
+           * sonst käme erst „unbekannt" und gleich darauf eine Warnung.
+           */
+          melden(
+            "unbekannt",
+            "Noch kein Artikel – Bezeichnung und Preis eintragen, dann Enter.",
+            code,
+          );
+          zurueckZumFeld("name");
+          return;
+        }
         if (!kategorieId) {
           melden("warnung", "Ohne Warengruppe kein Artikel.", code);
           return;
         }
+
         setLegtAn(true);
         const ergebnis = await legeSchildArtikelAn({
           name,
           barcode: code,
           categoryId: kategorieId,
-          retailPrice: entwurf.preis,
-          wholesalePrice: entwurf.gh,
+          retailPrice: werte.preis,
+          wholesalePrice: werte.gh,
+          costPrice: einkauf,
           stock: bestand,
         });
         setLegtAn(false);
@@ -492,20 +591,38 @@ export function PreisschildFrei({
           return;
         }
 
-        artikel = ergebnis.artikel;
         setAufgeloest(code);
-        setTreffer(artikel);
-        melden("neu", `${artikel.name} angelegt`, artikel.sku);
-      } else {
-        melden("treffer", artikel.name, artikel.sku);
-      }
+        setTreffer(ergebnis.artikel);
+        melden("neu", `${ergebnis.artikel.name} angelegt`, ergebnis.artikel.sku);
 
-      // Die Artikelnummer kommt aus dem Stamm, nicht aus dem Feld: sie steht
-      // auf dem Schild und muss die sein, unter der die Ware geführt wird.
-      sku = artikel.sku;
+        /*
+         * Nur die Artikelnummer aus dem Stamm, nicht die Preise: angelegt
+         * wurde eben mit den getippten Werten, und ein Rückfall (Ladenpreis
+         * als Staffelpreis, wenn kein Großhandelspreis kam) soll nicht
+         * plötzlich als verdeckter Code auf dem Schild stehen.
+         */
+        werte = { ...werte, name, sku: ergebnis.artikel.sku };
+      }
+    } else {
+      // Reines Schild oder nachträgliche Änderung: die Artikelnummer ist hier
+      // das, was getippt wurde, und nicht die aus einem Stamm.
+      werte = { ...werte, sku: werte.sku.trim() };
     }
 
-    const werte: Entwurf = { ...entwurf, name, anzahl, sku };
+    /*
+     * Ein Schild ohne Bezeichnung trägt nichts. Die Prüfung steht hinter dem
+     * Abgleich und gilt für alle Wege: bei einem Treffer kommt die
+     * Bezeichnung aus dem Stamm, ein Scan mit leerem Namensfeld ist also kein
+     * Fehler – wer sie danach von Hand löscht, soll aber nicht ein leeres
+     * Schild gedruckt bekommen.
+     */
+    const name = werte.name.trim();
+    if (!name) {
+      toast.warning("Ohne Bezeichnung kein Schild.");
+      zurueckZumFeld("name");
+      return;
+    }
+    werte = { ...werte, name };
 
     if (bearbeitet) {
       setzeSchilder((alt) =>
@@ -514,10 +631,7 @@ export function PreisschildFrei({
       setBearbeitet(null);
       toast.success("Schild geändert.");
     } else {
-      setzeSchilder((alt) => [
-        ...alt,
-        { ...werte, id: `s-${Date.now()}-${alt.length}` },
-      ]);
+      setzeSchilder((alt) => legeAb(alt, werte));
     }
 
     /*
@@ -534,6 +648,7 @@ export function PreisschildFrei({
     setAufgeloest(null);
     setTreffer(null);
     setBestand(0);
+    setEinkauf(0);
     zurueckZumFeld();
   }
 
@@ -553,6 +668,10 @@ export function PreisschildFrei({
       anzahl: eintrag.anzahl,
     });
     setBearbeitet(id);
+    // Der Einkaufspreis gehört zum Anlegen eines Artikels, nicht zum
+    // Korrigieren eines Zettels – ein stehen gebliebener Wert gehörte zum
+    // vorigen Vorgang.
+    setEinkauf(0);
     // Ein zurückgeholtes Schild wird nicht noch einmal abgeglichen: es liegt
     // bereits auf dem Blatt, und sein Artikel – falls es einen gibt – ist
     // beim Ablegen entstanden.
@@ -799,19 +918,14 @@ export function PreisschildFrei({
                     // jemand auf den Knopf drückt.
                     if (code && code !== aufgeloest) void aufloesen(code);
                   }}
-                  onKeyDown={(event) => {
-                    /*
-                     * Ein Handscanner schließt mit Enter ab. Solange der Code
-                     * noch nicht nachgeschlagen ist, heißt dieses Enter
-                     * „nachsehen" und nicht „aufs Blatt": sonst läge das
-                     * Schild da, bevor die Angaben aus dem Artikelstamm
-                     * eingetroffen sind.
-                     */
-                    if (event.key === "Enter" && code && code !== aufgeloest) {
-                      event.preventDefault();
-                      void aufloesen(code);
-                    }
-                  }}
+                  /*
+                   * Kein Sonderfall für Enter mehr: ein Handscanner schließt
+                   * mit Enter ab, und dieses Enter schickt das Formular ab.
+                   * uebernehmen() schlägt den Code selbst nach und legt in
+                   * einem Zug ab – ein Scan, ein Schild. Früher brauchte es
+                   * hier zwei Enter je Artikel, eines zum Nachsehen und eines
+                   * zum Ablegen.
+                   */
                   placeholder="EAN scannen, tippen oder leer lassen"
                   maxLength={40}
                   className="h-9 pr-9 tabular"
@@ -826,13 +940,23 @@ export function PreisschildFrei({
             </Feld>
 
             {gefunden ? (
-              <p className="rounded-md border border-success/40 bg-success/10 px-3 py-2 text-[11px] text-success">
-                <span className="font-medium">Artikel gefunden:</span>{" "}
-                <span className="tabular">{gefunden.sku}</span> · Bestand{" "}
-                <span className="tabular">{gefunden.bestand}</span>. Angaben
-                übernommen. Änderungen hier gelten nur für das Schild, nicht für
-                den Artikel.
-              </p>
+              <div className="space-y-1 rounded-md border border-success/40 bg-success/10 px-3 py-2 text-[11px] text-success">
+                <p>
+                  <span className="font-medium">Artikel gefunden:</span>{" "}
+                  <span className="tabular">{gefunden.sku}</span> · Bestand{" "}
+                  <span className="tabular">{gefunden.bestand}</span>. Angaben
+                  übernommen. Änderungen hier gelten nur für das Schild, nicht
+                  für den Artikel.
+                </p>
+                {/* Einkaufspreis als Nebeninformation – er steht auf keinem
+                    Schild, aber wer gerade bepreist, will ihn wissen. */}
+                {gefunden.einkauf !== null ? (
+                  <p className="tabular">
+                    Einkauf {formatPrice(gefunden.einkauf)} (intern, nicht auf
+                    dem Schild)
+                  </p>
+                ) : null}
+              </div>
             ) : null}
 
             {unbekannt ? (
@@ -866,6 +990,22 @@ export function PreisschildFrei({
                     />
                   </Feld>
                 </div>
+                {/* Nur fürs Haus: der Einkaufspreis wandert an den Artikel
+                    und ins Wareneingangsjournal, aber auf kein Papier. Der
+                    verdeckte Code auf dem Schild bleibt der
+                    Großhandelspreis. */}
+                <Feld
+                  label="Einkaufspreis (€) – intern, nicht aufs Schild"
+                  htmlFor="frei-einkauf"
+                >
+                  <NumericInput
+                    id="frei-einkauf"
+                    dezimal
+                    value={einkauf}
+                    onChange={setEinkauf}
+                    className="h-9"
+                  />
+                </Feld>
                 {entwurf.gh <= 0 ? (
                   <p className="text-[11px] text-gold">
                     Ohne Großhandelspreis gilt der Ladenpreis auch als
@@ -883,15 +1023,38 @@ export function PreisschildFrei({
               </p>
             ) : null}
 
-            <Feld label="Bezeichnung" htmlFor="frei-name">
-              <Input
+            {/* Mit Artikelabgleich über die Bezeichnung – aber nur, solange
+                im Scannerfeld nichts steht. Hat ein Code entschieden, wäre
+                ein Vorschlag hier eine Einladung, einen zweiten Artikel
+                unter dem Code des ersten zu wählen. */}
+            <Feld
+              label={
+                code ? "Bezeichnung" : "Bezeichnung – oder im Bestand suchen"
+              }
+              htmlFor="frei-name"
+            >
+              <PreisschildArtikelSuche
                 id="frei-name"
-                ref={nameFeld}
-                value={entwurf.name}
-                onChange={(event) => feld({ name: event.target.value })}
-                placeholder="z. B. Handbesen mit Schaufel"
-                maxLength={120}
-                className="h-9"
+                feldRef={nameFeld}
+                wert={entwurf.name}
+                aktiv={!code && !bearbeitet}
+                onChange={(name) => feld({ name })}
+                onSelect={(artikel) => {
+                  uebernehmeArtikel(artikel);
+                  /*
+                   * Der Abgleich muss mitgesetzt werden, sonst hielte
+                   * uebernehmen() den Artikel für unbekannt und legte ihn ein
+                   * zweites Mal an – mit neuer Artikelnummer und einem
+                   * Barcode, der schon vergeben ist.
+                   */
+                  setAufgeloest(artikel.barcode ?? artikel.sku);
+                  setTreffer(artikel);
+                  melden("treffer", artikel.name, artikel.sku);
+                  // Weiter zum Preis: die nächste Frage ist „stimmt er noch?"
+                  requestAnimationFrame(() =>
+                    document.getElementById("frei-preis")?.focus(),
+                  );
+                }}
               />
             </Feld>
 

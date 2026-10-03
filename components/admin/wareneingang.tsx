@@ -55,9 +55,16 @@ interface Zeile {
   /** Leer heißt „Preis unverändert lassen", nicht „auf 0 setzen" */
   ghPreis: string;
   ehPreis: string;
+  /**
+   * Einkaufspreis (Migration 047). Dieselbe Regel wie bei den anderen beiden:
+   * leer heißt unverändert. Steht nur auf dem Bildschirm und wird nie
+   * gedruckt – weder aufs Preisschild noch auf einen Beleg.
+   */
+  ekPreis: string;
   bestand: number | null;
   aktuellGh: number | null;
   aktuellEh: number | null;
+  aktuellEk: number | null;
   /**
    * Merkmalswerte für neu anzulegende Artikel (Migration 032). Bei bekannter
    * Ware bleibt das Feld leer: ein Wareneingang bucht Menge und Preis, er
@@ -168,9 +175,11 @@ export function Wareneingang({
           menge: 1,
           ghPreis: "",
           ehPreis: "",
+          ekPreis: "",
           bestand: product.freeStock,
           aktuellGh: product.unitPrice,
           aktuellEh: product.retailPrice,
+          aktuellEk: product.costPrice,
           merkmale: [],
         },
       ]);
@@ -211,9 +220,11 @@ export function Wareneingang({
           menge: 1,
           ghPreis: "",
           ehPreis: "",
+          ekPreis: "",
           bestand: null,
           aktuellGh: null,
           aktuellEh: null,
+          aktuellEk: null,
           merkmale: [],
         },
       ]);
@@ -325,6 +336,7 @@ export function Wareneingang({
           quantity: zeile.menge,
           unitPrice: zeile.ghPreis.trim().replace(",", "."),
           retailPrice: zeile.ehPreis.trim().replace(",", "."),
+          costPrice: zeile.ekPreis.trim().replace(",", "."),
         })),
         note: notiz.trim() || null,
       });
@@ -468,6 +480,10 @@ export function Wareneingang({
                   <th className="px-2 py-2 text-right font-medium">Menge</th>
                   <th className="px-2 py-2 text-right font-medium">GH €</th>
                   <th className="px-2 py-2 text-right font-medium">EH €</th>
+                  {/* Nur fürs Haus: der Einkaufspreis verlässt den Bildschirm
+                      nicht. Ganz rechts bei den Preisen, weil er beim Buchen
+                      der seltenste der drei ist. */}
+                  <th className="px-2 py-2 text-right font-medium">EK €</th>
                   <th className="px-2 py-2 text-right font-medium">Bestand</th>
                   <th className="px-2 py-2" />
                 </tr>
@@ -594,6 +610,25 @@ export function Wareneingang({
                         }
                         onChange={(event) =>
                           aendern(zeile.key, { ehPreis: event.target.value })
+                        }
+                        className="h-9 w-24 text-right tabular"
+                      />
+                    </td>
+
+                    <td className="px-2 py-2.5">
+                      <Input
+                        id={`ek-${zeile.key}`}
+                        type="text"
+                        inputMode="decimal"
+                        value={zeile.ekPreis}
+                        aria-label="Einkaufspreis"
+                        placeholder={
+                          zeile.aktuellEk !== null
+                            ? formatPrice(zeile.aktuellEk)
+                            : "optional"
+                        }
+                        onChange={(event) =>
+                          aendern(zeile.key, { ekPreis: event.target.value })
                         }
                         className="h-9 w-24 text-right tabular"
                       />

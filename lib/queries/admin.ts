@@ -21,6 +21,12 @@ import type {
  */
 
 export interface AdminProductRow extends Omit<Product, "category" | "group"> {
+  /**
+   * Einkaufspreis aus product_costs (Migration 047). Steht nicht an products,
+   * weil RLS zeilenweise wirkt und products_read angemeldeten Kunden die
+   * ganze Zeile freigibt. null = nicht gepflegt.
+   */
+  cost_price: number | null;
   category: { id: string; name: string } | null;
   /** Angebot, zu dem der Artikel als Ausführung gehört (Migration 033) */
   group: { id: string; name: string } | null;
@@ -216,6 +222,7 @@ export async function getAdminProducts(
     .select(
       `*, category:categories (id, name),
        group:product_groups (id, name),
+       cost:product_costs (cost_price),
        variants:product_variants (id, product_id, min_quantity, max_quantity, unit_price, created_at),
        flag_links:product_flag_links (flag:product_flags (id, name, color, created_at))`,
     );
@@ -275,16 +282,60 @@ export async function getAdminProducts(
   }
 
   return (data ?? []).map((row) => {
-    const { flag_links, ...rest } = row as unknown as AdminProductRow & {
+    const { flag_links, cost, ...rest } = row as unknown as AdminProductRow & {
       flag_links: { flag: ProductFlagDef | null }[];
+      cost: EingebetteterEinkauf;
     };
     return {
       ...rest,
+      cost_price: einkaufspreis(cost),
       flags: (flag_links ?? [])
         .map((link) => link.flag)
         .filter((flag): flag is ProductFlagDef => flag !== null),
     };
   });
+}
+
+/**
+ * PostgREST liefert die Eins-zu-eins-Beziehung je nach erkannter Kardinalität
+ * als Objekt oder als einelementiges Array – beides abfangen, statt sich auf
+ * eine Form zu verlassen.
+ */
+type EingebetteterEinkauf =
+  | { cost_price: number | string | null }
+  | { cost_price: number | string | null }[]
+  | null;
+
+/** 0 und fehlende Zeile sind dasselbe: „kein Einkaufspreis gepflegt". */
+function einkaufspreis(cost: EingebetteterEinkauf): number | null {
+  const zeile = Array.isArray(cost) ? cost[0] : cost;
+  const wert = zeile?.cost_price;
+  if (wert === null || wert === undefined) return null;
+  const zahl = Number(wert);
+  return Number.isFinite(zahl) && zahl > 0 ? zahl : null;
+}
+
+/**
+ * Einkaufspreis eines Artikels – eigene Abfrage fürs Artikelformular.
+ *
+ * Nicht in getProduct(): die Abfrage speist auch die öffentliche
+ * Artikelseite, und der Einkaufspreis hätte in deren Daten nichts zu suchen.
+ * RLS würde ihn für Kunden ohnehin verschweigen, aber ein Admin, der im Shop
+ * blättert, trüge ihn sonst im Seiten-JSON mit sich herum.
+ */
+export async function getProductCost(id: string): Promise<number | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("product_costs")
+    .select("cost_price")
+    .eq("product_id", id)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[admin] Einkaufspreis lesen:", error.message);
+    return null;
+  }
+  return einkaufspreis(data as { cost_price: number | string | null } | null);
 }
 
 export async function getCustomers(): Promise<AppUser[]> {

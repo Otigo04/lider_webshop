@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createQuickProduct } from "@/lib/actions/pos";
 import {
   findPreisschildArtikel,
+  getPreisschildArtikel,
   type PreisschildArtikel,
 } from "@/lib/queries/preisschilder";
 import type { AdminFormState } from "@/lib/actions/admin-categories";
@@ -285,6 +286,38 @@ export async function sucheSchildArtikel(
   return { artikel: await findPreisschildArtikel(sauber), code: sauber };
 }
 
+/**
+ * Höchstzahl der Vorschläge in der Namenssuche.
+ *
+ * Kurz halten: die Liste schwebt über dem Formular und verdeckt, was darunter
+ * steht. Wer nach „Schraube" sucht und fünfzig Zeilen bekommt, tippt besser
+ * weiter als zu blättern.
+ */
+const NAMENSTREFFER = 12;
+
+/**
+ * Artikel über die Bezeichnung finden – für den freien Generator.
+ *
+ * Gegenstück zum Scan: Ware ohne lesbares Etikett steht trotzdem im Stamm,
+ * und ihre Bezeichnung und drei Preise abzutippen, obwohl sie da sind, ist
+ * genau die Doppelarbeit, die der Artikelabgleich abschaffen soll.
+ *
+ * Nutzt dieselbe Abfrage wie die Werkbank (`getPreisschildArtikel`), die
+ * Bezeichnung, Artikelnummer und Barcode durchsucht – nur begrenzt. Eine
+ * zweite Suchabfrage daneben lieferte über kurz oder lang andere Treffer als
+ * die Liste im Bestandsgenerator.
+ */
+export async function sucheSchildArtikelNachName(
+  begriff: string,
+): Promise<PreisschildArtikel[]> {
+  await requireAdmin();
+  const sauber = begriff.trim().slice(0, 80);
+  // Dieselbe Untergrenze wie an der Kasse: unter zwei Zeichen trifft fast
+  // jeder Artikel zu, und die Liste wäre keine Auskunft.
+  if (sauber.length < 2) return [];
+  return getPreisschildArtikel(sauber, NAMENSTREFFER);
+}
+
 export interface SchildArtikelAnlage {
   error?: string;
   artikel?: PreisschildArtikel;
@@ -308,6 +341,12 @@ export async function legeSchildArtikelAn(input: {
   retailPrice: number;
   /** Großhandelspreis; 0 oder leer heißt „keiner gepflegt". */
   wholesalePrice?: number | null;
+  /**
+   * Einkaufspreis (Migration 047); 0 oder leer heißt „keiner gepflegt". Steht
+   * nie auf dem Schild – er wird hier nur mitgenommen, weil der Artikel
+   * gerade entsteht und die Zahl in der Hand des Erfassers liegt.
+   */
+  costPrice?: number | null;
   stock?: number;
 }): Promise<SchildArtikelAnlage> {
   await requireAdmin();
@@ -332,6 +371,8 @@ export async function legeSchildArtikelAn(input: {
     category_id: input.categoryId,
     unit_price: staffel,
     retail_price: input.retailPrice > 0 ? input.retailPrice : null,
+    cost_price:
+      input.costPrice && input.costPrice > 0 ? input.costPrice : null,
     stock_available: Math.max(0, Math.round(input.stock ?? 0)),
   });
 

@@ -202,3 +202,41 @@ export function stockLevel(free: number): StockLevel {
   if (free < LOW_STOCK_THRESHOLD) return "low";
   return "ok";
 }
+
+// --- Einkauf und Marge ------------------------------------------------------
+
+export interface Marge {
+  /** Einkaufspreis, wie er am Artikel gepflegt ist */
+  einkauf: number;
+  /** Aufschlag auf den Verkaufspreis, in ganzen Prozent */
+  prozent: number;
+}
+
+/**
+ * Marge einer Verkaufszeile – für die Anzeige an der Kasse.
+ *
+ * Gerechnet auf den Verkaufspreis (`(verkauf − einkauf) / verkauf`), nicht auf
+ * den Einkauf: am Tresen ist die Frage „wie viel von diesem Preis bleibt
+ * übrig", und das ist der Deckungsbeitrag. Negativ ist erlaubt und wird
+ * angezeigt – ein Artikel unter Einkauf verkauft sich sonst still weiter.
+ *
+ * `null`, solange kein Einkaufspreis gepflegt ist. Eine „Marge 100 %" bei
+ * fehlendem Wert wäre eine Falschaussage, und 0 € Einkauf gibt es nicht: ein
+ * nicht gepflegter Wert ist eine Lücke, keine Zahl.
+ *
+ * Steht hier und nicht im Baustein, weil Bonzeile und Trefferliste der
+ * Kassensuche dieselbe Angabe zeigen – zwei Rechenwege liefen auseinander.
+ */
+export function marge(
+  verkauf: number | string | null | undefined,
+  einkauf: number | string | null | undefined,
+): Marge | null {
+  if (einkauf === null || einkauf === undefined || einkauf === "") return null;
+  const ek = toNumber(einkauf);
+  if (!Number.isFinite(ek) || ek <= 0) return null;
+
+  const vk = toNumber(verkauf);
+  if (!Number.isFinite(vk) || vk <= 0) return { einkauf: ek, prozent: 0 };
+
+  return { einkauf: ek, prozent: Math.round(((vk - ek) / vk) * 100) };
+}

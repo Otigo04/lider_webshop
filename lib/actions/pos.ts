@@ -74,6 +74,17 @@ const quickProductSchema = z.object({
       .max(1_000_000)
       .nullable(),
   ),
+  /** Einkaufspreis (Migration 047). Leer = keiner gepflegt, nur intern. */
+  cost_price: z
+    .preprocess(
+      (wert) => (wert === "" || wert === undefined ? null : wert),
+      z.coerce
+        .number({ message: "Einkaufspreis muss eine Zahl sein" })
+        .min(0, "Einkaufspreis darf nicht negativ sein")
+        .max(1_000_000)
+        .nullable(),
+    )
+    .optional(),
   stock_available: z.coerce
     .number({ message: "Bestand fehlt" })
     .int("Bestand muss eine ganze Zahl sein")
@@ -167,6 +178,56 @@ export async function createQuickProduct(
     return { error: "Der Artikel wurde angelegt, aber ohne Preis." };
   }
 
+  /*
+   * Einkaufspreis (Migration 047). Wie die Merkmale nach dem Anlegen und mit
+   * derselben Nachsicht: scheitert die Zeile, ist der Artikel trotzdem
+   * verkaufsfähig. Der Einkaufspreis lässt sich in der Artikelliste
+   * nachtragen, der Kunde am Tresen wartet nicht darauf.
+   */
+  if (daten.cost_price !== null && daten.cost_price !== undefined) {
+    const { error: ekFehler } = await supabase.from("product_costs").insert({
+      product_id: angelegt.id as string,
+      cost_price: daten.cost_price,
+    });
+    if (ekFehler) {
+      console.error("[kasse] Einkaufspreis anlegen:", ekFehler.message);
+    }
+  }
+
+  /*
+   * Journalzeile für den Anfangsbestand.
+   *
+   * Ohne sie entsteht über diesen Weg Bestand ohne Herkunft: stock_available
+   * steht am Artikel, in stock_entries steht nichts, und im Wareneingangs-
+   * journal fehlt die Lieferung, mit der die Ware hereinkam. Der Wareneingang
+   * selbst schreibt die Zeile in derselben Transaktion wie die Buchung
+   * (record_stock_entries); hier wird der Bestand direkt gesetzt, also muss
+   * die Zeile hinterher dazu.
+   *
+   * Scheitert sie, bleibt der Artikel bestehen: ein fehlender Journaleintrag
+   * ist eine Lücke in der Historie, ein abgebrochenes Anlegen am Tresen ein
+   * Kunde, der wartet.
+   */
+  if (daten.stock_available > 0) {
+    const { error: journalFehler } = await supabase.from("stock_entries").insert({
+      product_id: angelegt.id as string,
+      product_name: daten.name,
+      product_sku: sku as string,
+      barcode,
+      quantity: daten.stock_available,
+      stock_before: 0,
+      stock_after: daten.stock_available,
+      unit_price: daten.unit_price,
+      retail_price: daten.retail_price,
+      cost_price: daten.cost_price ?? null,
+      is_new_product: true,
+      created_by: admin.id,
+    });
+    if (journalFehler) {
+      console.error("[kasse] Anfangsbestand buchen:", journalFehler.message);
+    }
+  }
+
   // Merkmale nach dem Anlegen setzen, nicht davor: vorher gibt es keine
   // Artikel-ID, an die sie hängen könnten. Scheitern sie, ist der Artikel
   // trotzdem angelegt und verkaufsfähig – die Farbe lässt sich nachtragen,
@@ -187,6 +248,7 @@ export async function createQuickProduct(
   }
 
   revalidatePath("/admin/products");
+  revalidatePath("/admin/bestand");
   revalidatePath("/shop");
 
   const product = await findProductByCode(barcode ?? (sku as string));

@@ -40,7 +40,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { formatPrice, formatQuantity } from "@/lib/format";
-import { counterUnitPrice } from "@/lib/pricing";
+import { counterUnitPrice, marge } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import {
   POS_PRICE_MODE_LABELS,
@@ -211,6 +211,7 @@ export function PosTerminal({
           maxStock: product.freeStock,
           variants: product.variants,
           retailPrice: product.retailPrice,
+          costPrice: product.costPrice,
         },
       ]);
     }
@@ -655,6 +656,20 @@ export function PosTerminal({
                           {zeile.barcode ? ` · ${zeile.barcode}` : ""}
                         </p>
                       )}
+                      {/* Einkaufspreis und Marge, nur auf dem Bildschirm.
+                          Die Kasse sieht ohnehin nur der Admin; auf Bon,
+                          Beleg und Rechnung steht nichts davon. Ohne
+                          gepflegten Einkaufspreis bleibt die Zeile weg –
+                          eine „Marge 100 %" wäre dort eine Falschaussage. */}
+                      {(() => {
+                        const m = marge(zeile.unitPrice, zeile.costPrice);
+                        if (!m) return null;
+                        return (
+                          <p className="text-xs text-gold/80 tabular">
+                            EK {formatPrice(m.einkauf)} · Marge {m.prozent} %
+                          </p>
+                        );
+                      })()}
                     </div>
 
                     <div className="flex items-center gap-1">

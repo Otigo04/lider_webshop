@@ -29,6 +29,12 @@ export interface PosProduct {
   unitPrice: number | null;
   /** Ladenpreis für Privatkunden; null, wenn keiner gepflegt ist */
   retailPrice: number | null;
+  /**
+   * Einkaufspreis (Migration 047), nur zur Anzeige am Tresen. Für Kunden gibt
+   * RLS auf product_costs nichts her, und die Kasse sieht ohnehin nur der
+   * Admin. Wird nie gedruckt.
+   */
+  costPrice: number | null;
   variants: ProductVariant[];
 }
 
@@ -36,6 +42,7 @@ const POS_COLUMNS = `
   id, sku, barcode, name, category_id, is_active, retail_price,
   stock_available, stock_reserved,
   category:categories (id, name),
+  cost:product_costs (cost_price),
   variants:product_variants (id, product_id, min_quantity, max_quantity, unit_price, created_at)
 `;
 
@@ -49,6 +56,12 @@ interface PosProductRow {
   stock_available: number;
   stock_reserved: number;
   category: { id: string; name: string } | null;
+  /**
+   * Eins-zu-eins-Beziehung, aber PostgREST liefert je nach erkannter
+   * Kardinalität ein Objekt oder ein einelementiges Array – beides abfangen,
+   * statt sich auf eine Form zu verlassen.
+   */
+  cost: { cost_price: number | string | null } | { cost_price: number | string | null }[] | null;
   variants: ProductVariant[] | null;
 }
 
@@ -66,8 +79,26 @@ function zuPosProdukt(row: PosProductRow): PosProduct {
     // NUMERIC kommt als string über PostgREST – erst hier zur Zahl machen,
     // sonst rechnet die Kasse mit Text weiter.
     retailPrice: row.retail_price === null ? null : toNumber(row.retail_price),
+    costPrice: einkaufspreis(row.cost),
     variants,
   };
+}
+
+/**
+ * Einkaufspreis aus der verknüpften Zeile.
+ *
+ * Fehlt sie – kein gepflegter Wert, oder RLS gibt sie nicht her –, ist das
+ * `null` und nicht 0: ein nicht gepflegter Einkaufspreis ist eine Lücke, und
+ * eine 0 würde an der Kasse als „Marge 100 %" ausgerechnet.
+ */
+function einkaufspreis(
+  cost: PosProductRow["cost"],
+): number | null {
+  const zeile = Array.isArray(cost) ? cost[0] : cost;
+  const wert = zeile?.cost_price;
+  if (wert === null || wert === undefined) return null;
+  const zahl = toNumber(wert);
+  return Number.isFinite(zahl) ? zahl : null;
 }
 
 /**

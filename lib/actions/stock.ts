@@ -43,6 +43,8 @@ const itemSchema = z.object({
     .refine((wert) => wert !== 0, "Menge 0 ist keine Buchung"),
   unitPrice: preis,
   retailPrice: preis,
+  /** Einkaufspreis (Migration 047); null = unverändert lassen */
+  costPrice: preis,
 });
 
 const schema = z.object({
@@ -91,6 +93,7 @@ export async function recordStockEntries(
       quantity: item.quantity,
       unit_price: item.unitPrice,
       retail_price: item.retailPrice,
+      cost_price: item.costPrice,
     })),
     p_note: daten.note,
   });

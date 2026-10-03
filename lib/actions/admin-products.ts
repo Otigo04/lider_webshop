@@ -36,6 +36,18 @@ const productSchema = z.object({
       .max(1_000_000)
       .nullable(),
   ),
+  /**
+   * Einkaufspreis (Migration 047), nur fürs Haus. Leer = nicht gepflegt und
+   * löscht die Zeile in product_costs.
+   */
+  cost_price: z.preprocess(
+    (wert) => (wert === "" || wert === null || wert === undefined ? null : wert),
+    z.coerce
+      .number({ message: "Einkaufspreis muss eine Zahl sein" })
+      .min(0, "Einkaufspreis darf nicht negativ sein")
+      .max(1_000_000)
+      .nullable(),
+  ),
   /** Vorher-Preis für die Rabattanzeige. Leer = nicht reduziert. */
   list_price: z.preprocess(
     (wert) => (wert === "" || wert === null || wert === undefined ? null : wert),
@@ -151,6 +163,28 @@ export async function saveProduct(
             : `Die Artikelnummer „${sku}“ ist bereits vergeben. Bitte erneut speichern.`
           : "Der Artikel konnte nicht gespeichert werden.",
     };
+  }
+
+  /*
+   * Einkaufspreis in die eigene Tabelle (Migration 047), nicht an products:
+   * dort wäre er für jeden angemeldeten Kunden lesbar. Leeres Feld heißt
+   * „nicht gepflegt" und löscht die Zeile – eine 0 wäre an der Kasse eine
+   * Marge von 100 %.
+   */
+  const { error: ekFehler } =
+    data.cost_price === null
+      ? await supabase.from("product_costs").delete().eq("product_id", data.id)
+      : await supabase.from("product_costs").upsert(
+          {
+            product_id: data.id,
+            cost_price: data.cost_price,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "product_id" },
+        );
+  if (ekFehler) {
+    console.error("[admin] Einkaufspreis speichern:", ekFehler.message);
+    return { error: "Der Einkaufspreis konnte nicht gespeichert werden." };
   }
 
   await supabase.from("product_variants").delete().eq("product_id", data.id);
@@ -335,6 +369,18 @@ const inlineFieldSchemas = {
       .max(1_000_000)
       .nullable(),
   ),
+  /**
+   * Einkaufspreis (Migration 047). Steht in product_costs und nicht an
+   * products – leeres Feld heißt „keiner gepflegt" und löscht die Zeile.
+   */
+  cost_price: z.preprocess(
+    (wert) => (wert === "" ? null : wert),
+    z.coerce
+      .number({ message: "Einkaufspreis muss eine Zahl sein" })
+      .min(0, "Einkaufspreis darf nicht negativ sein")
+      .max(1_000_000)
+      .nullable(),
+  ),
 } as const;
 
 export type InlineField = keyof typeof inlineFieldSchemas;
@@ -408,6 +454,27 @@ export async function updateProductField(input: {
     if (fehler) {
       console.error("[admin] Preis speichern:", fehler.message);
       return { error: "Der Preis konnte nicht gespeichert werden." };
+    }
+  } else if (feld === "cost_price") {
+    /*
+     * Der Einkaufspreis hängt nicht an products, sondern an der eigenen
+     * Tabelle product_costs (Migration 047) – an products wäre er für jeden
+     * angemeldeten Kunden lesbar. Leeres Feld heißt „nicht gepflegt", also
+     * weg mit der Zeile und nicht 0 hineinschreiben: 0,00 € Einkauf gibt es
+     * nicht, und an der Kasse stünde dann „Marge 100 %".
+     */
+    const preis = parsed.data as number | null;
+    const { error } =
+      preis === null
+        ? await supabase.from("product_costs").delete().eq("product_id", input.id)
+        : await supabase.from("product_costs").upsert(
+            { product_id: input.id, cost_price: preis, updated_at: new Date().toISOString() },
+            { onConflict: "product_id" },
+          );
+
+    if (error) {
+      console.error("[admin] Einkaufspreis speichern:", error.message);
+      return { error: "Der Einkaufspreis konnte nicht gespeichert werden." };
     }
   } else {
     const wert = feld === "barcode" ? (parsed.data as string) || null : parsed.data;

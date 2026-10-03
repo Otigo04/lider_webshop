@@ -6,7 +6,7 @@ import { searchPosProductsAction } from "@/lib/actions/pos";
 import type { PosProduct } from "@/lib/queries/pos";
 import { Input } from "@/components/ui/input";
 import { formatPrice, formatQuantity } from "@/lib/format";
-import { counterUnitPrice } from "@/lib/pricing";
+import { counterUnitPrice, marge } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import type { PosPriceMode } from "@/lib/types";
 
@@ -209,6 +209,21 @@ export function PosProductSearch({
                     {product.barcode ? ` · ${product.barcode}` : ""}
                     {product.categoryName ? ` · ${product.categoryName}` : ""}
                   </span>
+                  {/* Einkaufspreis wie in der Bonzeile – dieselbe Rechnung
+                      aus marge(), damit beide Stellen nicht auseinanderlaufen.
+                      Bezogen auf den Preis, der rechts daneben steht. */}
+                  {(() => {
+                    const m = marge(
+                      counterUnitPrice(product, 1, preisModus),
+                      product.costPrice,
+                    );
+                    if (!m) return null;
+                    return (
+                      <span className="block text-xs text-gold/80 tabular">
+                        EK {formatPrice(m.einkauf)} · Marge {m.prozent} %
+                      </span>
+                    );
+                  })()}
                 </span>
                 <span className="shrink-0 text-right">
                   <span className="block font-semibold tabular">

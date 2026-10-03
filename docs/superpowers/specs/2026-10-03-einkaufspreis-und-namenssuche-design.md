@@ -319,8 +319,43 @@ sind zwei Schilder. Ein Schild ohne Artikelnummer wird nie zusammengelegt.
     Zeilen, auch bei gleichem Wortlaut.
 11. Bekannten Code scannen, während im Bezeichnungsfeld Text steht → der Text
     wird überschrieben, der Stamm gewinnt.
+11a. Bekannten Code scannen, **warten** bis die Angaben stehen, dann den Preis
+    von Hand ändern und ablegen → der geänderte Preis kommt aufs Schild. Die
+    Stammangaben werden nur übernommen, wenn sie gerade eingetroffen sind;
+    sonst stünde im Treffer-Hinweis „Änderungen gelten für das Schild" und das
+    Ablegen verwürfe sie.
 
 ---
+
+---
+
+## Zugesichert: jeder neue Artikel bekommt eine Artikelnummer
+
+Ein Artikel ohne Nummer wäre im Regal nicht wiederzufinden, im Wareneingang
+nicht anzusprechen und auf dem Preisschild eine leere Fußzeile. Die Nummer
+kommt deshalb nie aus einem Formular, sondern immer aus dem Nummernkreis der
+Warengruppe (`next_sku()`, sperrt die Kategoriezeile).
+
+Beide Anlegewege halten das heute schon ein:
+
+| Weg | Stelle |
+|-----|--------|
+| Wareneingang | `record_stock_entries()`, `v_sku := public.next_sku(...)` vor dem `INSERT INTO products` |
+| Kasse, freier Generator, Gruppen | `createQuickProduct()` → `supabase.rpc("next_sku")`, bricht ohne Nummer ab |
+
+Was dazukommt, ist die **Sichtbarkeit**: im freien Generator steht die
+zugeteilte Nummer nach dem Anlegen in der Fußzeile des abgelegten Schilds und
+in der Statusmeldung (`melden("neu", …, artikel.sku)`). Das bleibt so und wird
+mit der Auto-Ablage aus Teil C nicht übersprungen – `uebernehmen()` liest die
+`sku` grundsätzlich aus dem Stamm und nie aus dem Eingabefeld, auch bei einem
+Treffer.
+
+In den Prüfungen:
+
+12. Neuen Artikel über den freien Generator anlegen → Schild trägt die Nummer
+    aus dem Nummernkreis der gewählten Warengruppe, dieselbe steht am Artikel.
+13. Zwei neue Artikel in einer Warengruppe hintereinander → zwei
+    aufeinanderfolgende Nummern, keine doppelte.
 
 ## Prüfen
 

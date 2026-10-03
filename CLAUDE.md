@@ -513,6 +513,51 @@ Zod-Schema; ein Feldname ohne Schema wird abgewiesen.
 
 ---
 
+## 💰 Einkaufspreis
+
+`supabase/migrations/047_einkaufspreis.sql`. Die dritte Preisangabe neben
+Großhandelsstaffel und Ladenpreis – und die einzige, die **nie gedruckt**
+wird: nicht aufs Preisschild, nicht auf Bon, Beleg, Z-Bon oder Rechnung.
+
+- **Eigene Tabelle `product_costs`**, keine Spalte an `products`. RLS wirkt
+  zeilenweise, und `products_read` (Migration 020) gibt jedem angemeldeten
+  aktiven Kunden die *ganze* Zeile frei – deshalb ist auch `retail_price`
+  kundenlesbar. Spaltengrants lösen es nicht: Migration 034 schützt damit
+  `anon`, aber Admin und Kunde sind beide `authenticated`, und ein GRANT gilt
+  der Rolle. `USING (is_admin())` ist der einzige Weg, der dichthält, und
+  kostet nur einen Join (`cost:product_costs (cost_price)`).
+- **`ON DELETE CASCADE`**, anders als `stock_entries`: der Einkaufspreis ist
+  eine Angabe am Artikel und ohne ihn sinnlos. Das Journal ist Geschichte und
+  überlebt den Artikel.
+- **`stock_entries.cost_price`** hält, was eine *einzelne* Lieferung gekostet
+  hat. `product_costs` kennt nur den letzten Wert; ohne das Journal ließe sich
+  die Marge einer vergangenen Lieferung nicht nachrechnen. `NULL` heißt wie
+  bei den anderen beiden Preisen „diese Buchung hat ihn nicht angefasst".
+- **Leeres Feld heißt „unverändert", nicht „0 €"**, überall. Beim Inline-Edit
+  und im Artikelformular löscht es die Zeile – 0,00 € Einkauf gibt es nicht,
+  und an der Kasse stünde dann „Marge 100 %".
+- **Gepflegt** im Wareneingang (dritte Preisspalte „EK"), im
+  Kassen-Anlegedialog, im freien Preisschild-Generator (nur für die
+  Neuanlage), im Artikelformular (eigener Block) und inline in der Spalte
+  „Preise" der Artikelliste.
+- **Angezeigt** an der Kasse als Nebenzeile der Bonzeile und in der
+  Trefferliste der Namenssuche: `EK 7,40 · Marge 42 %`. Gerechnet in
+  `marge()` (`lib/pricing.ts`) auf den Verkaufspreis, nicht auf den Einkauf –
+  am Tresen ist die Frage „wie viel von diesem Preis bleibt übrig". Ohne
+  gepflegten Wert steht dort nichts, und bei freien Positionen auch nicht.
+- **Der verdeckte Code am Regal bleibt der Großhandelspreis** (`ghCode()`).
+  Ihn auf den Einkaufspreis umzustellen hieße, dass zwei Schilder im selben
+  Regal unter demselben „#" verschiedene Zahlen meinen, ohne dass man es
+  ihnen ansieht. Der Kommentar dort nannte den Code früher fälschlich
+  „Einkaufspreis".
+- **`createQuickProduct()` schreibt eine Journalzeile** für den
+  Anfangsbestand (`is_new_product = true`). Vorher entstand über Kasse und
+  Preisschild Bestand ohne Herkunft: `stock_available` am Artikel, nichts in
+  `stock_entries`. Scheitert sie, bleibt der Artikel verkaufsfähig – eine
+  Lücke in der Historie ist weniger schlimm als ein wartender Kunde.
+
+---
+
 ## 🔻 Reduzierte Artikel
 
 `products.list_price` (Migration 023) ist der **Vorher-Preis**, nichts weiter:
@@ -861,9 +906,9 @@ Der Scan steht oben im Formular, weil er den Rest bestimmt:
 
 | Code | Was passiert |
 |------|--------------|
-| bekannt | Bezeichnung, Artikelnummer und alle drei Preise kommen aus dem Artikelstamm |
+| bekannt | Angaben kommen aus dem Artikelstamm und das Schild liegt **sofort** auf dem Blatt |
 | unbekannt | beim Ablegen wird ein Artikel angelegt (`legeSchildArtikelAn()`) |
-| keiner | reines Schild, wie bisher – Aktionsstapel, Dienstleistung, Restposten |
+| keiner | reines Schild – Aktionsstapel, Dienstleistung, Restposten; Namenssuche hilft |
 
 - **Warum überhaupt anlegen.** Vorher entstand hier für neue Ware ein Zettel
   und sonst nichts: dieselben Angaben mussten danach im Artikelformular ein
@@ -887,12 +932,45 @@ Der Scan steht oben im Formular, weil er den Rest bestimmt:
   Scannerfeld und das Verlassen des Feldes melden sich mit Ton und
   Statusleiste – sonst piepte beim Tippen einer 13-stelligen Nummer jede
   Tippause einmal „unbekannt".
-- **Enter im Scannerfeld schlägt erst nach**, legt also nicht sofort ab: ein
-  Handscanner schließt mit Enter ab, und das Schild läge sonst auf dem Blatt,
-  bevor die Angaben eingetroffen sind. Ein zweites Enter legt ab.
+- **Ein Scan, ein Schild.** Enter im Scannerfeld schickt das Formular ab;
+  `uebernehmen()` schlägt den Code selbst nach und legt in einem Zug ab.
+  Vorher brauchte es zwei Enter je Artikel – eines zum Nachsehen, eines zum
+  Ablegen –, und bei einem Regal voll Ware ist das ein Tastendruck zu viel
+  pro Artikel. Der alte Abbruch sollte verhindern, dass ein ungeprüfter Preis
+  gedruckt wird; dieser Schutz wandert von „vor dem Ablegen" nach „vor dem
+  Drucken": das Blatt ist die Liste, jedes Schild steht dort in
+  Originalmaßen, ein Klick holt es zurück, gedruckt wird erst auf Knopfdruck.
+- **Abgelegt wird aus dem Rückgabewert des Abgleichs**, nicht aus dem
+  Formularzustand: `setEntwurf()` ist innerhalb derselben Funktion noch nicht
+  wirksam, und das Schild käme mit der alten, womöglich leeren Bezeichnung
+  aufs Blatt. `alsEntwurf()` baut die Werte, `uebernehmeArtikel()` ist nur
+  noch für die Anzeige zuständig.
+- **Zweimal derselbe Code heißt „zwei Stück".** `legeAb()` erhöht die
+  Stückzahl eines vorhandenen Eintrags mit derselben **Artikelnummer**, statt
+  eine Zeile anzuhängen – sonst wären zweimal scannen zwei Zeilen, die sich
+  getrennt bepreisen lassen, und das fiele erst auf dem Papier auf. Über die
+  Nummer und nicht über die Bezeichnung: zwei frei getippte Schilder mit
+  gleichem Wortlaut und verschiedenen Preisen sind zwei Schilder, und ein
+  Schild ohne Nummer wird nie zusammengelegt.
 - **Abgeglichen wird nur ein neues Schild.** Wer ein Schild nachträglich
   ändert, korrigiert Papier – daraus einen Artikel anzulegen wäre eine
   Nebenwirkung, mit der niemand rechnet.
+- **Namenssuche im Bezeichnungsfeld**
+  (`components/admin/preisschild-artikel-suche.tsx`,
+  `sucheSchildArtikelNachName()` auf `getPreisschildArtikel()`): schwebende
+  Trefferliste, Pfeiltasten, ab zwei Zeichen, 250 ms Ruhe. Für Ware ohne
+  lesbares Etikett – sie steht trotzdem im Stamm, und Bezeichnung samt
+  Preisen abzutippen ist genau die Doppelarbeit, die der Abgleich abschafft.
+  **Nur bei leerem Scannerfeld**: hat ein Code entschieden, wäre ein
+  Vorschlag hier eine Einladung, einen zweiten Artikel unter dem Code des
+  ersten zu wählen – neue Ware unter dem Datensatz einer alten ist der
+  teuerste Fehler, den die Maske zulassen kann. Ohne Treffer erscheint
+  nichts; das Feld ist in erster Linie ein Eingabefeld. Eine Auswahl setzt
+  `aufgeloest`/`treffer` mit, sonst hielte `uebernehmen()` den Artikel für
+  unbekannt und legte ihn ein zweites Mal an.
+- **Jeder neue Artikel bekommt eine Artikelnummer**, immer aus dem
+  Nummernkreis der Warengruppe (`next_sku()`) und nie aus einem Feld. Die
+  `sku` auf dem Schild liest `uebernehmen()` grundsätzlich aus dem Stamm.
 - **Signale und Tastatur-Wächter** wie an der Kasse (`useKassenMeldung()`,
   `useScanFocus()`): Statusleiste über dem Feld, Ton je Vorgang. Der Wächter
   pausiert, solange eine Abfrage läuft – käme der zweite Scan mitten in die

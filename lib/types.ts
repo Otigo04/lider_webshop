@@ -395,6 +395,14 @@ export interface PosCartItem {
   variants?: PriceTier[];
   retailPrice?: number | null;
   /**
+   * Einkaufspreis des Artikels (Migration 047), nur für die Anzeige auf dem
+   * Bildschirm. Kommt weder auf den Bon noch in die Buchung – die Kasse
+   * rechnet mit Verkaufspreisen, der Einkauf ist eine Nebeninformation für
+   * den, der kassiert. Fehlt bei freien Positionen und bei Artikeln ohne
+   * gepflegten Einkaufspreis.
+   */
+  costPrice?: number | null;
+  /**
    * Der Preis wurde von Hand überschrieben. Dann bleibt er stehen, auch wenn
    * sich die Menge ändert – sonst verwürfe die nächste Mengenkorrektur den
    * ausgehandelten Preis.
@@ -517,6 +525,8 @@ export interface StockEntry {
   /** Was diese Aufnahme gesetzt hat; null = Preis unverändert gelassen */
   unit_price: number | null;
   retail_price: number | null;
+  /** Einkaufspreis dieser Lieferung (Migration 047); null = unverändert */
+  cost_price: number | null;
   /** Der Artikel entstand mit dieser Buchung */
   is_new_product: boolean;
   note: string | null;

@@ -191,7 +191,12 @@ export default async function BestandPage({
                     </td>
 
                     <td className="py-2.5 pr-3 text-right tabular text-muted-foreground">
-                      {eintrag.unit_price === null && eintrag.retail_price === null
+                      {/* Auch der Einkaufspreis dieser Lieferung (Migration
+                          047): am Artikel steht nur der letzte, hier steht,
+                          was jede Lieferung gekostet hat. */}
+                      {eintrag.unit_price === null &&
+                      eintrag.retail_price === null &&
+                      eintrag.cost_price === null
                         ? "–"
                         : [
                             eintrag.unit_price !== null
@@ -199,6 +204,9 @@ export default async function BestandPage({
                               : null,
                             eintrag.retail_price !== null
                               ? `EH ${formatPrice(eintrag.retail_price)}`
+                              : null,
+                            eintrag.cost_price !== null
+                              ? `EK ${formatPrice(eintrag.cost_price)}`
                               : null,
                           ]
                             .filter(Boolean)

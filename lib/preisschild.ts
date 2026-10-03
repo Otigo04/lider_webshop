@@ -809,8 +809,13 @@ const CODE_STELLEN = 3;
  *
  * Kein Euro-Zeichen, kein Komma, kein Punkt – die Zahl steht als Anhängsel
  * hinter der Artikelnummer („123123#1299") und soll im Vorbeigehen wie ein
- * Teil der Nummer aussehen. Wer den Schlüssel kennt, liest den Einkaufspreis
- * ab; wer ihn nicht kennt, sieht eine Nummer.
+ * Teil der Nummer aussehen. Wer den Schlüssel kennt, liest den
+ * Großhandelspreis ab; wer ihn nicht kennt, sieht eine Nummer.
+ *
+ * Es ist der **Großhandels-**, nicht der Einkaufspreis. Der Einkaufspreis
+ * (Migration 047) steht in `product_costs` und wird nirgends gedruckt – ihn
+ * hier einzusetzen hieße, dass zwei Schilder im selben Regal unter demselben
+ * „#" verschiedene Zahlen meinen, ohne dass man es ihnen ansieht.
  *
  * null bei 0 oder ohne Wert: ein „#000" hinter der Nummer wäre kein
  * Geheimnis, sondern eine offensichtliche Lücke.

@@ -67,6 +67,8 @@ interface ProductFormProps {
     is_active: boolean;
     stock_available: number;
     retail_price: number | null;
+    /** Einkaufspreis aus product_costs (Migration 047); nur für Admins */
+    cost_price: number | null;
     list_price: number | null;
     variants: ProductVariant[];
     images: { file_path: string }[];
@@ -118,6 +120,11 @@ export function ProductForm({
   const [listPrice, setListPrice] = useState(
     product?.list_price !== null && product?.list_price !== undefined
       ? String(product.list_price)
+      : "",
+  );
+  const [costPrice, setCostPrice] = useState(
+    product?.cost_price !== null && product?.cost_price !== undefined
+      ? String(product.cost_price)
       : "",
   );
 
@@ -223,6 +230,7 @@ export function ProductForm({
     is_active: true,
     stock_available: 0,
     retail_price: retailPrice.trim(),
+    cost_price: costPrice.trim(),
     list_price: listPrice.trim(),
     tiers: tiers.map((tier) => ({
       min_quantity: tier.min_quantity,
@@ -418,6 +426,42 @@ export function ProductForm({
           </div>
           <p className="min-w-24 pb-2 text-sm text-muted-foreground tabular">
             {retailPrice ? formatPrice(retailPrice) : ""}
+          </p>
+        </div>
+      </section>
+
+      {/* Eigener Block, nicht beim Ladenpreis: der Einkaufspreis ist keine
+          Preisliste, sondern eine Kennzahl fürs Haus. Er steht auf keinem
+          Beleg und auf keinem Preisschild – der verdeckte Code am Regal
+          trägt weiter den Großhandelspreis. */}
+      <section className="rounded-lg border border-border bg-muted/40 p-5">
+        <h2 className="font-medium">Einkauf · nur intern</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Was der Artikel im Einkauf gekostet hat. Erscheint nur im Adminpanel
+          und an der Kasse als Nebenzeile am Bon, damit beim Verhandeln klar
+          ist, wo die Grenze liegt. Steht auf keiner Rechnung, keinem Bon und
+          keinem Preisschild. Leer lassen heißt „nicht gepflegt".
+        </p>
+
+        <div className="mt-4 flex flex-wrap items-end gap-3">
+          <div className="w-44 space-y-1">
+            <Label htmlFor="cost_price" className="text-xs">
+              Einkauf / Stück (€)
+            </Label>
+            <Input
+              id="cost_price"
+              type="number"
+              min={0}
+              step="0.01"
+              inputMode="decimal"
+              value={costPrice}
+              onChange={(event) => setCostPrice(event.target.value)}
+              className="tabular"
+              placeholder="—"
+            />
+          </div>
+          <p className="min-w-24 pb-2 text-sm text-muted-foreground tabular">
+            {costPrice ? formatPrice(costPrice) : ""}
           </p>
         </div>
       </section>

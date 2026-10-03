@@ -61,6 +61,7 @@ export function PosNewProductDialog({
     category_id: zuletztKategorieId ?? categories[0]?.id ?? "",
     unit_price: "",
     retail_price: "",
+    cost_price: "",
     stock_available: "1",
   });
   const [merkmale, setMerkmale] = useState<string[]>([]);
@@ -74,6 +75,7 @@ export function PosNewProductDialog({
         category_id: felder.category_id,
         unit_price: felder.unit_price,
         retail_price: felder.retail_price.trim(),
+        cost_price: felder.cost_price.trim(),
         stock_available: felder.stock_available,
         attribute_value_ids: merkmale,
       });
@@ -177,6 +179,30 @@ export function PosNewProductDialog({
               placeholder="wie Großhandel"
               onChange={(event) =>
                 setFelder((f) => ({ ...f, retail_price: event.target.value }))
+              }
+            />
+          </div>
+
+          <div className="space-y-2">
+            {/* Nur fürs Haus: der Einkaufspreis steht auf keinem Beleg und
+                auf keinem Preisschild. An der Kasse erscheint er später als
+                Nebenzeile am Bon, damit man beim Verhandeln weiß, wo die
+                Grenze liegt. */}
+            <Label htmlFor="pos-cost">
+              Einkauf / Stück (€){" "}
+              <span className="font-normal text-muted-foreground">intern</span>
+            </Label>
+            <Input
+              id="pos-cost"
+              type="number"
+              min={0}
+              step="0.01"
+              inputMode="decimal"
+              value={felder.cost_price}
+              className="tabular"
+              placeholder="optional"
+              onChange={(event) =>
+                setFelder((f) => ({ ...f, cost_price: event.target.value }))
               }
             />
           </div>

@@ -38,6 +38,12 @@ export interface PreisschildArtikel {
   preis: number | null;
   /** Kleinste Großhandelsstaffel – Vorgabe für den verdeckten Code. */
   grosshandel: number | null;
+  /**
+   * Einkaufspreis (Migration 047). Steht **nicht** auf dem Schild – der
+   * verdeckte Code trägt weiter den Großhandelspreis. Er wird im freien
+   * Generator nur angezeigt und beim Anlegen eines Artikels übernommen.
+   */
+  einkauf: number | null;
   /** Streichpreis des Artikels (products.list_price), null = kein Angebot. */
   vorher: number | null;
   bestand: number;
@@ -53,6 +59,14 @@ interface ProductZeile {
   list_price: number | string | null;
   stock_available: number;
   category: { name: string } | null;
+  /**
+   * PostgREST liefert die Eins-zu-eins-Beziehung je nach erkannter
+   * Kardinalität als Objekt oder als einelementiges Array – beides abfangen.
+   */
+  cost:
+    | { cost_price: number | string | null }
+    | { cost_price: number | string | null }[]
+    | null;
   variants: PriceTier[];
 }
 
@@ -67,10 +81,12 @@ interface ProductZeile {
 const ARTIKEL_SPALTEN = `id, sku, name, barcode, retail_price, list_price,
   stock_available, category_id,
   category:categories (name),
+  cost:product_costs (cost_price),
   variants:product_variants (id, min_quantity, max_quantity, unit_price)`;
 
 export async function getPreisschildArtikel(
   search?: string,
+  limit?: number,
 ): Promise<PreisschildArtikel[]> {
   const supabase = await createClient();
 
@@ -80,6 +96,10 @@ export async function getPreisschildArtikel(
   if (term) {
     query = query.or(`name.ilike.%${term}%,sku.ilike.%${term}%,barcode.ilike.%${term}%`);
   }
+  // Ohne Grenze: die Werkbank will den ganzen Bestand im Browser haben, um
+  // ohne Nachfrage filtern zu können. Die Trefferliste des freien Generators
+  // dagegen soll kurz bleiben.
+  if (limit !== undefined) query = query.limit(limit);
 
   const { data, error } = await query;
   if (error) {
@@ -104,6 +124,9 @@ function zuPreisschildArtikel(row: ProductZeile): PreisschildArtikel {
     kategorie: row.category?.name ?? null,
     preis: laden ?? staffel,
     grosshandel: staffel,
+    einkauf: ueberNull(
+      (Array.isArray(row.cost) ? row.cost[0] : row.cost)?.cost_price,
+    ),
     vorher: ueberNull(row.list_price),
     bestand: toNumber(row.stock_available),
   };

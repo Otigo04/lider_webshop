@@ -437,8 +437,11 @@ export default async function AdminProductsPage({
                       />
                     </td>
 
-                    {/* Drei Preise übereinander statt in drei Spalten: die
-                        Kürzel tragen die Bedeutung, die Zeile bleibt schmal. */}
+                    {/* Vier Preise übereinander statt in vier Spalten: die
+                        Kürzel tragen die Bedeutung, die Zeile bleibt schmal.
+                        EK steht unten – er ist der, der am seltensten
+                        angefasst wird, und der einzige, der nirgends
+                        gedruckt wird. */}
                     <td className="py-2 pr-3">
                       <div className="space-y-0.5">
                         <PreisZeile kuerzel="GH">
@@ -494,6 +497,31 @@ export default async function AdminProductsPage({
                               rabatt
                                 ? "text-signal line-through"
                                 : "text-muted-foreground"
+                            }
+                          />
+                        </PreisZeile>
+                        {/* Einkaufspreis, nur fürs Haus: steht auf keinem
+                            Beleg und auf keinem Preisschild. */}
+                        <PreisZeile kuerzel="EK">
+                          <InlineEdit
+                            id={product.id}
+                            field="cost_price"
+                            typ="decimal"
+                            ausrichtung="right"
+                            value={
+                              product.cost_price !== null
+                                ? String(product.cost_price)
+                                : ""
+                            }
+                            anzeige={
+                              product.cost_price !== null
+                                ? formatPrice(product.cost_price)
+                                : "—"
+                            }
+                            className={
+                              product.cost_price === null
+                                ? "text-muted-foreground"
+                                : "text-gold"
                             }
                           />
                         </PreisZeile>
