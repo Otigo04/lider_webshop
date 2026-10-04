@@ -82,6 +82,12 @@ export default async function AdminInvoicesPage({
                   invoice.type === "order"
                     ? `/admin/orders/${invoice.order_id}`
                     : `/kasse/rechnungen/${invoice.id}`;
+                const art =
+                  invoice.type === "order"
+                    ? "Bestellung"
+                    : invoice.type === "pos"
+                      ? "Kasse"
+                      : "Frei";
                 return (
                   <tr key={invoice.id} className="border-b border-border last:border-0">
                     <td className="py-3 pr-4 tabular">
@@ -102,9 +108,7 @@ export default async function AdminInvoicesPage({
                         </span>
                       ) : null}
                     </td>
-                    <td className="py-3 pr-4 text-muted-foreground">
-                      {invoice.type === "order" ? "Bestellung" : "Frei"}
-                    </td>
+                    <td className="py-3 pr-4 text-muted-foreground">{art}</td>
                     <td className="py-3 pr-4 text-right font-medium tabular">
                       {formatPrice(amount)}
                     </td>

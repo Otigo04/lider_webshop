@@ -6,13 +6,22 @@ import type {
   AccessRequest,
   AppUser,
   Invoice,
-  InvoiceItem,
   Order,
   OrderItem,
   Product,
   ProductFlagDef,
   ProductVariant,
 } from "@/lib/types";
+
+/** Gemeinsame Zeilenform für die Positionstabelle unter /kasse/rechnungen/[id] – egal ob die Positionen aus invoice_items (freie Rechnung) oder pos_sale_items (Kassenverkauf) kommen. */
+export interface AdminInvoiceLineItem {
+  id: string;
+  description: string;
+  quantity: number;
+  unit_price: number;
+  vat_rate: number;
+  subtotal: number;
+}
 
 /**
  * Datenzugriffe für das Admin-Panel. Läuft über den Session-Client: die
@@ -443,7 +452,7 @@ export interface AdminInvoiceRow extends Omit<Invoice, "customer"> {
  */
 export async function getAdminInvoices(options?: {
   search?: string;
-  type?: "order" | "manual";
+  type?: "order" | "manual" | "pos";
   status?: string;
 }): Promise<AdminInvoiceRow[]> {
   const supabase = await createClient();
@@ -476,26 +485,59 @@ export async function getAdminInvoices(options?: {
   );
 }
 
-export interface ManualInvoiceRow extends Omit<Invoice, "customer"> {
+export interface AdminInvoiceDetail extends Omit<Invoice, "customer" | "items"> {
   customer: AppUser;
-  items: InvoiceItem[];
+  items: AdminInvoiceLineItem[];
 }
 
-/** Eine freie Rechnung inkl. Positionen und Kunde, für /kasse/rechnungen/[id]. */
-export async function getManualInvoice(id: string): Promise<ManualInvoiceRow | null> {
+/**
+ * Eine freie Rechnung oder eine Rechnung zu einem Kassenverkauf, inkl.
+ * Positionen und Kunde, für /kasse/rechnungen/[id]. Bestellungs-Rechnungen
+ * haben dort keine eigene Unterseite – sie öffnen /admin/orders/[id].
+ *
+ * Die Positionen einer Kassen-Rechnung stehen in pos_sale_items, nicht in
+ * invoice_items (Migration 050: ein zweiter, kopierter Satz liefe auseinander,
+ * sobald jemand eine Zeile im Nachhinein ansieht). Beide Formen werden hier
+ * auf dieselbe Zeilenform gebracht, damit die Detailseite nicht zwischen
+ * zwei Datenquellen unterscheiden muss.
+ */
+export async function getAdminInvoiceDetail(id: string): Promise<AdminInvoiceDetail | null> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("invoices")
-    .select(`*, customer:users (*), items:invoice_items (*)`)
+    .select(
+      `*, customer:users (*),
+       items:invoice_items (*),
+       pos_sale:pos_sales (vat_rate, items:pos_sale_items (*))`,
+    )
     .eq("id", id)
-    .eq("type", "manual")
+    .in("type", ["manual", "pos"])
     .maybeSingle();
 
   if (error) {
     console.error("[admin] Rechnungsdetail:", error.message);
     return null;
   }
-  return (data as unknown as ManualInvoiceRow) ?? null;
+  if (!data) return null;
+
+  const row = data as unknown as AdminInvoiceDetail & {
+    type: "manual" | "pos";
+    pos_sale: { vat_rate: number; items: { id: string; product_name: string; quantity: number; unit_price: number; subtotal: number }[] } | null;
+  };
+
+  const items: AdminInvoiceLineItem[] =
+    row.type === "pos"
+      ? (row.pos_sale?.items ?? []).map((item) => ({
+          id: item.id,
+          description: item.product_name,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          vat_rate: row.pos_sale?.vat_rate ?? 0,
+          subtotal: item.subtotal,
+        }))
+      : row.items;
+
+  return { ...row, items };
 }
 
 export async function getAccessRequest(id: string): Promise<AccessRequest | null> {

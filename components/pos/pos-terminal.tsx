@@ -7,6 +7,7 @@ import {
   Banknote,
   Camera,
   CreditCard,
+  FileText,
   Loader2,
   Minus,
   PencilLine,
@@ -17,7 +18,7 @@ import {
   Trash2,
   UserRound,
 } from "lucide-react";
-import { completePosSale, lookupPosProduct } from "@/lib/actions/pos";
+import { completePosSale, createPosSaleInvoice, lookupPosProduct } from "@/lib/actions/pos";
 import type { PosProduct } from "@/lib/queries/pos";
 import { NumericInput } from "@/components/numeric-input";
 import { PosCustomerStep, type PosCustomerChoice } from "@/components/pos/pos-customer-step";
@@ -121,6 +122,11 @@ export function PosTerminal({
   const [bestaetigen, setBestaetigen] = useState(false);
   const [abschluss, setAbschluss] = useState<AbschlussInfo | null>(null);
   const [buchend, startBuchen] = useTransition();
+  // Rechnung ist ein zusätzlicher Schritt nach dem Buchen, kein Teil von
+  // AbschlussInfo: der Verkauf steht schon, die Rechnung kommt erst auf
+  // Wunsch dazu (nur bei Großhandelskunden, siehe Dialog unten).
+  const [rechnungUrl, setRechnungUrl] = useState<string | null>(null);
+  const [rechnungErzeugend, startRechnung] = useTransition();
 
   const scanRef = useRef<HTMLInputElement>(null);
   // Spiegel des Bons für Prüfungen außerhalb des Renderns (siehe aufDenBon).
@@ -405,6 +411,7 @@ export function PosTerminal({
       }
 
       setBestaetigen(false);
+      setRechnungUrl(null);
       setAbschluss({
         saleId: ergebnis.sale.id,
         receiptNumber: ergebnis.sale.receiptNumber,
@@ -425,8 +432,30 @@ export function PosTerminal({
     setNotiz("");
     setScan("");
     setAbschluss(null);
+    setRechnungUrl(null);
     setZahlart("cash");
     if (!kundeBehalten) setKunde(null);
+  }
+
+  /**
+   * Rechnung zum gerade gebuchten Verkauf erzeugen – zusätzlich zum Beleg.
+   * Nur im Dialog nach dem Kassieren bei Großhandelskunden angeboten
+   * (create_invoice_for_pos_sale weist einen Barverkauf ohne Konto ohnehin ab).
+   */
+  function rechnungErzeugen() {
+    if (!abschluss) return;
+    startRechnung(async () => {
+      const ergebnis = await createPosSaleInvoice(abschluss.saleId);
+      if (ergebnis.error || !ergebnis.invoiceUrl) {
+        melden(
+          "fehler",
+          ergebnis.error ?? "Die Rechnung konnte nicht erzeugt werden.",
+        );
+        return;
+      }
+      setRechnungUrl(ergebnis.invoiceUrl);
+      melden("abschluss", "Rechnung erzeugt und verschickt.");
+    });
   }
 
   if (!kunde) {
@@ -1013,6 +1042,31 @@ export function PosTerminal({
                   >
                     Nächster Verkauf
                   </Button>
+
+                  {/*
+                    Zusätzlich zum Beleg: ein Händler mit Konto will oft eine
+                    echte Rechnung mit Rechnungsnummer für seine Buchhaltung.
+                    Eigene Zeile, nicht im Raster mit Beleg/Bon – das ist der
+                    Knopf, der hier neu dazukommt und den Blick verdient.
+                  */}
+                  {rechnungUrl ? (
+                    <Button asChild variant="outline" className="w-full">
+                      <a href={rechnungUrl} target="_blank" rel="noopener noreferrer">
+                        <FileText className="size-4" aria-hidden /> Rechnung als PDF
+                      </a>
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full"
+                      disabled={rechnungErzeugend}
+                      onClick={rechnungErzeugen}
+                    >
+                      <FileText className="size-4" aria-hidden />
+                      {rechnungErzeugend ? "Rechnung wird erzeugt …" : "Rechnung erzeugen"}
+                    </Button>
+                  )}
 
                   <div className="grid gap-2 sm:grid-cols-2">
                     {abschluss.receiptUrl ? (

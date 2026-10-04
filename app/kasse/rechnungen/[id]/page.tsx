@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { InvoiceStatusSelect } from "@/components/admin/invoice-status-select";
 import { formatDate, formatPrice, formatQuantity } from "@/lib/format";
-import { getManualInvoice } from "@/lib/queries/admin";
+import { getAdminInvoiceDetail } from "@/lib/queries/admin";
 import { getInvoiceUrl } from "@/lib/storage";
 import { INVOICE_STATUS_LABELS } from "@/lib/types";
 
@@ -12,7 +12,7 @@ export async function generateMetadata({
   params,
 }: PageProps<"/kasse/rechnungen/[id]">): Promise<Metadata> {
   const { id } = await params;
-  const invoice = await getManualInvoice(id);
+  const invoice = await getAdminInvoiceDetail(id);
   return { title: invoice ? `Rechnung ${invoice.invoice_number}` : "Rechnung" };
 }
 
@@ -20,7 +20,7 @@ export default async function AdminInvoiceDetailPage({
   params,
 }: PageProps<"/kasse/rechnungen/[id]">) {
   const { id } = await params;
-  const invoice = await getManualInvoice(id);
+  const invoice = await getAdminInvoiceDetail(id);
   if (!invoice) notFound();
 
   const invoiceUrl = await getInvoiceUrl(invoice.file_path);

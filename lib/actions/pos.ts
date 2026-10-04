@@ -6,7 +6,13 @@ import { requireAdmin } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { INVOICE_BUCKET } from "@/lib/constants";
-import { buildPosReceiptPdfData, generateInvoicePdf } from "@/lib/invoice";
+import {
+  buildPosReceiptPdfData,
+  buildPosSaleInvoicePdfData,
+  generateInvoicePdf,
+} from "@/lib/invoice";
+import { sendEmail } from "@/lib/email";
+import { manualInvoiceEmail } from "@/lib/emails/manual-invoice";
 import { getCompanySettings } from "@/lib/queries/settings";
 import {
   findProductByCode,
@@ -16,7 +22,7 @@ import {
   type PosProduct,
 } from "@/lib/queries/pos";
 import { getInvoiceUrl } from "@/lib/storage";
-import type { AppUser, PosSale } from "@/lib/types";
+import type { AppUser, Invoice, PosSale } from "@/lib/types";
 
 /**
  * Server Actions der Ladenkasse.
@@ -453,4 +459,97 @@ export async function getPosReceiptUrl(saleId: string): Promise<string | null> {
   if (!sale) return null;
   if (sale.file_path) return getInvoiceUrl(sale.file_path);
   return erzeugeBeleg(saleId);
+}
+
+export interface PosSaleInvoiceResult {
+  invoiceUrl?: string;
+  error?: string;
+}
+
+/**
+ * Rechnung zu einem bereits gebuchten Kassenverkauf erzeugen, hochladen und
+ * per Mail verschicken – zusätzlich zum Beleg, nicht statt ihm. Nur für
+ * Verkäufe mit Kundenkonto (Großhandel); create_invoice_for_pos_sale() in der
+ * Datenbank weist einen Barverkauf ohne Konto ab (Migration 050).
+ *
+ * Ein zweiter Aufruf für denselben Verkauf legt keine zweite Nummer an
+ * (ON CONFLICT in create_invoice_for_pos_sale) und baut das PDF nur neu, wenn
+ * es noch fehlt.
+ */
+export async function createPosSaleInvoice(saleId: string): Promise<PosSaleInvoiceResult> {
+  await requireAdmin();
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("create_invoice_for_pos_sale", {
+    p_sale_id: saleId,
+  });
+
+  if (error || !data) {
+    console.error("[kasse] create_invoice_for_pos_sale:", error?.message);
+    return {
+      // Die Meldung aus der Datenbank ("kein Kundenkonto") ist hier bewusst
+      // durchgereicht, wie bei completePosSale().
+      error: error?.message ?? "Die Rechnung konnte nicht angelegt werden.",
+    };
+  }
+
+  const invoice = data as Invoice;
+
+  if (invoice.file_path) {
+    revalidatePath("/kasse/rechnungen");
+    return { invoiceUrl: (await getInvoiceUrl(invoice.file_path)) ?? undefined };
+  }
+
+  const sale = await getPosSale(saleId);
+  if (!sale || !sale.customer) {
+    return { error: "Der Verkauf konnte nicht geladen werden." };
+  }
+
+  try {
+    const company = await getCompanySettings();
+    const pdfBytes = await generateInvoicePdf(
+      buildPosSaleInvoicePdfData(
+        invoice.invoice_number,
+        invoice.issued_at,
+        sale,
+        sale.items ?? [],
+        sale.customer,
+        company,
+        // Dasselbe Kriterium wie beim Beleg: ein Kundenkonto zahlt immer die
+        // Netto-Staffelpreise, nie den brutto gelesenen Ladenpreis.
+        sale.customer_id ? false : company.pos_prices_gross,
+      ),
+    );
+
+    const filePath = `${invoice.id}/${invoice.invoice_number}.pdf`;
+    const admin = createAdminClient();
+    const { error: uploadError } = await admin.storage
+      .from(INVOICE_BUCKET)
+      .upload(filePath, pdfBytes, { contentType: "application/pdf", upsert: true });
+
+    if (uploadError) {
+      console.error("[kasse] Rechnung hochladen:", uploadError.message);
+      return { error: "Das PDF konnte nicht hochgeladen werden." };
+    }
+
+    await admin.from("invoices").update({ file_path: filePath }).eq("id", invoice.id);
+
+    try {
+      const mail = manualInvoiceEmail(invoice);
+      await sendEmail({
+        to: sale.customer.email,
+        ...mail,
+        attachments: [{ filename: `${invoice.invoice_number}.pdf`, content: pdfBytes }],
+      });
+    } catch (fehler) {
+      // Die Rechnung liegt zu diesem Zeitpunkt gestellt und hochgeladen vor.
+      console.error("[kasse] Rechnungsmail:", fehler);
+    }
+
+    revalidatePath("/kasse/rechnungen");
+    return { invoiceUrl: (await getInvoiceUrl(filePath)) ?? undefined };
+  } catch (fehler) {
+    console.error("[kasse] Rechnung erzeugen:", fehler);
+    return { error: "Die Rechnung konnte nicht erzeugt werden." };
+  }
 }

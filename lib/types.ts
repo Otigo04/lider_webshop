@@ -264,12 +264,14 @@ export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
   overdue: "Überfällig",
 };
 
-export type InvoiceType = "order" | "manual";
+export type InvoiceType = "order" | "manual" | "pos";
 
 export interface Invoice {
   id: string;
   /** null bei freien Rechnungen ohne Bestellbezug (type "manual") */
   order_id: string | null;
+  /** nur bei einer Rechnung zu einem Kassenverkauf gesetzt (type "pos") */
+  pos_sale_id: string | null;
   customer_id: string;
   type: InvoiceType;
   invoice_number: string;
@@ -278,7 +280,7 @@ export interface Invoice {
   status: InvoiceStatus;
   /** Nur bei freien Rechnungen gepflegt (z. B. "Beratung März 2026") */
   notes: string | null;
-  /** Nur bei freien Rechnungen befüllt – Bestellungs-Rechnungen nutzen order.total_amount (netto) */
+  /** Nur bei freien Rechnungen und Kassen-Rechnungen befüllt – Bestellungs-Rechnungen nutzen order.total_amount (netto) */
   net_amount: number | null;
   vat_amount: number;
   total_amount: number | null;

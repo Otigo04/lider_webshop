@@ -170,6 +170,74 @@ export function buildPosReceiptPdfData(
 }
 
 /**
+ * Rechnung zu einem Kassenverkauf (Migration 050).
+ *
+ * Nur für Verkäufe mit Kundenkonto (Großhandel) – ein Barverkauf hat dafür
+ * den Beleg. Gleiches Layout wie buildPosReceiptPdfData(), nur mit der
+ * Rechnungsnummer statt der Belegnummer und ohne "Kassenbeleg"-Titel (Vorgabe
+ * "Rechnung"). paymentNote bleibt wie beim Beleg gesetzt: der Verkauf ist an
+ * der Kasse schon bezahlt, ein Fälligkeitsdatum läse sich wie eine offene
+ * Forderung.
+ */
+export function buildPosSaleInvoicePdfData(
+  invoiceNumber: string,
+  issuedAt: string,
+  sale: {
+    receipt_number: string;
+    payment_method: "cash" | "card";
+    vat_rate: number;
+    net_amount: number;
+    vat_amount: number;
+    total_amount: number;
+    note: string | null;
+  },
+  items: {
+    product_name: string;
+    product_sku: string;
+    quantity: number;
+    unit_price: number;
+    subtotal: number;
+  }[],
+  customer: AppUser,
+  company: CompanySettings,
+  pricesGross: boolean,
+): InvoicePdfData {
+  const zahlart = sale.payment_method === "card" ? "Karte" : "bar";
+
+  return {
+    invoiceNumber,
+    issuedAt,
+    reference: `Verkauf ${sale.receipt_number}${sale.note ? ` · ${sale.note}` : ""}`,
+    customerName: customer.company_name || customer.full_name || "–",
+    customerNumber: customer.customer_number ?? null,
+    customerStreet: customer.billing_street,
+    customerZip: customer.billing_zip,
+    customerCity: customer.billing_city,
+    customerVatId: customer.vat_id,
+    items: items.map((item) => ({
+      description: item.product_name,
+      sku: item.product_sku,
+      quantity: toNumber(item.quantity),
+      unitPrice: toNumber(item.unit_price),
+      subtotal: toNumber(item.subtotal),
+    })),
+    netTotal: toNumber(sale.net_amount),
+    vatTotal: toNumber(sale.vat_amount),
+    grossTotal: toNumber(sale.total_amount),
+    vatBreakdown: [
+      {
+        rate: toNumber(sale.vat_rate),
+        net: toNumber(sale.net_amount),
+        vat: toNumber(sale.vat_amount),
+      },
+    ],
+    itemPricesGross: pricesGross,
+    paymentNote: `Betrag ${zahlart} erhalten. Vielen Dank für Ihren Einkauf.`,
+    company,
+  };
+}
+
+/**
  * Anschrift, an die die Ware geht – mehrzeilig, oder null, wenn sie sich mit
  * der Rechnungsanschrift deckt.
  *
