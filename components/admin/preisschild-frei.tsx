@@ -215,7 +215,13 @@ export function PreisschildFrei({
   const [kategorieId, setKategorieId] = useState(
     () => vorgabeKategorie ?? kategorien[0]?.id ?? "",
   );
-  const [bestand, setBestand] = useState(0);
+  /*
+   * Vorgabe 1, nicht 0: der Code kommt gerade von einem Scan, die Ware liegt
+   * in der Hand. createQuickProduct() verlangt inzwischen ohnehin mindestens
+   * 1 – die Vorgabe hier erspart nur den Tastendruck für den Regelfall „ein
+   * Stück".
+   */
+  const [bestand, setBestand] = useState(1);
   /**
    * Einkaufspreis (Migration 047) – nur fürs Haus.
    *
@@ -543,13 +549,22 @@ export function PreisschildFrei({
    * jede Abfrage darunter wäre eine Antwort auf eine halb getippte Nummer.
    */
   useEffect(() => {
+    /*
+     * Nicht beim Bearbeiten: „Abgeglichen wird nur ein neues Schild" (siehe
+     * CLAUDE.md). Ohne diese Grenze überschreibt ein Scan oder eine Korrektur
+     * im Barcode-Feld eines bereits abgelegten Schilds lautlos dessen Angaben
+     * mit denen eines ganz anderen Artikels – die Namenssuche und legeAb()
+     * halten dieselbe Grenze schon ein, dieser Hintergrundabgleich hielt sie
+     * nicht.
+     */
+    if (bearbeitet) return;
     const code = entwurf.barcode.trim();
     if (!code || code === aufgeloest || code.length < 6) return;
     const uhr = setTimeout(() => {
       void aufloesen(code, { still: true });
     }, 450);
     return () => clearTimeout(uhr);
-  }, [entwurf.barcode, aufgeloest, aufloesen]);
+  }, [entwurf.barcode, aufgeloest, aufloesen, bearbeitet]);
 
   /**
    * Entwurf aufs Blatt legen – oder das bearbeitete Schild ändern.
@@ -723,7 +738,7 @@ export function PreisschildFrei({
     // das nächste Schild hinge an demselben Artikel.
     setAufgeloest(null);
     setTreffer(null);
-    setBestand(0);
+    setBestand(1);
     setEinkauf(0);
     zurueckZumFeld();
   }
@@ -768,7 +783,7 @@ export function PreisschildFrei({
     setEntwurf(LEER);
     setAufgeloest(null);
     setTreffer(null);
-    setBestand(0);
+    setBestand(1);
     setBasisPreis(0);
     setBasisGh(0);
     zurueckZumFeld();
@@ -1000,8 +1015,11 @@ export function PreisschildFrei({
                   onChange={(event) => feld({ barcode: event.target.value })}
                   onBlur={() => {
                     // Von Hand getippt und weggeklickt: nachsehen, bevor
-                    // jemand auf den Knopf drückt.
-                    if (code && code !== aufgeloest) void aufloesen(code);
+                    // jemand auf den Knopf drückt. Nicht beim Bearbeiten –
+                    // dieselbe Grenze wie beim Hintergrundabgleich oben.
+                    if (code && code !== aufgeloest && !bearbeitet) {
+                      void aufloesen(code);
+                    }
                   }}
                   /*
                    * Kein Sonderfall für Enter mehr: ein Handscanner schließt

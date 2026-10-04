@@ -76,15 +76,24 @@ export interface SchildLabel {
 export const SEITE = { breite: 210, hoehe: 297 } as const;
 
 /**
- * Rand des Bogens. 8 mm, weil kein üblicher Bürodrucker näher an die Kante
- * kommt – ein randlos gesetztes Raster verlöre die äußere Schilderreihe.
+ * Rand rechts und unten. 8 mm, weil kein üblicher Bürodrucker näher an die
+ * Kante kommt – ein randlos gesetztes Raster verlöre dort die äußere
+ * Schilderreihe.
  */
 export const RAND = 8;
 
+/**
+ * Rand oben und links – bewusst 0. Das Raster liegt mit der ersten Zeile und
+ * Spalte direkt an der Papierkante: wer schneidet, braucht dafür keinen
+ * eigenen Schnitt mehr, die Kante des Blatts ist bereits die Kante des
+ * Schilds. Geschnitten wird nur noch innen und rechts/unten (`RAND`).
+ */
+export const RAND_OBEN_LINKS = 0;
+
 /** Nutzfläche eines A4-Bogens innerhalb des Druckrands. */
 export const FLAECHE = {
-  breite: SEITE.breite - 2 * RAND,
-  hoehe: SEITE.hoehe - 2 * RAND,
+  breite: SEITE.breite - RAND_OBEN_LINKS - RAND,
+  hoehe: SEITE.hoehe - RAND_OBEN_LINKS - RAND,
 } as const;
 
 /**

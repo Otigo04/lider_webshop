@@ -128,7 +128,19 @@ function zuPreisschildArtikel(row: ProductZeile): PreisschildArtikel {
     einkauf: ueberNull(
       (Array.isArray(row.cost) ? row.cost[0] : row.cost)?.cost_price,
     ),
-    vorher: ueberNull(row.list_price),
+    /*
+     * Ohne gepflegten Ladenpreis keine Reduzierung (siehe CLAUDE.md,
+     * Abschnitt „Reduzierte Artikel"): `preis` fällt oben ohne `laden` auf die
+     * Großhandelsstaffel zurück, und `schildPreis()` übergibt genau dieses
+     * `preis` an `reduzierung()` als Bezug. Stünde hier trotzdem der rohe
+     * `list_price`, würde die Staffel lautlos als Ladenpreis durchgehen und
+     * die Reduzierung gegen den Großhandelspreis gerechnet – mal ergäbe das
+     * keine Reduzierung mehr (weißes Schild mit dem alten Preis), mal eine
+     * falsche (der eigentlich reduzierte Preis stünde als normaler da). Genau
+     * der Fehler, den Migration 045 im Shop schon behoben hat, hier aber
+     * nicht mitgezogen war.
+     */
+    vorher: laden !== null ? ueberNull(row.list_price) : null,
     bestand: toNumber(row.stock_available),
   };
 }

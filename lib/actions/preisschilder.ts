@@ -373,7 +373,10 @@ export async function legeSchildArtikelAn(input: {
     retail_price: input.retailPrice > 0 ? input.retailPrice : null,
     cost_price:
       input.costPrice && input.costPrice > 0 ? input.costPrice : null,
-    stock_available: Math.max(0, Math.round(input.stock ?? 0)),
+    // Mindestens 1 – createQuickProduct() verlangt das jetzt auch (siehe dort):
+    // ein frisch gescannter Code steht für Ware in der Hand, nicht für ein
+    // Regal ohne Bestand.
+    stock_available: Math.max(1, Math.round(input.stock ?? 1)),
   });
 
   if (ergebnis.error || !ergebnis.product) {

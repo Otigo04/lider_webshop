@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { PreisschildVorschau } from "@/components/admin/preisschild-vorschau";
 import {
   RAND,
+  RAND_OBEN_LINKS,
   SEITE,
   raster,
   type Preisschild,
@@ -109,7 +110,10 @@ export function PreisschildBogenVorschau({
                     left: 0,
                     width: `${SEITE.breite}mm`,
                     height: `${SEITE.hoehe}mm`,
-                    padding: `${RAND}mm`,
+                    // Dieselbe asymmetrische Randverteilung wie im Druckbogen
+                    // (lib/preisschild-bogen.ts): oben/links 0, Kante ist
+                    // Schnitt; rechts/unten der Druckerrand.
+                    padding: `${RAND_OBEN_LINKS}mm ${RAND}mm ${RAND}mm ${RAND_OBEN_LINKS}mm`,
                     transform: `scale(${skala})`,
                     transformOrigin: "top left",
                   }}

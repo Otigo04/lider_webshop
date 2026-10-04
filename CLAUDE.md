@@ -555,6 +555,17 @@ wird: nicht aufs Preisschild, nicht auf Bon, Beleg, Z-Bon oder Rechnung.
   Preisschild Bestand ohne Herkunft: `stock_available` am Artikel, nichts in
   `stock_entries`. Scheitert sie, bleibt der Artikel verkaufsfähig – eine
   Lücke in der Historie ist weniger schlimm als ein wartender Kunde.
+- **Bestand im freien Preisschild-Generator mindestens 1, ohne Fehlermeldung.**
+  `legeSchildArtikelAn()` klemmt den Wert auf `Math.max(1, …)`, bevor er an
+  `createQuickProduct()` geht; die Vorgabe im Formular steht schon auf „1".
+  Ein frisch gescannter Code steht für Ware in der Hand, und das Anlegen soll
+  daran nicht hängen bleiben – anders als bei einer echten Fehleingabe wird
+  hier stillschweigend nach oben gerundet, nicht abgelehnt. **Nur dieser Weg.**
+  `createQuickProduct()` selbst erlaubt weiterhin 0: die Kasse legt auch
+  Artikel an, die erst noch geliefert werden (Vorbestellung, noch keine
+  Stückzahl im Haus) – ihr Anlegedialog zeigt „1" nur als Vorschlag, kein
+  Zwang. Dieselbe Funktion, zwei Aufrufer, zwei Erwartungen: die Grenze
+  gehört an den Aufrufer, der sie braucht, nicht an die gemeinsame Funktion.
 
 ---
 
@@ -573,7 +584,18 @@ mehr als 0 % Ersparnis übrig bleiben. Ein Cent Unterschied ist kein Angebot.
   Rückfall auf den Großhandelspreis erfände einen Rabatt. Das Preisschild
   übergibt seinen Schildpreis (Ladenpreis, ersatzweise Staffel) selbst als
   Bezug. `reduzierung(list, angezeigt, laden)` – der dritte Parameter ist
-  Pflicht, damit kein Aufrufer ihn vergisst.
+  Pflicht, damit kein Aufrufer ihn vergisst. **Der Generator unter
+  `/admin/preisschilder` und `/admin/preisschilder/frei` bekommt `vorher`
+  deshalb erst gar nicht gereicht, wenn kein Ladenpreis gepflegt ist** –
+  `zuPreisschildArtikel()` in `lib/queries/preisschilder.ts` setzt es auf
+  `null`, sobald `preis` auf die Staffel zurückgefallen ist. Ohne diese
+  Sperre reichte die Staffel als „Ladenpreis" an `schildPreis()` durch (sie
+  ist ja ebenfalls > 0), und die Reduzierung wurde gegen die Staffel
+  gerechnet statt gegen einen echten Ladenpreis – je nach Verhältnis beider
+  Zahlen mal gar keine Reduzierung (weißes Schild mit dem alten Preis), mal
+  eine erfundene (der reduzierte Preis stand als normaler Preis da). Scannt
+  jemand einen reduzierten Artikel, kommt das Schild jetzt nur dann rot, wenn
+  am Artikel wirklich ein Ladenpreis über dem Streichpreis steht.
 - **Im Shop wird der Prozentsatz übertragen**: angezeigt wird der
   Großhandelspreis, der Streichpreis ist derselbe Preis vor der Reduzierung
   (`jetzt × list / laden`). In der Karte `range.from`, auf der Artikelseite
@@ -909,6 +931,16 @@ setzen, drucken – A4 mit Schnittlinien.
   ausgerechnet auf dem roten Schild unsichtbar. Die Ebene ist so groß wie die
   Schilder zusammen, nicht wie die Nutzfläche – auf dem Reststreifen hat keine
   Schnittlinie etwas zu suchen.
+- **Rand nur rechts und unten** (`RAND`, 8 mm – näher kommt kein üblicher
+  Bürodrucker an die Kante). Oben und links ist der Rand `RAND_OBEN_LINKS`,
+  bewusst 0: das Raster beginnt direkt an der Papierkante, die Kante selbst
+  ist dort schon der Schnitt. Wer zerschneidet, braucht also nur noch die
+  inneren Linien und den rechten/unteren Rand zu schneiden, nicht alle vier
+  Seiten. Dieselbe asymmetrische Randverteilung steht an zwei Stellen –
+  Druckbogen (`lib/preisschild-bogen.ts`) und Bildschirmvorschau
+  (`components/admin/preisschild-bogen-vorschau.tsx`) – aus demselben Grund
+  wie bei den Maßen: zwei auseinanderlaufende Zahlensätze wären eine Vorschau,
+  die nicht mehr stimmt.
 - Die letzte Seite bleibt angebrochen; leere Zellen sind weißes Papier, kein
   Fehler.
 - Ein zweiter Klick auf denselben Artikel heißt „noch eins", nicht „noch eine
@@ -1066,7 +1098,15 @@ Der Scan steht oben im Formular, weil er den Rest bestimmt:
   Schild ohne Nummer wird nie zusammengelegt.
 - **Abgeglichen wird nur ein neues Schild.** Wer ein Schild nachträglich
   ändert, korrigiert Papier – daraus einen Artikel anzulegen wäre eine
-  Nebenwirkung, mit der niemand rechnet.
+  Nebenwirkung, mit der niemand rechnet. Gilt für **alle** Auslöser eines
+  Abgleichs – Namenssuche, Hintergrundabfrage beim Tippen *und* das Verlassen
+  des Barcode-Felds –, nicht nur für den Scan selbst: ein Code im Feld eines
+  gerade bearbeiteten Schilds (`bearbeitet`) löst keinen Abgleich aus. Fehlte
+  diese Grenze bei den letzten beiden, überschrieb ein Scan oder eine
+  Korrektur im Barcode-Feld während der Bearbeitung lautlos Name, Preise und
+  `productId` des bearbeiteten Schilds mit denen eines fremden Artikels –
+  „Änderung übernehmen" schrieb den dann unter der ursprünglichen Kennung auf
+  den Bogen, und das sah aus wie ein verschwundenes Schild.
 - **Namenssuche im Bezeichnungsfeld**
   (`components/admin/preisschild-artikel-suche.tsx`,
   `sucheSchildArtikelNachName()` auf `getPreisschildArtikel()`): schwebende

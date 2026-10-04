@@ -10,6 +10,7 @@ import {
   NAME_ZEILE,
   PREIS_ABSTAND,
   RAND,
+  RAND_OBEN_LINKS,
   SCHRIFT,
   SEITE,
   fussAufteilung,
@@ -259,7 +260,9 @@ export function buildLabelSheetHtml(
     position: relative;
     width: ${mm(SEITE.breite)};
     height: ${mm(SEITE.hoehe)};
-    padding: ${mm(RAND)};
+    /* Oben/links 0: das Raster sitzt direkt an der Papierkante, die Kante
+       ersetzt dort den Schnitt. Rechts/unten bleibt der Druckerrand. */
+    padding: ${mm(RAND_OBEN_LINKS)} ${mm(RAND)} ${mm(RAND)} ${mm(RAND_OBEN_LINKS)};
     margin: 0 auto 10mm;
     background: #fff;
     box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
@@ -282,8 +285,8 @@ export function buildLabelSheetHtml(
      hat keine Schnittlinie etwas zu suchen. */
   .linien {
     position: absolute;
-    top: ${mm(RAND)};
-    left: ${mm(RAND)};
+    top: ${mm(RAND_OBEN_LINKS)};
+    left: ${mm(RAND_OBEN_LINKS)};
     width: ${mm(r.rasterB)};
     height: ${mm(r.rasterH)};
     pointer-events: none;
