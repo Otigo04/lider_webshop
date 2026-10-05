@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
 import {
+  BookOpen,
   Building2,
   FileText,
   FolderTree,
@@ -34,6 +35,7 @@ const ICONS = {
   ausfuehrungen: Layers,
   bestand: PackagePlus,
   preisschilder: Tags,
+  kataloge: BookOpen,
   kategorien: FolderTree,
   kunden: Users,
   bestellungen: ShoppingCart,

@@ -236,6 +236,9 @@ export function ausfuehrungMm(mitBarcode: boolean): number {
   return mitBarcode ? 8.5 : 5.2;
 }
 
+/** Innenabstand eines Angebots oben und unten zusammen, in mm. */
+export const ANGEBOT_RAND_MM = 3;
+
 /** Ein Angebot ist nie flacher als das – sonst hätte das Foto keinen Platz. */
 const ANGEBOT_MIN_MM = 38;
 
@@ -257,7 +260,9 @@ export function angebotEinheiten(
   }
   const bedarf = Math.max(
     ANGEBOT_MIN_MM,
-    ANGEBOT_KOPF_MM + (n + 1) * ausfuehrungMm(mitBarcode),
+    // Titel, Tabellenkopf und je Ausführung eine Zeile, dazu der Rand –
+    // fehlte er in der Rechnung, schnitte die Zelle die letzte Zeile ab.
+    ANGEBOT_RAND_MM + ANGEBOT_KOPF_MM + (n + 1) * ausfuehrungMm(mitBarcode),
   );
   return Math.ceil(bedarf / einheitMm(layout));
 }

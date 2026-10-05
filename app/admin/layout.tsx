@@ -25,6 +25,7 @@ const ADMIN_TABS: AdminTab[] = [
   { href: "/admin/gruppen", label: "Ausführungen", icon: "ausfuehrungen" },
   { href: "/admin/bestand", label: "Bestand", icon: "bestand" },
   { href: "/admin/preisschilder", label: "Preisschilder", icon: "preisschilder" },
+  { href: "/admin/kataloge", label: "Kataloge", icon: "kataloge" },
   { href: "/admin/categories", label: "Kategorien", icon: "kategorien" },
   { href: "/admin/customers", label: "Kunden", icon: "kunden" },
   { href: "/admin/orders", label: "Bestellungen", icon: "bestellungen" },

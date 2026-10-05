@@ -3,6 +3,7 @@ import { barcode as strichcode, MODUL_MIN, MODUL_NENN } from "@/lib/barcode";
 import { formatDate, formatPrice } from "@/lib/format";
 import {
   ANGEBOT_KOPF_MM,
+  ANGEBOT_RAND_MM,
   FUSS,
   KOPF,
   NUTZ,
@@ -139,6 +140,14 @@ function mengenangabe(ab: number): string {
   return `ab ${new Intl.NumberFormat("de-DE").format(ab)} St.`;
 }
 
+/**
+ * Mengenangabe einer Staffel – leer, wenn es nur einen Preis ab einem Stück
+ * gibt. „ab 1 St." über dem einzigen Preis ist eine Zeile, die nichts sagt.
+ */
+function stufe(s: KatalogStaffel, alle: KatalogStaffel[]): string {
+  return alle.length === 1 && s.ab <= 1 ? "" : mengenangabe(s.ab);
+}
+
 function merkmalText(artikel: KatalogArtikel): string {
   return artikel.merkmale
     .map((m) => (m.merkmal ? `${m.merkmal}: ${m.wert}` : m.wert))
@@ -218,7 +227,9 @@ function kachel(block: ArtikelBlock, k: Kontext): string {
         ? `<table class="staffeln">${(preis?.staffeln.length ?? 0) > 1 ? kuerze(preis!.staffeln, 4).map((s) => `<tr><td>${esc(mengenangabe(s.ab))}</td><td>${esc(formatPrice(s.preis))}</td></tr>`).join("") : ""}</table>`
         : `<div class="staffel">${staffelzeile(preis)}</div>`;
 
-  return `<div class="zelle kachel" style="${platz(block)}">
+  const letzte = block.spalte === RASTER[k.e.layout].spalten - 1;
+
+  return `<div class="zelle kachel${letzte ? " letzte" : ""}" style="${platz(block)}">
     <div class="foto">${foto(a.bildUrl, gross ? 828 : 640)}<div class="marken">${kennzeichen(a, k)}</div>${prozentfeld(preis, k)}</div>
     <div class="name">${esc(a.name)}</div>
     <div class="nr">Art.-Nr. ${esc(a.sku)}</div>
@@ -258,7 +269,7 @@ function listenpreise(preis: KatalogPreis | null, k: Kontext): string {
       if (!s) return `<div class="lp"></div>`;
       const rot = i === 0 && reduziert;
       return `<div class="lp${rot ? " red" : ""}">
-        <span class="pz">${esc(mengenangabe(s.ab))}${rot ? ` <s>${esc(formatPrice(reduziert.vorher))}</s>` : ""}</span>
+        <span class="pz">${esc(stufe(s, staffeln))}${rot ? ` <s>${esc(formatPrice(reduziert.vorher))}</s>` : ""}</span>
         <span class="pb">${esc(formatPrice(s.preis))}</span>
       </div>`;
     })
@@ -338,7 +349,7 @@ function angebot(block: AngebotBlock, k: Kontext): string {
         const s = staffeln[index][i];
         if (!s) return `<td class="r"></td>`;
         const rot = i === 0 && reduziert;
-        return `<td class="r${rot ? " red" : ""}">${einheitlich ? "" : `<span class="pz">${esc(mengenangabe(s.ab))}</span> `}${rot ? `<s>${esc(formatPrice(reduziert.vorher))}</s> ` : ""}<b>${esc(formatPrice(s.preis))}</b></td>`;
+        return `<td class="r${rot ? " red" : ""}">${einheitlich ? "" : `<span class="pz">${esc(stufe(s, staffeln[index]))}</span> `}${rot ? `<s>${esc(formatPrice(reduziert.vorher))}</s> ` : ""}<b>${esc(formatPrice(s.preis))}</b></td>`;
       }).join("");
 
       return `<tr style="height:${mm(zeilenhoehe)}">
@@ -353,7 +364,7 @@ function angebot(block: AngebotBlock, k: Kontext): string {
   return `<div class="zelle angebot${liste ? " in-liste" : ""}" style="${platz(block)}">
     <div class="foto">${foto(block.bildUrl, liste ? 256 : 640)}</div>
     <div class="rechts">
-      <div class="kopf" style="height:${mm(kopfhoehe)}">
+      <div class="titelzeile" style="height:${mm(kopfhoehe)}">
         <div class="name">${esc(block.titel)}${block.fortsetzung ? ` <span class="forts">Fortsetzung</span>` : ""}</div>
         ${k.e.zeigeBeschreibung && !block.fortsetzung ? `<div class="text">${esc(block.beschreibung ?? "")}</div>` : ""}
       </div>
@@ -620,7 +631,8 @@ export function buildKatalogHtml(
     background: #fff; border-bottom: 1px solid #d1d5db;
     font-size: 13px;
   }
-  .leiste b { font-weight: 600; }
+  .leiste b { font-weight: 600; white-space: nowrap; }
+  .leiste button { white-space: nowrap; }
   .leiste span { color: ${GRAU}; }
   .leiste button {
     margin-left: auto; padding: 7px 14px;
@@ -707,6 +719,8 @@ export function buildKatalogHtml(
     border-bottom: 0.25pt solid ${LINIE};
     border-right: 0.25pt solid ${LINIE};
   }
+  /* Am Seitenrand steht keine Linie – dort endet das Blatt. */
+  .kachel.letzte { border-right: 0; }
   .kachel .foto { flex: 1 1 0; margin-bottom: 1.4mm; }
   .kachel .marken { position: absolute; top: 0; left: 0; display: flex; gap: 1mm; }
   .kachel .name { font-size: 8.5pt; line-height: ${mm(zl.name)}; height: ${mm(zl.name * 2)}; flex: none; }
@@ -746,17 +760,14 @@ export function buildKatalogHtml(
   /* --- Ausführungs-Angebot -------------------------------------------- */
   .angebot {
     display: flex; gap: 4mm;
-    padding: 1.5mm 0;
+    padding: ${mm(ANGEBOT_RAND_MM / 2)} 0;
     border-bottom: 0.25pt solid ${LINIE};
   }
   .angebot > .foto { flex: none; width: 40mm; align-self: flex-start; height: 100%; max-height: 40mm; }
   .angebot.in-liste { gap: 3mm; padding: 0; }
   .angebot.in-liste > .foto { width: 11mm; height: ${mm(u * 2 - 1.4)}; margin-top: 0.7mm; }
   .angebot .rechts { flex: 1 1 0; min-width: 0; }
-  .angebot .kopf {
-    display: flex; flex-direction: column; justify-content: center;
-    height: auto; margin: 0; border: 0;
-  }
+  .angebot .titelzeile { display: flex; flex-direction: column; justify-content: center; }
   .angebot .name { font-size: 10pt; line-height: 4.2mm; -webkit-line-clamp: 1; }
   .angebot.in-liste .name { font-size: 8.5pt; }
   .angebot .text { -webkit-line-clamp: 1; }

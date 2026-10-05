@@ -150,8 +150,13 @@ export async function duplicateKatalog(id: string): Promise<AdminFormState> {
   return { success: "Kopie angelegt." };
 }
 
-export async function deleteKatalog(id: string): Promise<AdminFormState> {
+/** Für ConfirmAction: die Kennung reist als Formularfeld `id`. */
+export async function deleteKatalog(
+  _prevState: AdminFormState,
+  formData: FormData,
+): Promise<AdminFormState> {
   await requireAdmin();
+  const id = formData.get("id");
   if (!idSchema.safeParse(id).success) return { error: "Kein Katalog ausgewählt." };
 
   const supabase = await createClient();
