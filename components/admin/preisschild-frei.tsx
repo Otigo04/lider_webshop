@@ -20,7 +20,7 @@ import { PreisschildVorschau } from "@/components/admin/preisschild-vorschau";
 import { KassenStatus, useKassenMeldung } from "@/components/pos/kassen-status";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { updateProductField } from "@/lib/actions/admin-products";
+import { setzeAktionspreis, updateProductField } from "@/lib/actions/admin-products";
 import {
   legeSchildArtikelAn,
   sucheSchildArtikel,
@@ -37,9 +37,11 @@ import {
   schildPreis,
   type LabelOption,
   type Preisschild,
+  schildLabel,
   type SchildFormat,
 } from "@/lib/preisschild";
 import {
+  MAX_SCHILDER,
   getFreiServerStand,
   getFreiStand,
   setzeFormat,
@@ -109,13 +111,6 @@ const LEER: Entwurf = {
   anzahl: 1,
   productId: null,
 };
-
-/**
- * Höchstzahl der Schilder – dieselbe Grenze wie im Druckbogen (MAX_SCHILDER
- * in der Route), hier aber schon beim Tippen wirksam, damit der Bogen nicht
- * erst beim Öffnen mit einem Fehler abbricht.
- */
-const MAX_SCHILDER = 1000;
 
 /**
  * Angaben eines Artikels in Entwurfswerte überführen.
@@ -241,6 +236,7 @@ export function PreisschildFrei({
    */
   const [basisPreis, setBasisPreis] = useState(0);
   const [basisGh, setBasisGh] = useState(0);
+  const [basisVorher, setBasisVorher] = useState(0);
 
   const { meldung, melden } = useKassenMeldung();
 
@@ -292,7 +288,7 @@ export function PreisschildFrei({
         code: ghCode(e.gh),
         barcode: mitBarcode ? e.barcode.trim() || null : null,
         icon: icon?.url ?? null,
-        label: label ? { name: label.name, farbe: label.farbe } : null,
+        label: schildLabel(label ? { name: label.name, farbe: label.farbe } : null, vorher),
       };
     };
   }, [icons, labels, mitBarcode]);
@@ -427,41 +423,45 @@ export function PreisschildFrei({
     // Einkaufspreis: ohne Reset gälte der Stand des vorigen Treffers.
     setBasisPreis(artikel.preis ?? 0);
     setBasisGh(artikel.grosshandel ?? 0);
+    setBasisVorher(artikel.vorher ?? 0);
   }, []);
 
   /**
-   * Preis beim Verlassen des Felds an den Artikel zurückschreiben.
+   * Preis und Streichpreis beim Verlassen eines der beiden Felder an den
+   * Artikel zurückschreiben – als Paar, in einer Schreibung
+   * (setzeAktionspreis()).
    *
-   * Nur für einen frisch gefundenen Artikel (`gefunden`, kein nachträglich
-   * bearbeitetes Schild aus dem Blatt – dieselbe Grenze wie beim
-   * Artikelabgleich selbst: „Abgeglichen wird nur ein neues Schild"). Wer den
-   * Preis eines bekannten Artikels hier ändert, ändert meistens den
-   * tatsächlichen Ladenpreis – das Schild ist das Werkzeug dafür. Ausgenommen
-   * ein reduzierter Artikel (`entwurf.vorher > 0`): der Preis ist die Aktion
-   * dieses Schilds, keine neue Dauerpreisangabe.
+   * Nur für einen Artikel (`productId`), auch für ein aus dem Blatt
+   * zurückgeholtes Schild: wer das Papier korrigiert, korrigiert in aller
+   * Regel auch den tatsächlichen Preis. Der Artikel folgt dem Schild: mit
+   * Streichpreis über dem Preis steht er danach als reduziert da (Katalog,
+   * Shop, Filter, Label „Reduziert"), ohne ist er wieder regulär – ein
+   * übrig gebliebener Streichpreis hielte ihn sonst still weiter als
+   * reduziert. Dafür gibt es nichts mehr „zu merken": die Aktion ist der
+   * Preis des Artikels, bis ein neues Schild etwas anderes sagt.
    */
-  async function preisSynchronisieren(neuerPreis: number) {
-    /*
-     * Über productId, nicht über `gefunden`: der ist nach bearbeiten() immer
-     * null (das zurückgeholte Schild wird nicht noch einmal abgeglichen),
-     * aber genau dort soll eine Preisänderung ebenfalls zurückgeschrieben
-     * werden – wer ein abgelegtes Schild korrigiert, korrigiert in aller
-     * Regel auch den tatsächlichen Preis, nicht nur das Papier.
-     */
-    if (!entwurf.productId || entwurf.vorher > 0) return;
-    if (neuerPreis <= 0 || neuerPreis === basisPreis) return;
+  async function preisSynchronisieren(neuerPreis: number, neuerVorher: number) {
+    if (!entwurf.productId || neuerPreis <= 0) return;
+    if (neuerPreis === basisPreis && neuerVorher === basisVorher) return;
 
-    const ergebnis = await updateProductField({
+    const ergebnis = await setzeAktionspreis({
       id: entwurf.productId,
-      field: "retail_price",
-      value: String(neuerPreis),
+      preis: neuerPreis,
+      vorher: neuerVorher > 0 ? neuerVorher : null,
     });
     if (ergebnis.error) {
       melden("warnung", ergebnis.error, entwurf.sku);
       return;
     }
     setBasisPreis(neuerPreis);
-    melden("treffer", `Ladenpreis aktualisiert`, entwurf.sku);
+    setBasisVorher(ergebnis.reduziert ? neuerVorher : 0);
+    melden(
+      "treffer",
+      ergebnis.reduziert
+        ? `Artikel als reduziert gespeichert (−${ergebnis.reduziert} %)`
+        : "Ladenpreis aktualisiert",
+      entwurf.sku,
+    );
   }
 
   /** Dieselbe Rückschreibung für den Großhandelspreis, ohne Ausnahme für
@@ -769,6 +769,7 @@ export function PreisschildFrei({
     // Treffers, der noch von einem ganz anderen Artikel stammen könnte.
     setBasisPreis(eintrag.preis);
     setBasisGh(eintrag.gh);
+    setBasisVorher(eintrag.vorher);
     // Ein zurückgeholtes Schild wird nicht noch einmal abgeglichen: es liegt
     // bereits auf dem Blatt, und sein Artikel – falls es einen gibt – ist
     // beim Ablegen entstanden. productId bleibt aber erhalten (oben), sonst
@@ -786,6 +787,7 @@ export function PreisschildFrei({
     setBestand(1);
     setBasisPreis(0);
     setBasisGh(0);
+    setBasisVorher(0);
     zurueckZumFeld();
   }
 
@@ -1228,7 +1230,7 @@ export function PreisschildFrei({
                   onBlur={(event) => {
                     const zahl =
                       Number(event.currentTarget.value.replace(",", ".")) || 0;
-                    void preisSynchronisieren(zahl);
+                    void preisSynchronisieren(zahl, entwurf.vorher);
                   }}
                   className="h-9"
                 />
@@ -1239,6 +1241,11 @@ export function PreisschildFrei({
                   dezimal
                   value={entwurf.vorher}
                   onChange={(wert) => feld({ vorher: wert })}
+                  onBlur={(event) => {
+                    const zahl =
+                      Number(event.currentTarget.value.replace(",", ".")) || 0;
+                    void preisSynchronisieren(entwurf.preis, zahl);
+                  }}
                   className="h-9"
                 />
               </Feld>
@@ -1252,6 +1259,9 @@ export function PreisschildFrei({
                 <span className="font-medium text-destructive">
                   Rotes Aktionsschild · −{reduziert.prozent} % gegenüber{" "}
                   {formatPrice(entwurf.vorher)}
+                  {entwurf.productId
+                    ? " · Artikel wird als reduziert gespeichert"
+                    : ""}
                 </span>
               ) : entwurf.vorher > 0 ? (
                 <span className="text-muted-foreground">
@@ -1327,7 +1337,9 @@ export function PreisschildFrei({
                   <NumericInput
                     id="frei-anzahl"
                     value={entwurf.anzahl}
-                    onChange={(wert) => feld({ anzahl: Math.max(1, wert) })}
+                    onChange={(wert) =>
+                      feld({ anzahl: Math.min(MAX_SCHILDER, Math.max(1, wert)) })
+                    }
                     className="h-9"
                   />
                   <Button

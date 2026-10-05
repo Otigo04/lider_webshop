@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { PencilLine, Package } from "lucide-react";
+import { LayoutTemplate, PencilLine, Package } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -26,6 +26,12 @@ const WEGE = [
     label: "Frei eingeben",
     hinweis: "scannen oder tippen",
     icon: PencilLine,
+  },
+  {
+    href: "/admin/preisschilder/vorlagen",
+    label: "Vorlagen",
+    hinweis: "NEU, REDUZIERT, eigene",
+    icon: LayoutTemplate,
   },
 ] as const;
 

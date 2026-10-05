@@ -53,6 +53,43 @@ export interface FreiStand {
 
 const SPEICHER = "lider.preisschilder.frei.v1";
 
+/**
+ * Höchstzahl der Schilder auf einem Stapel – dieselbe Grenze wie im Druckbogen
+ * (`MAX_SCHILDER` in app/admin/preisschilder/druck/route.ts).
+ *
+ * Sie muss hier gelten und nicht nur im Formular: aus dem Stapel baut die
+ * Vorschau für jedes Schild ein eigenes Element samt Textmessung. Landete
+ * einmal ein Barcode im Mengenfeld (Handscanner schreibt in das Feld, in dem
+ * der Fokus steht), stand 186.837 im Speicher – und jeder Aufruf der Seite
+ * fror ein, weil der Stapel beim Laden zurückkam.
+ */
+export const MAX_SCHILDER = 1000;
+
+/**
+ * Stückzahlen auf ganze Zahlen ab 1 bringen und die Summe deckeln.
+ *
+ * Gekürzt wird der Reihe nach: wer die Grenze reißt, verliert seine
+ * Überzahl, nicht der Eintrag davor. Jeder Eintrag behält mindestens ein
+ * Schild – ein Schild, das stillschweigend verschwindet, fällt erst am Regal
+ * auf. Ist alles in Ordnung, kommt dieselbe Liste zurück, damit kein
+ * Neuzeichnen nötig wird.
+ */
+export function begrenze(schilder: FreiesSchild[]): FreiesSchild[] {
+  let rest = MAX_SCHILDER;
+  let geaendert = false;
+  const neu = schilder.map((e, i) => {
+    const gewollt = Number.isFinite(e.anzahl) ? Math.max(1, Math.round(e.anzahl)) : 1;
+    // Den Nachfolgern bleibt je ein Schild reserviert, sonst reißt ihr
+    // Mindestmaß die Grenze doch wieder.
+    const anzahl = Math.min(gewollt, Math.max(1, rest - (schilder.length - i - 1)));
+    rest -= anzahl;
+    if (anzahl === e.anzahl) return e;
+    geaendert = true;
+    return { ...e, anzahl };
+  });
+  return geaendert ? neu : schilder;
+}
+
 const LEER: FreiStand = {
   schilder: [],
   formatId: null,
@@ -92,7 +129,9 @@ function lesen() {
     const roh = window.localStorage.getItem(SPEICHER);
     const daten = roh ? (JSON.parse(roh) as Partial<FreiStand>) : null;
     stand = {
-      schilder: Array.isArray(daten?.schilder) ? daten.schilder : [],
+      // Auch Altbestand wird begrenzt: ein früher gespeicherter Stapel mit
+      // absurder Stückzahl soll die Seite nicht mehr einfrieren.
+      schilder: Array.isArray(daten?.schilder) ? begrenze(daten.schilder) : [],
       formatId: typeof daten?.formatId === "string" ? daten.formatId : null,
       mitBarcode: typeof daten?.mitBarcode === "boolean" ? daten.mitBarcode : true,
       ready: true,
@@ -132,7 +171,7 @@ export function setzeSchilder(
 ) {
   const schilder =
     typeof naechste === "function" ? naechste(stand.schilder) : naechste;
-  schreiben({ ...stand, schilder, ready: true });
+  schreiben({ ...stand, schilder: begrenze(schilder), ready: true });
 }
 
 export function setzeFormat(formatId: string) {

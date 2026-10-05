@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { ListPlus, Plus, Printer, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { NumericInput } from "@/components/numeric-input";
-import { updateProductField } from "@/lib/actions/admin-products";
+import { setzeAktionspreis, updateProductField } from "@/lib/actions/admin-products";
 import { PreisschildGroessen } from "@/components/admin/preisschild-groessen";
 import { PreisschildLabels } from "@/components/admin/preisschild-labels";
 import { PreisschildSymbole } from "@/components/admin/preisschild-symbole";
@@ -21,6 +21,7 @@ import {
   markenSymbol,
   proBogen,
   schildMasse,
+  schildLabel,
   schildPreis,
   type LabelOption,
   type Preisschild,
@@ -62,6 +63,7 @@ interface Zeile {
    * `preisSynchronisieren()`), nicht nur das Schild.
    */
   basisPreis: number;
+  basisVorher: number;
   basisGh: number;
   iconId: string | null;
   /** Schlüssel des Labels in der Fußzeile, null = keins */
@@ -200,6 +202,7 @@ export function PreisschildWerkbank({
           vorher: a.vorher ?? 0,
           gh: a.grosshandel ?? 0,
           basisPreis: a.preis ?? 0,
+          basisVorher: a.vorher ?? 0,
           basisGh: a.grosshandel ?? 0,
           // Trifft der Artikelname eine vorhandene Marke in der
           // Symbolbibliothek (z. B. "LEGO"), steht ihr Logo gleich auf der
@@ -224,27 +227,34 @@ export function PreisschildWerkbank({
   }
 
   /**
-   * Preis beim Verlassen des Felds an den Artikel zurückschreiben.
+   * Preis und Streichpreis beim Verlassen eines der Felder an den Artikel
+   * zurückschreiben – als Paar (setzeAktionspreis()).
    *
    * Wer hier den Preis ändert, ändert meistens den tatsächlichen Ladenpreis
    * fürs Regal – das Preisschild ist das Werkzeug dafür, nicht eine Kopie
-   * davon. Ausgenommen ein reduzierter Artikel (`vorher > 0`): dort ist der
-   * Preis die Aktion dieses Schilds, nicht die neue Dauerpreisangabe, und
-   * soll den regulären Ladenpreis im Stamm nicht überschreiben.
+   * davon. Mit Streichpreis über dem Preis steht der Artikel danach als
+   * reduziert im Stamm (Katalog, Shop, Label „Reduziert"), ohne ist er wieder
+   * regulär.
    *
    * Ausgelöst auf `onBlur`, nicht auf jeden Tastendruck: `NumericInput` ruft
    * `onChange` während des Tippens mit Zwischenständen auf, und jeder davon
    * eine Serverschreibung wäre unnötige Last und ein Preis, der mitten im
    * Tippen kurz falsch im Stamm steht.
    */
-  async function preisSynchronisieren(zeile: Zeile, neuerPreis: number) {
-    if (zeile.vorher > 0) return;
-    if (neuerPreis <= 0 || neuerPreis === zeile.basisPreis) return;
+  async function preisSynchronisieren(
+    zeile: Zeile,
+    neuerPreis: number,
+    neuerVorher: number,
+  ) {
+    if (neuerPreis <= 0) return;
+    if (neuerPreis === zeile.basisPreis && neuerVorher === zeile.basisVorher) return;
 
-    const ergebnis = await updateProductField({
+    // Preis und Streichpreis als Paar: ob der Artikel reduziert ist, folgt aus
+    // beiden – siehe setzeAktionspreis().
+    const ergebnis = await setzeAktionspreis({
       id: zeile.productId,
-      field: "retail_price",
-      value: String(neuerPreis),
+      preis: neuerPreis,
+      vorher: neuerVorher > 0 ? neuerVorher : null,
     });
     if (ergebnis.error) {
       toast.error(ergebnis.error);
@@ -252,10 +262,20 @@ export function PreisschildWerkbank({
     }
     setZeilen((alt) =>
       alt.map((z) =>
-        z.productId === zeile.productId ? { ...z, basisPreis: neuerPreis } : z,
+        z.productId === zeile.productId
+          ? {
+              ...z,
+              basisPreis: neuerPreis,
+              basisVorher: ergebnis.reduziert ? neuerVorher : 0,
+            }
+          : z,
       ),
     );
-    toast.success(`Ladenpreis von „${zeile.name}" aktualisiert.`);
+    toast.success(
+      ergebnis.reduziert
+        ? `„${zeile.name}" als reduziert gespeichert (−${ergebnis.reduziert} %).`
+        : `Ladenpreis von „${zeile.name}" aktualisiert.`,
+    );
     /*
      * `artikel` ist eine serverseitig einmal geladene Momentaufnahme des
      * ganzen Katalogs (siehe getPreisschildArtikel() – die Werkbank will den
@@ -314,7 +334,7 @@ export function PreisschildWerkbank({
       code: ghCode(z.gh),
       barcode: mitBarcode ? z.barcode : null,
       icon: icon?.url ?? null,
-      label: label ? { name: label.name, farbe: label.farbe } : null,
+      label: schildLabel(label ? { name: label.name, farbe: label.farbe } : null, vorher),
     };
   }
 
@@ -687,7 +707,7 @@ export function PreisschildWerkbank({
                         onBlur={(event) => {
                           const zahl =
                             Number(event.currentTarget.value.replace(",", ".")) || 0;
-                          void preisSynchronisieren(z, zahl);
+                          void preisSynchronisieren(z, zahl, z.vorher);
                         }}
                         className="h-9"
                       />
@@ -702,6 +722,11 @@ export function PreisschildWerkbank({
                         dezimal
                         value={z.vorher}
                         onChange={(wert) => aendern(z.productId, { vorher: wert })}
+                        onBlur={(event) => {
+                          const zahl =
+                            Number(event.currentTarget.value.replace(",", ".")) || 0;
+                          void preisSynchronisieren(z, z.preis, zahl);
+                        }}
                         className="h-9"
                       />
                     </Feld>

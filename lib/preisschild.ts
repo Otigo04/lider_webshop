@@ -83,12 +83,13 @@ export const SEITE = { breite: 210, hoehe: 297 } as const;
 export const RAND = 8;
 
 /**
- * Rand oben und links – bewusst 0. Das Raster liegt mit der ersten Zeile und
- * Spalte direkt an der Papierkante: wer schneidet, braucht dafür keinen
- * eigenen Schnitt mehr, die Kante des Blatts ist bereits die Kante des
- * Schilds. Geschnitten wird nur noch innen und rechts/unten (`RAND`).
+ * Rand oben und links, ebenfalls 8 mm. Früher 0 (Raster direkt an der
+ * Papierkante, damit ein Schnitt weniger nötig war) – dort schnitt der
+ * Drucker die äußere Kante des ersten Schilds ab. Acht Millimeter sind die
+ * größte Zahl, bei der die Bogen-Einteilung dieselbe bleibt: 5 Zeilen à
+ * 56 mm (280 von 281 mm) und 4 Spalten à 48,5 mm (194 von 194 mm).
  */
-export const RAND_OBEN_LINKS = 0;
+export const RAND_OBEN_LINKS = 8;
 
 /** Nutzfläche eines A4-Bogens innerhalb des Druckrands. */
 export const FLAECHE = {
@@ -914,6 +915,26 @@ export function schildPreis(preis: number, listPrice: number | null | undefined)
     vorher: r?.vorher ?? null,
     prozent: r?.prozent ?? null,
   };
+}
+
+/**
+ * Das Label „Reduziert": Charcoal, weil auf dem roten Aktionsschild jedes
+ * rote Label verschwände. Die Schrift darauf ist nach Leuchtdichte weiß.
+ */
+export const LABEL_REDUZIERT: SchildLabel = { name: "Reduziert", farbe: "#111827" };
+
+/**
+ * Das Label, das auf einem Schild steht: das gewählte – oder, ohne Wahl und
+ * bei Reduzierung, automatisch „Reduziert". Reduziert ist keine Eigenschaft,
+ * die man am Artikel ankreuzt, sondern folgt aus den beiden Preisen; ein
+ * Schild mit Streichpreis ohne Label wäre nur halb ausgezeichnet. Ein
+ * bewusst gewähltes Label (etwa „Topseller") bleibt stehen.
+ */
+export function schildLabel(
+  gewaehlt: SchildLabel | null,
+  vorher: number | null,
+): SchildLabel | null {
+  return gewaehlt ?? (vorher !== null ? LABEL_REDUZIERT : null);
 }
 
 /** Ein Schild ist reduziert – und damit rot – wenn ein Vorher-Preis übrig blieb. */

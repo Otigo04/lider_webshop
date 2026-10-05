@@ -932,16 +932,17 @@ setzen, drucken – A4 mit Schnittlinien.
   ausgerechnet auf dem roten Schild unsichtbar. Die Ebene ist so groß wie die
   Schilder zusammen, nicht wie die Nutzfläche – auf dem Reststreifen hat keine
   Schnittlinie etwas zu suchen.
-- **Rand nur rechts und unten** (`RAND`, 8 mm – näher kommt kein üblicher
-  Bürodrucker an die Kante). Oben und links ist der Rand `RAND_OBEN_LINKS`,
-  bewusst 0: das Raster beginnt direkt an der Papierkante, die Kante selbst
-  ist dort schon der Schnitt. Wer zerschneidet, braucht also nur noch die
-  inneren Linien und den rechten/unteren Rand zu schneiden, nicht alle vier
-  Seiten. Dieselbe asymmetrische Randverteilung steht an zwei Stellen –
-  Druckbogen (`lib/preisschild-bogen.ts`) und Bildschirmvorschau
-  (`components/admin/preisschild-bogen-vorschau.tsx`) – aus demselben Grund
-  wie bei den Maßen: zwei auseinanderlaufende Zahlensätze wären eine Vorschau,
-  die nicht mehr stimmt.
+- **Rand rundum 8 mm** (`RAND` rechts/unten, `RAND_OBEN_LINKS` oben/links –
+  näher kommt kein üblicher Bürodrucker an die Kante). Oben und links stand
+  der Rand früher auf 0, damit die Papierkante den Schnitt ersetzte; in der
+  Praxis schnitt der Drucker dort die äußere Kante der ersten Schilder ab.
+  8 mm ist die größte Zahl, bei der die Einteilung der Standardformate gleich
+  bleibt (Groß 72 × 56: 2 × 5 = 10 je Bogen, 5 Zeilen = 280 von 281 mm). Wer
+  den Rand erhöht, verliert dort eine Zeile. Dieselbe Randverteilung steht an
+  zwei Stellen – Druckbogen (`lib/preisschild-bogen.ts`) und
+  Bildschirmvorschau (`components/admin/preisschild-bogen-vorschau.tsx`) – aus
+  demselben Grund wie bei den Maßen: zwei auseinanderlaufende Zahlensätze
+  wären eine Vorschau, die nicht mehr stimmt.
 - Die letzte Seite bleibt angebrochen; leere Zellen sind weißes Papier, kein
   Fehler.
 - Ein zweiter Klick auf denselben Artikel heißt „noch eins", nicht „noch eine
@@ -963,12 +964,17 @@ setzen, drucken – A4 mit Schnittlinien.
   `updateProductField()` – dieselbe Funktion wie die Inline-Bearbeitung der
   Artikelliste). Das Preisschild ist das Werkzeug, mit dem der Ladenpreis
   geändert wird, keine Kopie davon: wer hier aus 1,99 € 3,50 € macht, soll
-  nicht hinterher noch einmal ins Artikelformular. **Ausgenommen ein
-  reduzierter Artikel** (`vorher > 0`): dort ist der Preis die Aktion dieses
-  Schilds, keine neue Dauerpreisangabe, und soll den Ladenpreis im Stamm nicht
-  überschreiben. Der Großhandelspreis hat diese Ausnahme nicht – der
-  verdeckte Code ist immer der tatsächliche Einkaufskanal, eine Aktion ändert
-  daran nichts. Ausgelöst auf `onBlur`, nicht auf jeden Tastendruck:
+  nicht hinterher noch einmal ins Artikelformular. **Preis und Streichpreis
+  gehen als Paar** über `setzeAktionspreis()` (eine Schreibung auf
+  `retail_price` + `list_price`, ausgelöst beim Verlassen eines der beiden
+  Felder): mit Vorher-Preis über dem Preis steht der Artikel danach überall
+  als reduziert da (Katalog, Shop, Filter, Label „Reduziert"), ohne ihn wird
+  `list_price` gelöscht – ein übrig gebliebener Streichpreis hielte den
+  Artikel sonst still weiter für reduziert. Früher war ein reduzierter
+  Artikel hier ausgenommen; dann blieb die Aktion auf dem Papier und der
+  Stamm, Katalog und Shop wussten nichts davon. Der Großhandelspreis läuft
+  weiter einzeln (`updateProductField()`) – der verdeckte Code ist immer der
+  tatsächliche Einkaufskanal, eine Aktion ändert daran nichts. Ausgelöst auf `onBlur`, nicht auf jeden Tastendruck:
   `NumericInput` meldet während des Tippens Zwischenstände, und jeder davon
   eine Schreibung wäre ein Preis, der mitten im Tippen kurz falsch im Stamm
   steht.
@@ -1144,8 +1150,8 @@ Der Scan steht oben im Formular, weil er den Rest bestimmt:
 - **Preis und Großhandelspreis schreiben in den Artikel zurück, sobald ein
   Schild zu einem Artikel gehört** – dieselben
   `preisSynchronisieren()`/`ghSynchronisieren()` wie im Bestandsgenerator.
-  Reduzierte Artikel (`vorher > 0`) sind beim Preis ausgenommen, der
-  Großhandelspreis nicht – gleiche Begründung wie dort.
+  Preis und Streichpreis werden als Paar geschrieben (`setzeAktionspreis()`),
+  der Großhandelspreis einzeln – gleiche Begründung wie dort.
   **Maßgeblich ist `entwurf.productId`, nicht `gefunden`.** `gefunden` ist
   nach `bearbeiten()` immer `null` (das zurückgeholte Schild wird nicht noch
   einmal abgeglichen), aber genau dort soll eine Preiskorrektur ebenfalls

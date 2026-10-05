@@ -44,7 +44,7 @@ import {
  */
 
 /** Kein Text aus der Datenbank darf als Markup im Bogen landen. */
-function esc(wert: unknown): string {
+export function esc(wert: unknown): string {
   return String(wert ?? "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -53,7 +53,7 @@ function esc(wert: unknown): string {
 }
 
 /** Millimeterwert fürs Stylesheet – drei Nachkommastellen reichen dem Drucker. */
-function mm(wert: number): string {
+export function mm(wert: number): string {
   return `${wert.toFixed(3)}mm`;
 }
 
@@ -69,7 +69,7 @@ function mm(wert: number): string {
  * derselben Stelle sitzen wie die Zellgrenzen: ein `repeating-linear-gradient`
  * rundet über zwanzig Wiederholungen sichtbar weg.
  */
-function schnittlinien(format: SchildFormat): string {
+export function schnittlinien(format: SchildFormat): string {
   const { spalten, zeilen } = raster(format);
   const linien: string[] = [];
 
@@ -260,8 +260,8 @@ export function buildLabelSheetHtml(
     position: relative;
     width: ${mm(SEITE.breite)};
     height: ${mm(SEITE.hoehe)};
-    /* Oben/links 0: das Raster sitzt direkt an der Papierkante, die Kante
-       ersetzt dort den Schnitt. Rechts/unten bleibt der Druckerrand. */
+    /* Rand rundum: Drucker schneiden an der Papierkante ab, ein Raster ohne
+       Rand an oben/links verlöre dort die äußere Kante der ersten Schilder. */
     padding: ${mm(RAND_OBEN_LINKS)} ${mm(RAND)} ${mm(RAND)} ${mm(RAND_OBEN_LINKS)};
     margin: 0 auto 10mm;
     background: #fff;

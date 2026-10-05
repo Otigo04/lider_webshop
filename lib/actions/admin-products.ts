@@ -5,6 +5,7 @@ import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { PRODUCT_BUCKET } from "@/lib/constants";
+import { reduzierung } from "@/lib/pricing";
 import type { AdminFormState } from "@/lib/actions/admin-categories";
 
 const tierSchema = z.object({
@@ -388,6 +389,60 @@ export type InlineField = keyof typeof inlineFieldSchemas;
 export interface InlineUpdateState {
   error?: string;
   success?: string;
+}
+
+/**
+ * Ladenpreis und Streichpreis eines Artikels in einem Schritt setzen – der
+ * Weg des Preisschild-Generators.
+ *
+ * **Eine Schreibung für beide Spalten.** Ob ein Artikel reduziert ist, folgt
+ * aus dem Paar `list_price` > `retail_price` (reduzierung()). Zwei getrennte
+ * Schreibungen ließen zwischen ihnen einen Zustand stehen, in dem der Artikel
+ * mit halbem Paar im Shop, im Katalog und auf der Kasse falsch reduziert wäre.
+ *
+ * **Der Streichpreis wird nur gespeichert, wenn daraus eine Reduzierung wird**
+ * (derselbe Test wie auf dem Schild: ein Cent Unterschied ist kein Angebot).
+ * Sonst wird er gelöscht: ein regulärer Preis hat keinen Vorher-Preis, und
+ * ein übrig gebliebener würde den Artikel still weiter als reduziert führen.
+ */
+export async function setzeAktionspreis(input: {
+  id: string;
+  preis: number;
+  vorher: number | null;
+}): Promise<InlineUpdateState & { reduziert?: number | null }> {
+  await requireAdmin();
+
+  const eingabe = z
+    .object({
+      id: z.string().uuid(),
+      preis: z.number().positive("Preis muss größer als 0 sein").max(1_000_000),
+      vorher: z.number().positive().max(1_000_000).nullable(),
+    })
+    .safeParse(input);
+  if (!eingabe.success) {
+    return { error: eingabe.error.issues[0].message };
+  }
+
+  const { id, preis, vorher } = eingabe.data;
+  const r = reduzierung(vorher, preis, preis);
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("products")
+    .update({ retail_price: preis, list_price: r ? r.vorher : null })
+    .eq("id", id);
+  if (error) {
+    console.error("[admin] Aktionspreis speichern:", error.message);
+    return { error: "Der Preis konnte nicht gespeichert werden." };
+  }
+
+  revalidatePath("/admin/products");
+  revalidatePath("/admin");
+  revalidatePath("/admin/preisschilder");
+  revalidatePath("/admin/kataloge");
+  revalidatePath("/shop");
+  revalidatePath(`/shop/product/${id}`);
+  return { success: "Gespeichert.", reduziert: r ? r.prozent : null };
 }
 
 /**

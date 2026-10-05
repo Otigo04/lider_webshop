@@ -5,6 +5,7 @@ import { buildLabelSheetHtml } from "@/lib/preisschild-bogen";
 import {
   MASS_GRENZEN,
   ghCode,
+  schildLabel,
   schildPreis,
   type Preisschild,
 } from "@/lib/preisschild";
@@ -123,7 +124,7 @@ export async function POST(request: Request) {
       code: ghCode(zeile.gh),
       barcode: zeile.barcode || null,
       icon: zeile.iconId ? (symbole.get(zeile.iconId) ?? null) : null,
-      label: zeile.label ?? null,
+      label: schildLabel(zeile.label ?? null, vorher),
     };
     for (let i = 0; i < zeile.anzahl; i++) schilder.push(schild);
   }

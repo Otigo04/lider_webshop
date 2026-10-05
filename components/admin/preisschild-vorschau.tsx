@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { formatPrice } from "@/lib/format";
 import {
   AKTIONSROT,
@@ -51,7 +52,7 @@ function messen(text: string): number {
  * Deshalb auch Millimeter statt Tailwind-Klassen: der Browser rechnet sie in
  * dieselben Pixel um wie der Druckertreiber.
  */
-export function PreisschildVorschau({
+export const PreisschildVorschau = memo(function PreisschildVorschau({
   schild,
   format,
   barcodePlatz = false,
@@ -342,4 +343,4 @@ export function PreisschildVorschau({
       </div>
     </div>
   );
-}
+});
