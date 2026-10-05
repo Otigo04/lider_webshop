@@ -214,11 +214,29 @@ pruefe("Preisart Laden: kein Rückfall auf die Staffel", () => {
   assert.equal(aufbau.gedruckt, 1);
 });
 
-pruefe("Preisart Großhandel: ohne Staffel fehlt der Artikel", () => {
-  const ohne = artikel({ staffeln: [] });
+pruefe("Preisart Großhandel: ohne Staffel gilt der Ladenpreis, ohne beides fehlt der Artikel", () => {
+  const mitLaden = artikel({ staffeln: [], laden: 5.99 });
+  const preis = k.katalogPreis(mitLaden, "grosshandel");
+  assert.equal(preis.preis, 5.99, "Ladenpreis als Einzelpreis");
+  assert.equal(preis.ab, 1);
+  assert.equal(k.katalogAufbau([mitLaden], e()).ohnePreis.length, 0);
+
+  const reduziert = artikel({ staffeln: [], laden: 5.99, vorher: 9.99 });
+  assert.equal(k.katalogPreis(reduziert, "grosshandel").reduziert.prozent, 40);
+
+  const ohne = artikel({ staffeln: [], laden: null });
   const aufbau = k.katalogAufbau([ohne], e());
   assert.deepEqual(aufbau.ohnePreis, [ohne.id]);
   assert.equal(aufbau.gesamtSeiten, 0);
+});
+
+pruefe("Ohne Foto: nur die Liste nimmt den Artikel auf Wunsch trotzdem", () => {
+  const a = artikel({ bildUrl: null });
+  assert.equal(k.katalogAufbau([a], e({ layout: "liste", auchOhneFoto: true })).gedruckt, 1);
+  assert.equal(k.katalogAufbau([a], e({ layout: "liste", auchOhneFoto: false })).gedruckt, 0);
+  const kacheln = k.katalogAufbau([a], e({ layout: "kacheln", auchOhneFoto: true }));
+  assert.equal(kacheln.gedruckt, 0, "Kacheln bleiben bei der Fotopflicht");
+  assert.deepEqual(kacheln.ohneFoto, [a.id]);
 });
 
 pruefe("Preisart Ohne: druckt auch Artikel ohne jeden Preis", () => {
@@ -273,6 +291,24 @@ pruefe("Leerer Katalog hat keine Seiten", () => {
   const aufbau = k.katalogAufbau([], e());
   assert.equal(aufbau.gesamtSeiten, 0);
   assert.equal(aufbau.seiten.length, 0);
+});
+
+pruefe("Reduzierte Ware steht vorn als eigener Abschnitt, auf Wunsch nicht", () => {
+  const normal = viele(3, { kategorieId: "k2", kategorie: "Spielwaren", kategorieSlug: "spielwaren", kategorieRang: 2 });
+  const red = viele(2, { vorher: 9.99, laden: 5.99 });
+  const alle = [...normal, ...red];
+
+  const vorn = k.katalogAufbau(alle, e({ preisart: "laden", mitTrennseiten: true }));
+  assert.equal(vorn.seiten[0].kategorie, "Reduziert", "erste Seite ist Reduziert");
+  assert.equal(vorn.seiten[0].kategorieSlug, k.REDUZIERT_SLUG);
+  assert.equal(vorn.seiten[0].bloecke.length, 2, "beide reduzierten Artikel dort");
+  assert.equal(vorn.gedruckt, 5, "nichts doppelt, nichts verloren");
+
+  const aus = k.katalogAufbau(alle, e({ preisart: "laden", reduziertZuerst: false }));
+  assert.notEqual(aus.seiten[0].kategorie, "Reduziert");
+
+  const ohne = k.katalogAufbau(alle, e({ preisart: "ohne" }));
+  assert.ok(ohne.seiten.every((x) => x.kategorie !== "Reduziert"), "ohne Preise keine Reduzierung");
 });
 
 let fehler = 0;

@@ -55,6 +55,8 @@ interface KatalogRow {
   mit_titelseite: boolean;
   mit_inhalt: boolean;
   mit_trennseiten: boolean;
+  reduziert_zuerst: boolean | null;
+  auch_ohne_foto: boolean | null;
   mit_rueckseite: boolean;
   rueckseite_text: string | null;
   updated_at: string;
@@ -159,6 +161,9 @@ export async function getKatalog(id: string): Promise<Katalog | null> {
       mitTitelseite: row.mit_titelseite,
       mitInhalt: row.mit_inhalt,
       mitTrennseiten: row.mit_trennseiten,
+      // null: Migration 052 fehlt noch – dann wie die Vorgabe
+      reduziertZuerst: row.reduziert_zuerst ?? true,
+      auchOhneFoto: row.auch_ohne_foto ?? false,
       mitRueckseite: row.mit_rueckseite,
       rueckseiteText: row.rueckseite_text,
     },

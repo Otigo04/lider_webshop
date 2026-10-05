@@ -47,6 +47,10 @@ export interface KatalogEinstellungen {
   mitInhalt: boolean;
   /** Jede Warengruppe beginnt auf einer neuen Seite */
   mitTrennseiten: boolean;
+  /** Reduzierte Artikel gesammelt als erster Abschnitt „Reduziert" */
+  reduziertZuerst: boolean;
+  /** Nur Layout „liste": Artikel ohne Foto werden trotzdem gedruckt */
+  auchOhneFoto: boolean;
   mitRueckseite: boolean;
   rueckseiteText: string | null;
 }
@@ -64,6 +68,8 @@ export const KATALOG_VORGABE: KatalogEinstellungen = {
   mitTitelseite: true,
   mitInhalt: true,
   mitTrennseiten: true,
+  reduziertZuerst: true,
+  auchOhneFoto: false,
   mitRueckseite: true,
   rueckseiteText: null,
 };
@@ -129,6 +135,12 @@ export interface KatalogPreis {
  * (counterUnitPrice()). Dort ist der falsche Kanal besser als ein Artikel,
  * der sich nicht buchen lässt. Hier stünde ein Großhandelspreis unter der
  * Überschrift „inkl. USt." auf Papier, das sich nicht zurückholen lässt.
+ *
+ * **Umgekehrt gilt der Rückfall:** hat ein Artikel keine Großhandelsstaffel,
+ * steht im Großhandelskatalog sein Ladenpreis als Einzelpreis ab 1 Stück.
+ * Reduzierte Ware hat meist nur einen Preis, und ein Artikel, der wegen einer
+ * fehlenden Staffel aus dem Heft fällt, fiele still weg. Dieselbe Regel wie im
+ * Preisschild-Generator.
  */
 export function katalogPreis(
   artikel: KatalogArtikel,
@@ -146,12 +158,16 @@ export function katalogPreis(
     };
   }
 
-  const erste = artikel.staffeln[0];
+  let staffeln = artikel.staffeln;
+  if (staffeln.length === 0 && artikel.laden !== null && artikel.laden > 0) {
+    staffeln = [{ ab: 1, preis: artikel.laden }];
+  }
+  const erste = staffeln[0];
   if (!erste) return null;
   return {
     preis: erste.preis,
     ab: erste.ab,
-    staffeln: artikel.staffeln,
+    staffeln,
     // Der Vorher-Preis ist ein Ladenpreis; der Prozentsatz wird auf die
     // Staffel übertragen – dieselbe Regel wie im Shop.
     reduziert: reduzierung(artikel.vorher, erste.preis, artikel.laden),
@@ -206,8 +222,14 @@ export const NUTZ = {
  */
 export interface Raster {
   spalten: number;
-  /** Einheiten je Seite */
+  /** Einheiten je Seite, Kopfzeile eingeschlossen */
   einheiten: number;
+  /**
+   * Oben reservierte Einheiten für die Spaltenköpfe (Preis netto, EAN …).
+   * Nur die Liste hat Spalten; in Kacheln erklärt sich jede Zelle selbst.
+   * Die Nutzhöhe einer Seite ist `einheiten - kopf`.
+   */
+  kopf: number;
   /** Höhe eines Artikels in Einheiten */
   artikel: number;
   /** Höhe einer Zwischenüberschrift */
@@ -215,9 +237,10 @@ export interface Raster {
 }
 
 export const RASTER: Record<KatalogLayout, Raster> = {
-  liste: { spalten: 1, einheiten: 40, artikel: 2, ueberschrift: 2 },
-  kacheln: { spalten: 3, einheiten: 24, artikel: 6, ueberschrift: 1 },
-  gross: { spalten: 2, einheiten: 24, artikel: 8, ueberschrift: 1 },
+  // 41 = 40 Einheiten für Artikel (20 je Seite wie bisher) + 1 für die Spaltenköpfe.
+  liste: { spalten: 1, einheiten: 41, kopf: 1, artikel: 2, ueberschrift: 2 },
+  kacheln: { spalten: 3, einheiten: 24, kopf: 0, artikel: 6, ueberschrift: 1 },
+  gross: { spalten: 2, einheiten: 24, kopf: 0, artikel: 8, ueberschrift: 1 },
 };
 
 /** Höhe einer Einheit in Millimetern. */
@@ -387,8 +410,11 @@ interface Abschnitt {
  */
 function baueAbschnitte(
   artikel: KatalogArtikel[],
-  preisart: KatalogPreisart,
+  e: KatalogEinstellungen,
 ): { abschnitte: Abschnitt[]; ohneFoto: string[]; ohnePreis: string[] } {
+  const preisart = e.preisart;
+  // Nur die Liste trägt eine Zeile ohne Bild; in Kacheln bliebe ein Loch.
+  const fotoPflicht = !(e.layout === "liste" && e.auchOhneFoto);
   const ohneFoto: string[] = [];
   const ohnePreis: string[] = [];
   const abschnitte: Abschnitt[] = [];
@@ -426,7 +452,7 @@ function baueAbschnitte(
         gesehen.add(a.gruppeId!);
 
         const bild = gruppe.find((g) => g.bildUrl)?.bildUrl ?? null;
-        if (!bild) {
+        if (!bild && fotoPflicht) {
           ohneFoto.push(...gruppe.map((g) => g.id));
           continue;
         }
@@ -440,7 +466,7 @@ function baueAbschnitte(
         continue;
       }
 
-      if (!a.bildUrl) {
+      if (!a.bildUrl && fotoPflicht) {
         ohneFoto.push(a.id);
         continue;
       }
@@ -480,7 +506,7 @@ function verteile(
   // `as` statt Typannotation: sonst hält der Compiler die Variable hinter den
   // Closures für dauerhaft null.
   let seite = null as Omit<KatalogSeite, "nummer"> | null;
-  let zeile = 0;
+  let zeile = raster.kopf;
   let spalte = 0;
 
   const neueSeite = (abschnitt: Abschnitt) => {
@@ -490,7 +516,7 @@ function verteile(
       bloecke: [],
     };
     seiten.push(seite);
-    zeile = 0;
+    zeile = raster.kopf;
     spalte = 0;
   };
 
@@ -506,7 +532,7 @@ function verteile(
         let teil = rest;
 
         if (hoehe > frei()) {
-          if (hoehe <= raster.einheiten) {
+          if (hoehe <= raster.einheiten - raster.kopf) {
             // Passt als Ganzes auf eine Seite, nur nicht mehr auf diese.
             neueSeite(abschnitt);
           } else {
@@ -556,7 +582,7 @@ function verteile(
               erster.ausfuehrungen.length,
               e.zeigeBarcode,
             ),
-            raster.einheiten,
+            raster.einheiten - raster.kopf,
           )
         : raster.artikel;
 
@@ -566,7 +592,7 @@ function verteile(
       // Eine Überschrift, unter der nichts mehr steht, gehört auf die
       // nächste Seite – und dort steht sie schon in der Kopfzeile.
       neueSeite(abschnitt);
-    } else if (zeile > 0) {
+    } else if (zeile > raster.kopf) {
       seite!.bloecke.push({
         art: "ueberschrift",
         kategorie: abschnitt.kategorie,
@@ -604,6 +630,37 @@ function verteile(
   return { seiten, beginn };
 }
 
+/** Kennung des Abschnitts „Reduziert" – steht vor jeder echten Warengruppe. */
+export const REDUZIERT_SLUG = "reduziert";
+
+/**
+ * Hebt reduzierte Artikel in einen eigenen Abschnitt „Reduziert".
+ *
+ * Über die Warengruppe der Artikel selbst, nicht über eine Sonderspur im
+ * Umbruch: Faltung, Trennseiten, Inhaltsverzeichnis und Seitenzahlen laufen
+ * dann ohne Ausnahme, der Abschnitt ist für sie eine Warengruppe wie jede
+ * andere. Rang -1 stellt ihn vor alle. Ob reduziert ist, entscheidet
+ * katalogPreis() – derselbe Weg wie beim roten Preis. Ohne Preisart gibt es
+ * keine Reduzierung, die man zeigen könnte.
+ */
+function reduziertVorn(
+  artikel: KatalogArtikel[],
+  e: KatalogEinstellungen,
+): KatalogArtikel[] {
+  if (!e.reduziertZuerst || e.preisart === "ohne") return artikel;
+  return artikel.map((a) =>
+    katalogPreis(a, e.preisart)?.reduziert
+      ? {
+          ...a,
+          kategorieId: "__reduziert",
+          kategorie: "Reduziert",
+          kategorieSlug: REDUZIERT_SLUG,
+          kategorieRang: -1,
+        }
+      : a,
+  );
+}
+
 /**
  * Der ganze Katalog: was gedruckt wird, auf welcher Seite, und was fehlt.
  *
@@ -613,7 +670,10 @@ export function katalogAufbau(
   artikel: KatalogArtikel[],
   e: KatalogEinstellungen,
 ): KatalogAufbau {
-  const { abschnitte, ohneFoto, ohnePreis } = baueAbschnitte(artikel, e.preisart);
+  const { abschnitte, ohneFoto, ohnePreis } = baueAbschnitte(
+    reduziertVorn(artikel, e),
+    e,
+  );
   const { seiten, beginn } = verteile(abschnitte, e);
 
   const davor = e.mitTitelseite ? 1 : 0;

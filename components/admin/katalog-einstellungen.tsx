@@ -24,12 +24,14 @@ const SCHALTER_ARTIKEL = [
   ["zeigeKennzeichen", "Neu, Topseller, Reduzierung"],
   ["zeigeMerkmale", "Merkmale"],
   ["zeigeBeschreibung", "Beschreibung"],
+  ["auchOhneFoto", "Auch Artikel ohne Foto (nur Liste)"],
 ] as const;
 
 const SCHALTER_SEITEN = [
   ["mitTitelseite", "Titelseite"],
   ["mitInhalt", "Inhaltsverzeichnis"],
   ["mitTrennseiten", "Warengruppe auf neuer Seite"],
+  ["reduziertZuerst", "Reduzierte Ware vorn als eigener Abschnitt"],
   ["mitRueckseite", "Rückseite mit Kontakt"],
 ] as const;
 

@@ -47,6 +47,8 @@ const FELDER = {
   mitTitelseite: { spalte: "mit_titelseite", schema: z.boolean() },
   mitInhalt: { spalte: "mit_inhalt", schema: z.boolean() },
   mitTrennseiten: { spalte: "mit_trennseiten", schema: z.boolean() },
+  reduziertZuerst: { spalte: "reduziert_zuerst", schema: z.boolean() },
+  auchOhneFoto: { spalte: "auch_ohne_foto", schema: z.boolean() },
   mitRueckseite: { spalte: "mit_rueckseite", schema: z.boolean() },
   rueckseiteText: { spalte: "rueckseite_text", schema: leerZuNull(1200) },
 } as const;
