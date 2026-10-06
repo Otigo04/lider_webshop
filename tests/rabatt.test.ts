@@ -4,6 +4,7 @@ import {
   CODE_MUSTER,
   gutscheinAnteil,
   normalisiereCode,
+  unterEinkauf,
   rabatte,
   zufallsCode,
 } from "@/lib/rabatt";
@@ -145,6 +146,45 @@ test("Gutschein ohne Warengruppen: Anteil null ändert nichts", () => {
   assert.equal(gutscheinAnteil(gutschein, [{ productId: "a", summe: 5 }]), null);
   assert.deepEqual(rabatte(200, 10, gutschein, null), rabatte(200, 10, gutschein));
   assert.equal(rabatte(200, 10, gutschein).netto, 162);
+});
+
+test("Prozent-Gutschein gegen den Einkaufspreis", () => {
+  const artikel = [
+    { name: "Batterie", sku: "1", categoryId: "bat", preis: 1.0, ek: 0.85 },
+    { name: "Kabel", sku: "2", categoryId: "handy", preis: 2.0, ek: 1.0 },
+    { name: "Lego", sku: "3", categoryId: "spiel", preis: 10.0, ek: 9.5 },
+  ];
+
+  // 10 %: Batterie 0,90 ≥ 0,85, Kabel 1,80, Lego 9,00 < 9,50
+  const zehn = unterEinkauf(artikel, 10);
+  assert.equal(zehn.geprueft, 3);
+  assert.deepEqual(zehn.treffer.map((t) => t.name), ["Lego"]);
+  assert.equal(zehn.treffer[0].nachher, 9);
+  // Spielraum: Lego 5 %, Batterie 15 %, Kabel 50 % → höchstens 5 %
+  assert.equal(zehn.hoechstens, 5);
+
+  // 20 %: Batterie 0,80 und Lego 8,00 – der größere Verlust zuerst
+  assert.deepEqual(unterEinkauf(artikel, 20).treffer.map((t) => t.name), ["Lego", "Batterie"]);
+
+  // Nur Batterien: Lego zählt nicht mehr
+  const nurBatterien = unterEinkauf(artikel, 10, ["bat"]);
+  assert.equal(nurBatterien.geprueft, 1);
+  assert.equal(nurBatterien.treffer.length, 0);
+  assert.equal(nurBatterien.hoechstens, 15);
+
+  // Genau der Einkaufspreis ist noch keine Unterschreitung
+  assert.equal(unterEinkauf(artikel, 15, ["bat"]).treffer.length, 0);
+  // Verglichen wird der auf den Cent gerundete Preis, wie er auf der Rechnung
+  // steht: 15,1 % ergibt 0,849 → 0,85 und liegt noch nicht darunter.
+  assert.equal(unterEinkauf(artikel, 15.1, ["bat"]).treffer.length, 0);
+  assert.equal(unterEinkauf(artikel, 16, ["bat"]).treffer.length, 1);
+});
+
+test("Einkaufspreis: schon ohne Gutschein unter Einkauf heißt 0 % Spielraum", () => {
+  const r = unterEinkauf([{ name: "X", sku: "1", categoryId: "a", preis: 1, ek: 1.2 }], 5);
+  assert.equal(r.hoechstens, 0);
+  assert.equal(r.treffer.length, 1);
+  assert.equal(unterEinkauf([], 50).treffer.length, 0);
 });
 
 test("Code-Normalisierung und Zufallscode", () => {

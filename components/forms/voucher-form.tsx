@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useFormStatus } from "react-dom";
-import { Shuffle } from "lucide-react";
+import { Shuffle, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 import { saveVoucher } from "@/lib/actions/admin-vouchers";
 import type { AdminFormState } from "@/lib/actions/admin-categories";
@@ -12,7 +12,14 @@ import { NumericInput } from "@/components/numeric-input";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { normalisiereCode, zufallsCode } from "@/lib/rabatt";
+import { formatPrice } from "@/lib/format";
+import {
+  normalisiereCode,
+  satzText,
+  unterEinkauf,
+  zufallsCode,
+  type MargenArtikel,
+} from "@/lib/rabatt";
 import type { AppUser, Category, Voucher } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -36,6 +43,7 @@ export function VoucherForm({
   voucher,
   customers,
   categories,
+  margen,
   vorgabeKunde,
   zurueck = "/admin/gutscheine",
 }: {
@@ -43,6 +51,11 @@ export function VoucherForm({
   customers: AppUser[];
   /** Warengruppen zur Auswahl, wenn der Gutschein nicht für alles gelten soll */
   categories: Pick<Category, "id" | "name">[];
+  /**
+   * Artikel mit Einkaufspreis, für die Warnung bei einem Prozent-Gutschein.
+   * Nur in der Verwaltung – der Einkaufspreis geht nie an eine Kundenseite.
+   */
+  margen: MargenArtikel[];
   /** Vorbelegung, wenn der Gutschein aus der Kundenseite heraus entsteht */
   vorgabeKunde?: string | null;
   /** Wohin es nach dem Speichern geht */
@@ -64,6 +77,13 @@ export function VoucherForm({
   const [nurKunde, setNurKunde] = useState(Boolean(voucher?.customer_id ?? vorgabeKunde));
   const [gruppen, setGruppen] = useState<string[]>(voucher?.category_ids ?? []);
   const [nurGruppen, setNurGruppen] = useState((voucher?.category_ids ?? []).length > 0);
+
+  // Nur beim Prozent-Gutschein: ein fester Betrag verteilt sich auf den
+  // ganzen Korb und lässt sich keinem Artikel zurechnen.
+  const marge =
+    kind === "percent" && value > 0
+      ? unterEinkauf(margen, value, nurGruppen ? gruppen : [])
+      : null;
 
   useEffect(() => {
     if (state.error) toast.error(state.error);
@@ -153,6 +173,39 @@ export function VoucherForm({
           </span>
         </div>
       </div>
+
+      {marge && marge.treffer.length > 0 ? (
+        <div
+          role="alert"
+          className="space-y-2 rounded-md border border-gold/50 bg-gold-soft p-3 text-sm text-[#7a4a10]"
+        >
+          <p className="flex items-start gap-2 font-medium">
+            <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
+            <span>
+              Mit {satzText(value)} {marge.treffer.length === 1 ? "liegt" : "liegen"}{" "}
+              {marge.treffer.length} von {marge.geprueft} Artikeln unter dem Einkaufspreis.
+            </span>
+          </p>
+          <ul className="space-y-1 text-xs">
+            {marge.treffer.slice(0, 5).map((a) => (
+              <li key={a.sku} className="tabular">
+                <span className="font-medium">{a.name}</span>: {formatPrice(a.preis)} →{" "}
+                {formatPrice(a.nachher)}, Einkauf {formatPrice(a.ek)}
+              </li>
+            ))}
+            {marge.treffer.length > 5 ? (
+              <li>… und {marge.treffer.length - 5} weitere</li>
+            ) : null}
+          </ul>
+          <p className="text-xs">
+            {marge.hoechstens > 0
+              ? `Ohne Unterschreitung gehen höchstens ${satzText(marge.hoechstens)}.`
+              : "Mindestens ein Artikel liegt schon ohne Gutschein unter dem Einkaufspreis."}{" "}
+            Gerechnet gegen den niedrigsten Staffelpreis, ohne Sonderkondition. Speichern
+            geht trotzdem.
+          </p>
+        </div>
+      ) : null}
 
       <div className="space-y-2 rounded-md border border-border p-3">
         <label className="flex items-center gap-2 text-sm font-medium">

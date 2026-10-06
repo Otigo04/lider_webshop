@@ -481,6 +481,15 @@ Grundlage: `supabase/migrations/054_kundenrabatt_und_gutscheine.sql`.
   plötzlich für alles. Der Warenkorb im Browser kennt keine Warengruppen –
   `gutschein_abfragen()` bekommt die Artikel des Korbs und nennt die, für
   die der Code gilt (`gutscheinAnteil()` in `lib/rabatt.ts`).
+- **Warnung gegen den Einkaufspreis** im Gutschein-Formular
+  (`unterEinkauf()` in `lib/rabatt.ts`, Daten aus `getMargenArtikel()`): bei
+  einem Prozent-Gutschein steht dort, wie viele Artikel im Geltungsbereich
+  nach dem Abzug unter dem Einkaufspreis liegen, mit Beispielen und dem
+  höchsten Satz ohne Unterschreitung. Gerechnet gegen den niedrigsten
+  Staffelpreis, ohne Sonderkondition. Nur Warnung, Speichern bleibt möglich.
+  Der Einkaufspreis geht dabei nur an die Verwaltung, nie an eine
+  Kundenseite. Beim festen Betrag gibt es keine Prüfung – er lässt sich
+  keinem Artikel zurechnen.
 - **Eingelöste Gutscheine** lassen sich nicht löschen (`ON DELETE RESTRICT`),
   nur deaktivieren – sonst zählten ihre Einlösungen nicht mehr.
 - **Rechnung/Mail/Bestellseite** zeigen die Abzüge als eigene Zeilen

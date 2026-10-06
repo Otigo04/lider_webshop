@@ -9,6 +9,7 @@ import { formatDate, formatPrice } from "@/lib/format";
 import { getCustomers } from "@/lib/queries/admin";
 import { getCategories } from "@/lib/queries/products";
 import {
+  getMargenArtikel,
   getVoucherRedemptions,
   getVouchers,
   voucherStatus,
@@ -44,10 +45,11 @@ export default async function AdminVouchersPage({
   const editId = typeof params.edit === "string" ? params.edit : null;
   const vorgabeKunde = typeof params.kunde === "string" ? params.kunde : null;
 
-  const [vouchers, customers, categories] = await Promise.all([
+  const [vouchers, customers, categories, margen] = await Promise.all([
     getVouchers(),
     getCustomers(),
     getCategories(),
+    getMargenArtikel(),
   ]);
   const gruppenName = new Map(categories.map((c) => [c.id, c.name]));
   const editing = vouchers.find((v) => v.id === editId);
@@ -272,6 +274,7 @@ export default async function AdminVouchersPage({
               voucher={editing}
               customers={customers}
               categories={categories.map(({ id, name }) => ({ id, name }))}
+              margen={margen}
               vorgabeKunde={vorgabeKunde}
               zurueck={vorgabeKunde ? `/admin/customers/${vorgabeKunde}` : "/admin/gutscheine"}
             />

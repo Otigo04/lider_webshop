@@ -135,6 +135,61 @@ export function rabatte(
   };
 }
 
+/** Was die Verwaltung für die Prüfung gegen den Einkaufspreis braucht. */
+export interface MargenArtikel {
+  name: string;
+  sku: string;
+  categoryId: string;
+  /** niedrigster Staffelpreis netto – der Preis, den der Gutschein am tiefsten drückt */
+  preis: number;
+  /** Einkaufspreis netto (product_costs). Nur in der Verwaltung, nie beim Kunden. */
+  ek: number;
+}
+
+export interface UnterEinkauf {
+  /** Artikel im Geltungsbereich mit gepflegtem Einkaufspreis */
+  geprueft: number;
+  /** davon nach Abzug unter dem Einkaufspreis, der größte Verlust zuerst */
+  treffer: (MargenArtikel & { nachher: number })[];
+  /** höchster Satz (eine Nachkommastelle), bei dem kein Artikel darunter fällt */
+  hoechstens: number;
+}
+
+/**
+ * Prüft einen Prozent-Gutschein gegen den Einkaufspreis: welche Artikel
+ * kosten nach dem Abzug weniger, als sie im Einkauf gekostet haben?
+ *
+ * Gerechnet wird gegen den **niedrigsten Staffelpreis** – bei der größten
+ * Abnahmemenge bleibt am wenigsten übrig. Die Sonderkondition eines Kunden
+ * käme noch obendrauf; sie hängt am Kunden, nicht am Gutschein, und bleibt
+ * hier außen vor. `kategorien` leer = der Gutschein gilt für alles.
+ */
+export function unterEinkauf(
+  artikel: MargenArtikel[],
+  prozent: number,
+  kategorien: string[] = [],
+): UnterEinkauf {
+  const p = Math.min(Math.max(zahl(prozent), 0), 100);
+  const gruppen = new Set(kategorien);
+  const imRahmen = artikel.filter(
+    (a) => zahl(a.preis) > 0 && (gruppen.size === 0 || gruppen.has(a.categoryId)),
+  );
+
+  const treffer = imRahmen
+    .map((a) => ({ ...a, nachher: aufCent((zahl(a.preis) * (100 - p)) / 100) }))
+    .filter((a) => a.nachher < zahl(a.ek))
+    .sort((a, b) => a.nachher - a.ek - (b.nachher - b.ek));
+
+  // Abrunden auf eine Nachkommastelle: 12,49 % Spielraum heißt 12,4 %, nicht 12,5.
+  const spielraum = imRahmen.reduce(
+    (min, a) => Math.min(min, (1 - zahl(a.ek) / zahl(a.preis)) * 100),
+    100,
+  );
+  const hoechstens = Math.max(Math.floor(spielraum * 10 + 1e-9) / 10, 0);
+
+  return { geprueft: imRahmen.length, treffer, hoechstens };
+}
+
 /** „10 %" oder „15,00 €" – die Angabe auf dem Gutschein selbst. */
 export function gutscheinWert(kind: GutscheinArt, value: number): string {
   if (kind === "percent") {

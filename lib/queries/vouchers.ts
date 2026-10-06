@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import type { MargenArtikel } from "@/lib/rabatt";
 import type { AppUser, CustomerCondition, Order, Voucher } from "@/lib/types";
 
 /**
@@ -49,6 +50,55 @@ export async function getVouchers(options?: { customerId?: string }): Promise<Vo
     };
     return { ...r, einloesungen: r.einloesungen?.[0]?.count ?? 0 };
   });
+}
+
+/**
+ * Aktive Artikel mit gepflegtem Einkaufspreis, für die Warnung im
+ * Gutschein-Formular (unterEinkauf() in lib/rabatt.ts). product_costs ist
+ * per RLS nur für den Admin lesbar – diese Liste geht ausschließlich an die
+ * Verwaltung und nie an eine Kundenseite.
+ */
+export async function getMargenArtikel(): Promise<MargenArtikel[]> {
+  const supabase = await createClient();
+  const liste: MargenArtikel[] = [];
+
+  // Seitenweise: PostgREST liefert höchstens 1000 Zeilen je Abfrage.
+  for (let von = 0; ; von += 1000) {
+    const { data, error } = await supabase
+      .from("products")
+      .select(
+        "name, sku, category_id, cost:product_costs!inner (cost_price), variants:product_variants (unit_price)",
+      )
+      .eq("is_active", true)
+      .order("id")
+      .range(von, von + 999);
+
+    if (error) {
+      console.error("[gutscheine] Einkaufspreise:", error.message);
+      return liste;
+    }
+
+    for (const row of data ?? []) {
+      const r = row as unknown as {
+        name: string;
+        sku: string;
+        category_id: string;
+        cost: { cost_price: number } | { cost_price: number }[] | null;
+        variants: { unit_price: number }[] | null;
+      };
+      const ek = Number((Array.isArray(r.cost) ? r.cost[0] : r.cost)?.cost_price);
+      const preise = (r.variants ?? []).map((v) => Number(v.unit_price)).filter((n) => n > 0);
+      if (!Number.isFinite(ek) || ek <= 0 || preise.length === 0) continue;
+      liste.push({
+        name: r.name,
+        sku: r.sku,
+        categoryId: r.category_id,
+        preis: Math.min(...preise),
+        ek,
+      });
+    }
+    if ((data ?? []).length < 1000) return liste;
+  }
 }
 
 export interface Einloesung {
