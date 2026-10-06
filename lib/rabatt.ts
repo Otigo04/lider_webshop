@@ -2,7 +2,8 @@
  * Kundenrabatt (Sonderkondition) und Gutscheine – Rechnung für die Anzeige.
  *
  * Verbindlich rechnet `create_order()` in der Datenbank
- * (supabase/migrations/054_kundenrabatt_und_gutscheine.sql). Diese Datei
+ * (supabase/migrations/054_kundenrabatt_und_gutscheine.sql, Gutschein-Block
+ * zuletzt in 057_gutschein_warengruppen.sql). Diese Datei
  * bildet dieselbe Reihenfolge und Rundung nach, damit Warenkorb und
  * Bestellformular den Betrag zeigen, der hinterher auf der Rechnung steht.
  * Wer hier etwas ändert, ändert die SQL-Funktion und tests/rabatt.test.ts mit.
@@ -17,6 +18,12 @@
  * Der Mindestbestellwert eines Gutscheins gilt gegen den Warenwert vor allen
  * Rabatten – das ist die Zahl, die der Kunde im Warenkorb sieht und mit der
  * Angabe auf dem Gutschein vergleicht.
+ *
+ * Gutschein nur für bestimmte Warengruppen (Migration 057): gerechnet wird
+ * dann auf den **Anteil** – die Summe der Positionen aus diesen Gruppen –
+ * statt auf den ganzen Warenwert. Die Sonderkondition geht anteilig ab
+ * (Anteil − Anteil × Satz), der Mindestwert gilt gegen den Anteil. Ohne
+ * Einschränkung ist der Anteil der ganze Warenwert, und alles ist wie oben.
  */
 
 export type GutscheinArt = "percent" | "fixed";
@@ -27,6 +34,13 @@ export interface GutscheinKern {
   kind: GutscheinArt;
   value: number;
   min_order_amount: number;
+  /** Namen der Warengruppen, für die er gilt. Leer oder fehlend = alle. */
+  kategorien?: string[];
+  /**
+   * Artikel des Warenkorbs, für die er gilt (gutschein_abfragen()).
+   * null oder fehlend = alle. Der Warenkorb kennt die Warengruppe nicht.
+   */
+  artikel?: string[] | null;
 }
 
 export interface Rabattrechnung {
@@ -39,6 +53,8 @@ export interface Rabattrechnung {
   gutscheinRabatt: number;
   /** true, wenn ein Gutschein angegeben, der Mindestwert aber nicht erreicht ist */
   mindestwertFehlt: boolean;
+  /** true, wenn der Gutschein nur für Warengruppen gilt, von denen nichts im Korb liegt */
+  nichtAnwendbar: boolean;
   /** Nettobetrag nach allen Rabatten */
   netto: number;
 }
@@ -59,10 +75,27 @@ export function kundenSatz(wert: unknown): number {
   return Math.min(n, 99.99);
 }
 
+/**
+ * Warenwert, auf den der Gutschein rechnet: die Summe der Zeilen, deren
+ * Artikel er abdeckt. null, wenn er für alles gilt.
+ */
+export function gutscheinAnteil(
+  gutschein: GutscheinKern | null | undefined,
+  zeilen: { productId: string; summe: number }[],
+): number | null {
+  if (!gutschein?.artikel) return null;
+  const gilt = new Set(gutschein.artikel);
+  return aufCent(
+    zeilen.reduce((summe, z) => (gilt.has(z.productId) ? summe + zahl(z.summe) : summe), 0),
+  );
+}
+
 export function rabatte(
   warenwert: number,
   satz: number,
   gutschein?: GutscheinKern | null,
+  /** Anteil für einen Gutschein mit Warengruppen (gutscheinAnteil()); null = alles */
+  anteil?: number | null,
 ): Rabattrechnung {
   const wert = aufCent(Math.max(zahl(warenwert), 0));
   const s = kundenSatz(satz);
@@ -71,15 +104,23 @@ export function rabatte(
 
   let gutscheinRabatt = 0;
   let mindestwertFehlt = false;
+  let nichtAnwendbar = false;
 
   if (gutschein) {
-    if (wert < zahl(gutschein.min_order_amount)) {
+    const begrenzt = anteil != null;
+    const gilt = begrenzt ? aufCent(Math.min(Math.max(zahl(anteil), 0), wert)) : wert;
+    // Rest des Anteils nach der Sonderkondition, höchstens der Rest der Bestellung.
+    const gutscheinBasis = Math.min(aufCent(gilt - aufCent((gilt * s) / 100)), basis);
+
+    if (begrenzt && gilt <= 0) {
+      nichtAnwendbar = true;
+    } else if (gilt < zahl(gutschein.min_order_amount)) {
       mindestwertFehlt = true;
     } else if (gutschein.kind === "percent") {
       const p = Math.min(Math.max(zahl(gutschein.value), 0), 100);
-      gutscheinRabatt = aufCent((basis * p) / 100);
+      gutscheinRabatt = aufCent((gutscheinBasis * p) / 100);
     } else {
-      gutscheinRabatt = aufCent(Math.min(Math.max(zahl(gutschein.value), 0), basis));
+      gutscheinRabatt = aufCent(Math.min(Math.max(zahl(gutschein.value), 0), gutscheinBasis));
     }
   }
 
@@ -89,6 +130,7 @@ export function rabatte(
     kundenRabatt,
     gutscheinRabatt,
     mindestwertFehlt,
+    nichtAnwendbar,
     netto: aufCent(basis - gutscheinRabatt),
   };
 }

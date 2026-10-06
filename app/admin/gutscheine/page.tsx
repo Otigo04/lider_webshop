@@ -7,6 +7,7 @@ import { deleteVoucher, toggleVoucher } from "@/lib/actions/admin-vouchers";
 import { requireAdmin } from "@/lib/auth";
 import { formatDate, formatPrice } from "@/lib/format";
 import { getCustomers } from "@/lib/queries/admin";
+import { getCategories } from "@/lib/queries/products";
 import {
   getVoucherRedemptions,
   getVouchers,
@@ -43,7 +44,12 @@ export default async function AdminVouchersPage({
   const editId = typeof params.edit === "string" ? params.edit : null;
   const vorgabeKunde = typeof params.kunde === "string" ? params.kunde : null;
 
-  const [vouchers, customers] = await Promise.all([getVouchers(), getCustomers()]);
+  const [vouchers, customers, categories] = await Promise.all([
+    getVouchers(),
+    getCustomers(),
+    getCategories(),
+  ]);
+  const gruppenName = new Map(categories.map((c) => [c.id, c.name]));
   const editing = vouchers.find((v) => v.id === editId);
   const einloesungen = editing ? await getVoucherRedemptions(editing.id) : [];
 
@@ -121,6 +127,14 @@ export default async function AdminVouchersPage({
                           {Number(v.min_order_amount) > 0 ? (
                             <p className="text-xs text-muted-foreground tabular">
                               ab {formatPrice(v.min_order_amount)}
+                            </p>
+                          ) : null}
+                          {(v.category_ids ?? []).length > 0 ? (
+                            <p className="text-xs text-muted-foreground">
+                              nur{" "}
+                              {v.category_ids
+                                .map((id) => gruppenName.get(id) ?? "gelöschte Warengruppe")
+                                .join(", ")}
                             </p>
                           ) : null}
                         </td>
@@ -257,6 +271,7 @@ export default async function AdminVouchersPage({
               key={editing?.id ?? `neu-${vorgabeKunde ?? ""}`}
               voucher={editing}
               customers={customers}
+              categories={categories.map(({ id, name }) => ({ id, name }))}
               vorgabeKunde={vorgabeKunde}
               zurueck={vorgabeKunde ? `/admin/customers/${vorgabeKunde}` : "/admin/gutscheine"}
             />

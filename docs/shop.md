@@ -472,6 +472,15 @@ Grundlage: `supabase/migrations/054_kundenrabatt_und_gutscheine.sql`.
   meldet „ungültig", nicht „gehört jemand anderem". Vorschau im
   Bestellformular über `gutschein_abfragen()`; ein ungültiger Code bricht die
   Bestellung ab, statt still ohne Rabatt durchzulaufen.
+- **Nur für bestimmte Warengruppen** (Migration 057, `vouchers.category_ids`,
+  leer = alle): der Gutschein rechnet dann auf den *Anteil*, die Summe der
+  Positionen aus diesen Gruppen. Sonderkondition geht anteilig ab, der
+  Mindestwert gilt gegen den Anteil; liegt nichts davon im Korb, bricht die
+  Bestellung mit „gilt nur für: …" ab. Ein Feld statt Verknüpfungstabelle:
+  wird eine Warengruppe gelöscht, gilt der Gutschein für nichts mehr statt
+  plötzlich für alles. Der Warenkorb im Browser kennt keine Warengruppen –
+  `gutschein_abfragen()` bekommt die Artikel des Korbs und nennt die, für
+  die der Code gilt (`gutscheinAnteil()` in `lib/rabatt.ts`).
 - **Eingelöste Gutscheine** lassen sich nicht löschen (`ON DELETE RESTRICT`),
   nur deaktivieren – sonst zählten ihre Einlösungen nicht mehr.
 - **Rechnung/Mail/Bestellseite** zeigen die Abzüge als eigene Zeilen

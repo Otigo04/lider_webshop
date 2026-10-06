@@ -19,11 +19,18 @@ export function VoucherField({
   gutschein,
   onChange,
   mindestwertFehlt,
+  nichtAnwendbar,
+  productIds,
 }: {
   gutschein: GutscheinKern | null;
   onChange: (gutschein: GutscheinKern | null) => void;
   mindestwertFehlt: boolean;
+  /** Gilt nur für Warengruppen, von denen nichts im Warenkorb liegt */
+  nichtAnwendbar: boolean;
+  /** Artikel im Warenkorb – die Datenbank sagt, für welche der Code gilt */
+  productIds: string[];
 }) {
+  const gruppen = gutschein?.kategorien ?? [];
   const [eingabe, setEingabe] = useState("");
   const [fehler, setFehler] = useState<string | null>(null);
   const [prueft, starten] = useTransition();
@@ -33,7 +40,7 @@ export function VoucherField({
     if (!code) return;
     setFehler(null);
     starten(async () => {
-      const ergebnis = await pruefeGutschein(code);
+      const ergebnis = await pruefeGutschein(code, productIds);
       if (ergebnis.gutschein) {
         onChange(ergebnis.gutschein);
         setEingabe("");
@@ -63,10 +70,19 @@ export function VoucherField({
             <X className="size-4" aria-hidden />
           </button>
         </div>
-        {mindestwertFehlt ? (
+        {gruppen.length > 0 ? (
+          <p className="text-xs text-muted-foreground">Gilt nur für: {gruppen.join(", ")}</p>
+        ) : null}
+        {nichtAnwendbar ? (
           <p role="alert" className="text-xs text-destructive">
-            Gilt ab {formatPrice(gutschein.min_order_amount)} Warenwert netto.
+            Im Warenkorb liegt kein Artikel aus {gruppen.length === 1 ? "dieser Warengruppe" : "diesen Warengruppen"}.
             Bitte Warenkorb ergänzen oder Gutschein entfernen.
+          </p>
+        ) : mindestwertFehlt ? (
+          <p role="alert" className="text-xs text-destructive">
+            Gilt ab {formatPrice(gutschein.min_order_amount)} Warenwert netto
+            {gruppen.length > 0 ? " aus diesen Warengruppen" : ""}. Bitte
+            Warenkorb ergänzen oder Gutschein entfernen.
           </p>
         ) : null}
       </div>

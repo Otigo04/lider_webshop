@@ -207,6 +207,8 @@ export interface Voucher {
   max_redemptions: number | null;
   max_per_customer: number | null;
   customer_id: string | null;
+  /** Warengruppen, für die er gilt; leer = alle (Migration 057) */
+  category_ids: string[];
   is_active: boolean;
   created_at: string;
 }

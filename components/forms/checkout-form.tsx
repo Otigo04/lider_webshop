@@ -17,7 +17,7 @@ import {
   shippingNote,
 } from "@/lib/shipping";
 import { steuer } from "@/lib/vat";
-import { rabatte, satzText, type GutscheinKern } from "@/lib/rabatt";
+import { gutscheinAnteil, rabatte, satzText, type GutscheinKern } from "@/lib/rabatt";
 import { VoucherField } from "@/components/voucher-field";
 import { AddressFields } from "@/components/forms/address-fields";
 import { Button } from "@/components/ui/button";
@@ -172,7 +172,20 @@ export function CheckoutForm({
   // Anzeige: dieselbe Reihenfolge wie create_order (lib/rabatt.ts). Die
   // Versandgrenze gilt gegen den Betrag nach Rabatt – so steht er auch an der
   // Bestellung (total_amount).
-  const rechnung = rabatte(total, kundenSatz, gutschein);
+  // Gilt der Gutschein nur für bestimmte Warengruppen, rechnet er auf die
+  // Zeilen der Artikel, die die Datenbank dafür genannt hat (Migration 057).
+  const rechnung = rabatte(
+    total,
+    kundenSatz,
+    gutschein,
+    gutscheinAnteil(
+      gutschein,
+      items.map((item) => ({
+        productId: item.productId,
+        summe: lineTotal(item.tiers, item.quantity),
+      })),
+    ),
+  );
   const netto = rechnung.netto;
   const betraege = steuer(netto, vatRate);
   const versand = deliveryMethod === "shipping";
@@ -427,6 +440,8 @@ export function CheckoutForm({
             gutschein={gutschein}
             onChange={setGutschein}
             mindestwertFehlt={rechnung.mindestwertFehlt}
+            nichtAnwendbar={rechnung.nichtAnwendbar}
+            productIds={items.map((item) => item.productId)}
           />
         </div>
 

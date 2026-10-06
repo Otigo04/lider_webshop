@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { normalisiereCode, zufallsCode } from "@/lib/rabatt";
-import type { AppUser, Voucher } from "@/lib/types";
+import type { AppUser, Category, Voucher } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 /** Zeitpunkt → Kalendertag in Berlin, für das Datumsfeld. */
@@ -35,11 +35,14 @@ function SubmitButton({ isEdit }: { isEdit: boolean }) {
 export function VoucherForm({
   voucher,
   customers,
+  categories,
   vorgabeKunde,
   zurueck = "/admin/gutscheine",
 }: {
   voucher?: Voucher;
   customers: AppUser[];
+  /** Warengruppen zur Auswahl, wenn der Gutschein nicht für alles gelten soll */
+  categories: Pick<Category, "id" | "name">[];
   /** Vorbelegung, wenn der Gutschein aus der Kundenseite heraus entsteht */
   vorgabeKunde?: string | null;
   /** Wohin es nach dem Speichern geht */
@@ -59,6 +62,8 @@ export function VoucherForm({
   const [maxKunde, setMaxKunde] = useState(voucher ? (voucher.max_per_customer ?? 0) : 1);
   const [kunde, setKunde] = useState<string | null>(voucher?.customer_id ?? vorgabeKunde ?? null);
   const [nurKunde, setNurKunde] = useState(Boolean(voucher?.customer_id ?? vorgabeKunde));
+  const [gruppen, setGruppen] = useState<string[]>(voucher?.category_ids ?? []);
+  const [nurGruppen, setNurGruppen] = useState((voucher?.category_ids ?? []).length > 0);
 
   useEffect(() => {
     if (state.error) toast.error(state.error);
@@ -77,6 +82,9 @@ export function VoucherForm({
       <input type="hidden" name="max_redemptions" value={maxGesamt > 0 ? maxGesamt : ""} />
       <input type="hidden" name="max_per_customer" value={maxKunde > 0 ? maxKunde : ""} />
       <input type="hidden" name="customer_id" value={nurKunde ? (kunde ?? "") : ""} />
+      {nurGruppen
+        ? gruppen.map((id) => <input key={id} type="hidden" name="category_ids" value={id} />)
+        : null}
 
       <div className="space-y-1.5">
         <Label htmlFor="code">Gutscheincode</Label>
@@ -144,6 +152,46 @@ export function VoucherForm({
             {kind === "percent" ? "% auf den Warenwert" : "€ netto Abzug"}
           </span>
         </div>
+      </div>
+
+      <div className="space-y-2 rounded-md border border-border p-3">
+        <label className="flex items-center gap-2 text-sm font-medium">
+          <input
+            type="checkbox"
+            checked={nurGruppen}
+            onChange={(e) => setNurGruppen(e.target.checked)}
+            className="size-4 accent-[var(--brand)]"
+          />
+          Nur für bestimmte Warengruppen
+        </label>
+        {nurGruppen ? (
+          <>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+              {categories.map((category) => (
+                <label key={category.id} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={gruppen.includes(category.id)}
+                    onChange={(e) =>
+                      setGruppen((alt) =>
+                        e.target.checked
+                          ? [...alt, category.id]
+                          : alt.filter((id) => id !== category.id),
+                      )
+                    }
+                    className="size-4 accent-[var(--brand)]"
+                  />
+                  <span className="min-w-0 truncate">{category.name}</span>
+                </label>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {gruppen.length === 0
+                ? "Ohne Auswahl gilt der Gutschein für alle Warengruppen."
+                : "Rabatt und Mindestbestellwert rechnen nur auf Artikel dieser Warengruppen."}
+            </p>
+          </>
+        ) : null}
       </div>
 
       <div className="space-y-1.5">

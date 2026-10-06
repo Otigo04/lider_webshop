@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   CODE_MUSTER,
+  gutscheinAnteil,
   normalisiereCode,
   rabatte,
   zufallsCode,
@@ -71,6 +72,79 @@ test("Mindestwert gilt gegen den Warenwert vor Rabatt", () => {
 test("Satz von 100 % und mehr wird geklemmt, negative ignoriert", () => {
   assert.equal(rabatte(100, 150).kundenSatz, 99.99);
   assert.equal(rabatte(100, -5).kundenRabatt, 0);
+});
+
+test("Gutschein für Warengruppen rechnet nur auf deren Anteil", () => {
+  const gutschein = {
+    code: "BATTERIEN10",
+    kind: "percent" as const,
+    value: 10,
+    min_order_amount: 0,
+    kategorien: ["Batterien"],
+    artikel: ["b1", "b2"],
+  };
+  const anteil = gutscheinAnteil(gutschein, [
+    { productId: "b1", summe: 30 },
+    { productId: "b2", summe: 20 },
+    { productId: "lego", summe: 150 },
+  ]);
+  assert.equal(anteil, 50);
+
+  // Warenwert 200, davon 50 Batterien → 10 % von 50 = 5
+  const ohneKondition = rabatte(200, 0, gutschein, anteil);
+  assert.equal(ohneKondition.gutscheinRabatt, 5);
+  assert.equal(ohneKondition.netto, 195);
+
+  // Mit 10 % Sonderkondition: Anteil 50 − 5 = 45, davon 10 % = 4,50
+  const mitKondition = rabatte(200, 10, gutschein, anteil);
+  assert.equal(mitKondition.kundenRabatt, 20);
+  assert.equal(mitKondition.gutscheinRabatt, 4.5);
+  assert.equal(mitKondition.netto, 175.5);
+});
+
+test("Gutschein für Warengruppen: fester Betrag höchstens der Anteil", () => {
+  const gutschein = {
+    code: "X",
+    kind: "fixed" as const,
+    value: 25,
+    min_order_amount: 0,
+    artikel: ["b1"],
+  };
+  const r = rabatte(200, 0, gutschein, 12.5);
+  assert.equal(r.gutscheinRabatt, 12.5);
+  assert.equal(r.netto, 187.5);
+});
+
+test("Gutschein für Warengruppen: nichts davon im Korb, Mindestwert gegen den Anteil", () => {
+  const gutschein = {
+    code: "X",
+    kind: "percent" as const,
+    value: 10,
+    min_order_amount: 40,
+    artikel: [] as string[],
+  };
+  const leer = rabatte(
+    200,
+    0,
+    gutschein,
+    gutscheinAnteil(gutschein, [{ productId: "lego", summe: 200 }]),
+  );
+  assert.equal(leer.nichtAnwendbar, true);
+  assert.equal(leer.gutscheinRabatt, 0);
+  assert.equal(leer.netto, 200);
+
+  // 30 € aus der Gruppe im Korb, Mindestwert 40 € – der übrige Korb zählt nicht.
+  const knapp = rabatte(200, 0, { ...gutschein, artikel: ["b1"] }, 30);
+  assert.equal(knapp.mindestwertFehlt, true);
+  assert.equal(knapp.nichtAnwendbar, false);
+  assert.equal(knapp.netto, 200);
+});
+
+test("Gutschein ohne Warengruppen: Anteil null ändert nichts", () => {
+  const gutschein = { code: "X", kind: "percent" as const, value: 10, min_order_amount: 0 };
+  assert.equal(gutscheinAnteil(gutschein, [{ productId: "a", summe: 5 }]), null);
+  assert.deepEqual(rabatte(200, 10, gutschein, null), rabatte(200, 10, gutschein));
+  assert.equal(rabatte(200, 10, gutschein).netto, 162);
 });
 
 test("Code-Normalisierung und Zufallscode", () => {

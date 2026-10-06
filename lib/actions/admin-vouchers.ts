@@ -52,6 +52,8 @@ const voucherSchema = z
       (v) => (v === "" || v == null ? undefined : v),
       z.string().uuid().optional(),
     ),
+    /** Leer = gilt für alle Warengruppen (Migration 057) */
+    category_ids: z.array(z.string().uuid()).max(200),
     is_active: z.boolean(),
   })
   .refine((d) => d.kind !== "percent" || d.value <= 100, {
@@ -116,6 +118,7 @@ export async function saveVoucher(
     max_redemptions: formData.get("max_redemptions"),
     max_per_customer: formData.get("max_per_customer"),
     customer_id: formData.get("customer_id"),
+    category_ids: formData.getAll("category_ids").filter((v) => v !== ""),
     is_active: formData.get("is_active") === "on" || formData.get("is_active") === "true",
   });
 
@@ -133,6 +136,7 @@ export async function saveVoucher(
     max_redemptions: d.max_redemptions ?? null,
     max_per_customer: d.max_per_customer ?? null,
     customer_id: d.customer_id ?? null,
+    category_ids: [...new Set(d.category_ids)],
     is_active: d.is_active,
   };
 
@@ -264,14 +268,29 @@ export interface GutscheinPruefung {
   error?: string;
 }
 
-/** Vorschau im Bestellformular. Verbindlich prüft create_order() erneut. */
-export async function pruefeGutschein(code: string): Promise<GutscheinPruefung> {
+const artikelSchema = z.array(z.string().uuid()).max(500);
+
+/**
+ * Vorschau im Bestellformular. Verbindlich prüft create_order() erneut.
+ *
+ * `productIds` sind die Artikel im Warenkorb: gilt der Gutschein nur für
+ * bestimmte Warengruppen, sagt die Datenbank, welche davon darunter fallen
+ * (Migration 057).
+ */
+export async function pruefeGutschein(
+  code: string,
+  productIds: string[] = [],
+): Promise<GutscheinPruefung> {
   await requireUser("/checkout");
   const sauber = normalisiereCode(String(code ?? ""));
   if (!CODE_MUSTER.test(sauber)) return { error: "Dieser Gutscheincode ist ungültig." };
+  const artikel = artikelSchema.safeParse(productIds);
 
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("gutschein_abfragen", { p_code: sauber });
+  const { data, error } = await supabase.rpc("gutschein_abfragen", {
+    p_code: sauber,
+    p_product_ids: artikel.success ? artikel.data : [],
+  });
 
   if (error) {
     // Eigene Meldungen (P0001) sind kundentauglich, alles andere ins Log.
@@ -280,13 +299,18 @@ export async function pruefeGutschein(code: string): Promise<GutscheinPruefung> 
     return { error: "Der Gutschein konnte gerade nicht geprüft werden." };
   }
 
-  const g = data as GutscheinKern;
+  const g = data as Pick<GutscheinKern, "code" | "kind" | "value" | "min_order_amount"> & {
+    category_names: string[] | null;
+    product_ids: string[] | null;
+  };
   return {
     gutschein: {
       code: g.code,
       kind: g.kind,
       value: Number(g.value),
       min_order_amount: Number(g.min_order_amount),
+      kategorien: g.category_names ?? [],
+      artikel: g.product_ids ?? null,
     },
   };
 }
