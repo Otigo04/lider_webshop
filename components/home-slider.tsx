@@ -52,6 +52,10 @@ export function HomeSlider({ slides }: { slides: Slide[] }) {
   const wischStart = useRef<number | null>(null);
   const anzahl = slides.length;
   const mehrere = anzahl > 1;
+  // Auf dem Telefon nur dann die hohe Fläche (6:5), wenn sie jemand braucht:
+  // ein eigenes Telefonbild oder Text über dem Bild. Reine Werbebilder
+  // bleiben auch dort 3:1 und sind ganz zu sehen.
+  const telefonHoch = slides.some((s) => s.mobileImageUrl || s.title || s.subtitle);
 
   const gehe = useCallback(
     (ziel: number) => setAktiv(((ziel % anzahl) + anzahl) % anzahl),
@@ -97,8 +101,16 @@ export function HomeSlider({ slides }: { slides: Slide[] }) {
         if (Math.abs(weg) > 40) gehe(aktiv + (weg < 0 ? 1 : -1));
       }}
     >
-      {/* Höhe: Telefon fast quadratisch (6:5), ab Tablet breites Band (3:1). */}
-      <div className="relative aspect-[6/5] w-full sm:aspect-[21/8] lg:aspect-[3/1] lg:max-h-[30rem]">
+      {/* Immer 3:1, das Format der Vorlage – ohne Höhengrenze, sonst wird die
+          Fläche auf breiten Bildschirmen flacher als das Bild und schneidet
+          oben und unten ab. Begrenzt wird die Breite; daneben bleibt der
+          dunkle Grund. */}
+      <div
+        className={cn(
+          "relative mx-auto w-full max-w-[1920px]",
+          telefonHoch ? "aspect-[6/5] sm:aspect-[3/1]" : "aspect-[3/1]",
+        )}
+      >
         {slides.map((slide, index) => {
           const sichtbar = index === aktiv;
           const hell = slide.tone === "light";
@@ -113,7 +125,12 @@ export function HomeSlider({ slides }: { slides: Slide[] }) {
                 fill
                 priority={index === 0}
                 sizes="100vw"
-                className={cn("object-cover", slide.mobileImageUrl && "hidden sm:block")}
+                className={cn(
+                  // Reines Werbebild in der hohen Telefonfläche: ganz zeigen
+                  // statt die Seiten wegzuschneiden.
+                  telefonHoch && !hatText ? "object-contain sm:object-cover" : "object-cover",
+                  slide.mobileImageUrl && "hidden sm:block",
+                )}
               />
               {slide.mobileImageUrl ? (
                 <Image

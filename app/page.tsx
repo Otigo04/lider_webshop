@@ -383,7 +383,7 @@ export default async function HomePage() {
       <CatalogTicker items={ticker} />
 
       {/* ------------------------------------------------------ Warengruppen */}
-      {gelistet.length > 0 ? (
+      {categories.length > 0 ? (
         <section className="dot-grid-dark border-b border-border bg-brand-soft">
           <div className="mx-auto max-w-6xl px-4 py-16">
             <Reveal>
@@ -394,7 +394,11 @@ export default async function HomePage() {
               />
             </Reveal>
             <Reveal delay={80} className="mt-8">
-              <CategoryGrid categories={gelistet} />
+              {/* Alle Warengruppen, auch die noch ohne Artikel: wer hier
+                  eine vermisst, hält das Sortiment für kleiner, als es ist.
+                  Schnellleiste und Reiter weiter unten bleiben bei den
+                  gefüllten – dort führte eine leere ins Nichts. */}
+              <CategoryGrid categories={categories} />
             </Reveal>
 
             {/* Schnellwege zu den Sonderlisten – dieselben Ziele wie in der

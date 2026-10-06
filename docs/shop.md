@@ -120,6 +120,10 @@ Grundlage: `supabase/migrations/029_bestellablauf.sql`.
   der Warengruppenfarbe aus `lib/accent-colors.ts` (dieselbe wie in
   Filterspalte und Artikelliste). Die frühere Scroll-Reihe zeigte nur, was
   hineinpasste, und bei Gruppen ohne Bild eine leere Fläche.
+- **Alle Warengruppen**, auch leere („Noch keine Artikel"). Schnellleiste,
+  Sortiment-Reiter und Kennzahl bleiben bei den gefüllten.
+- **Höchstens drei Spalten**, große Kacheln (Name bis 1,7 rem, Bild bis
+  176 px): der Einstieg ins Sortiment soll auffallen.
 - Darunter drei **Schnellwege** zu Reduziert, Neuheiten, Topseller.
 
 ---
@@ -493,6 +497,14 @@ angezeigt von `components/home-slider.tsx` ganz oben auf der Startseite.
 
 - Bild im Bucket `products` unter `startseite/<uuid>.<ext>`, für alle lesbar
   (eigene Storage-Policy). Optional eigenes Telefonbild (6:5).
+- **Fläche ist immer 3:1**, bis 1920 px breit, ohne Höhengrenze. Eine
+  `max-h` machte sie auf breiten Bildschirmen flacher als das Bild und
+  schnitt oben und unten ab. Auf dem Telefon 6:5 nur, wenn ein Bild ein
+  eigenes Telefonbild oder Text hat; reine Werbebilder bleiben 3:1 bzw.
+  werden in der hohen Fläche ganz gezeigt (`object-contain`). Der Editor
+  warnt beim Hochladen, wenn das Bild mehr als 5 % von 3:1 abweicht.
+- Bildtyp und Endung kommen aus den ersten Bytes der Datei, nicht aus Name
+  oder Browser-Angabe (`.jfif` von Windows).
 - Text optional – viele Werbebilder tragen ihn schon. Textfarbe hell/dunkel
   mit Verlauf nur hinter dem Text. Laufzeit „zeigen ab/bis"; RLS gibt
   Besuchern nur, was gerade läuft.

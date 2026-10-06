@@ -86,6 +86,23 @@ function BildFeld({
       toast.error("Das Bild ist größer als 5 MB.");
       return;
     }
+    // Die Fläche auf der Startseite ist 3:1. Ein anderes Format wird
+    // beschnitten – das soll man beim Hochladen erfahren, nicht erst dort.
+    if (!hochformat) {
+      try {
+        const maße = await createImageBitmap(datei);
+        const verhaeltnis = maße.width / maße.height;
+        maße.close();
+        if (Math.abs(verhaeltnis - 3) / 3 > 0.05) {
+          toast.warning(
+            `Das Bild ist ${verhaeltnis.toLocaleString("de-DE", { maximumFractionDigits: 2 })}:1, die Fläche 3:1. Es wird ${verhaeltnis < 3 ? "oben und unten" : "links und rechts"} beschnitten.`,
+            { duration: 10000 },
+          );
+        }
+      } catch {
+        // Maße nicht lesbar (z. B. AVIF in altem Browser) – dann ohne Hinweis.
+      }
+    }
     setLaedt(true);
     // Endung aus dem Typ, nicht aus dem Namen – mit „.jfif" fiele der Pfad
     // beim Speichern durch die Prüfung („Ungültiger Bildpfad").
@@ -272,7 +289,7 @@ export function SlideEditor({
 
       <BildFeld
         label="Bild (Desktop)"
-        hinweis="Querformat, ideal 1920 × 640 px (3:1), max. 5 MB."
+        hinweis="Querformat 3:1, z. B. 1920 × 640 px, max. 5 MB. Wird ganz gezeigt."
         bild={bild}
         onChange={setBild}
         pflicht
