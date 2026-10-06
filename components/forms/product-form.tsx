@@ -443,7 +443,7 @@ export function ProductForm({
           Was der Artikel im Einkauf gekostet hat. Erscheint nur im Adminpanel
           und an der Kasse als Nebenzeile am Bon, damit beim Verhandeln klar
           ist, wo die Grenze liegt. Steht auf keiner Rechnung, keinem Bon und
-          keinem Preisschild. Leer lassen heißt „nicht gepflegt".
+          keinem Preisschild. Leer lassen heißt „nicht gepflegt“.
         </p>
 
         <div className="mt-4 flex flex-wrap items-end gap-3">
