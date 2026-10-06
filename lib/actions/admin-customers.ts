@@ -11,6 +11,8 @@ import type { AdminFormState } from "@/lib/actions/admin-categories";
 export interface CustomerFormState extends AdminFormState {
   /** Nur direkt nach dem Anlegen gesetzt – wird genau einmal angezeigt. */
   temporaryPassword?: string;
+  /** Zugehörige E-Mail, für den Weitergabetext neben dem Startpasswort. */
+  temporaryPasswordEmail?: string;
 }
 
 /**
@@ -118,6 +120,9 @@ export async function createCustomer(
     email,
     password,
     email_confirm: true,
+    // app_metadata, nicht user_metadata: Letzteres darf der Kunde selbst
+    // überschreiben und könnte den Zwang damit abschalten.
+    app_metadata: { must_change_password: true },
     user_metadata: { full_name, company_name: company_name ?? null },
   });
 
@@ -150,6 +155,7 @@ export async function createCustomer(
   return {
     success: `Konto für ${email} angelegt.`,
     temporaryPassword: password,
+    temporaryPasswordEmail: email,
   };
 }
 
@@ -244,8 +250,9 @@ export async function resetCustomerPassword(
 
   const password = generatePassword();
   const supabaseAdmin = createAdminClient();
-  const { error } = await supabaseAdmin.auth.admin.updateUserById(id, {
+  const { data, error } = await supabaseAdmin.auth.admin.updateUserById(id, {
     password,
+    app_metadata: { must_change_password: true },
   });
 
   if (error) {
@@ -253,5 +260,9 @@ export async function resetCustomerPassword(
     return { error: "Das Passwort konnte nicht zurückgesetzt werden." };
   }
 
-  return { success: "Neues Startpasswort gesetzt.", temporaryPassword: password };
+  return {
+    success: "Neues Startpasswort gesetzt.",
+    temporaryPassword: password,
+    temporaryPasswordEmail: data.user?.email ?? undefined,
+  };
 }

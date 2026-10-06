@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth";
+import { clearMustChangePassword } from "@/lib/password-flag";
 import { createClient } from "@/lib/supabase/server";
 
 export interface FormState {
@@ -141,7 +142,7 @@ export async function changePassword(
   _prevState: FormState,
   formData: FormData,
 ): Promise<FormState> {
-  await requireUser("/account");
+  const user = await requireUser("/account");
 
   const parsed = passwordSchema.safeParse({
     password: formData.get("password"),
@@ -161,6 +162,8 @@ export async function changePassword(
     console.error("[konto] Passwort:", error.message);
     return { error: "Das Passwort konnte nicht geändert werden." };
   }
+
+  await clearMustChangePassword(user.id);
 
   return { success: "Passwort geändert." };
 }

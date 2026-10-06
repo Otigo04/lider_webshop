@@ -102,6 +102,25 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
+  /*
+   * Startpasswort noch nicht ersetzt: alles außer der Passwortseite, dem
+   * Abmelden und den Auth-Routen führt dorthin. Das Flag liegt in
+   * app_metadata (nur per Service-Key schreibbar) und kommt mit getUser()
+   * ohne zusätzliche Abfrage. Ein Konto, das das Flag nicht hat, merkt von
+   * alldem nichts.
+   */
+  if (
+    user?.app_metadata?.must_change_password === true &&
+    pathname !== "/passwort-aendern" &&
+    !pathname.startsWith("/auth/") &&
+    !request.headers.has("next-action")
+  ) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/passwort-aendern";
+    url.search = "";
+    return NextResponse.redirect(url);
+  }
+
   // Geschützte Routen sind an dieser Stelle immer mit Sitzung erreicht
   // (sonst griff der Redirect oben schon), also nie im Wartungsmodus.
   const istWartungsAusnahme = MAINTENANCE_EXEMPT_PREFIXES.some(

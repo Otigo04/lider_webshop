@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { clearMustChangePassword } from "@/lib/password-flag";
 import { createClient } from "@/lib/supabase/server";
 
 export interface LoginState {
@@ -348,5 +349,52 @@ export async function confirmPasswordReset(
     return { error: "Das Passwort konnte nicht gesetzt werden." };
   }
 
+  // Wer über die Reset-Mail ein eigenes Passwort vergibt, hat den Zwang
+  // damit erfüllt.
+  await clearMustChangePassword(user.id);
+
   redirect("/login?notice=passwort_gesetzt");
+}
+
+export interface FirstPasswordState {
+  error?: string;
+}
+
+/**
+ * Erster Login mit Startpasswort: neues Passwort vergeben, danach weiter in
+ * den Shop. Das Startpasswort darf nicht wieder gewählt werden.
+ */
+export async function setFirstPassword(
+  _prevState: FirstPasswordState,
+  formData: FormData,
+): Promise<FirstPasswordState> {
+  const parsed = resetConfirmSchema.safeParse({
+    password: formData.get("password"),
+    confirm: formData.get("confirm"),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0].message };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const { error } = await supabase.auth.updateUser({
+    password: parsed.data.password,
+  });
+  if (error) {
+    console.error("[auth] Erstpasswort:", error.message);
+    return {
+      error: error.message.toLowerCase().includes("different")
+        ? "Das neue Passwort muss sich vom Startpasswort unterscheiden."
+        : "Das Passwort konnte nicht gesetzt werden.",
+    };
+  }
+
+  await clearMustChangePassword(user.id);
+  revalidatePath("/", "layout");
+  redirect("/shop");
 }

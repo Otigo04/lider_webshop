@@ -1,5 +1,6 @@
 "use client";
 
+import { StartPasswordBox } from "@/components/admin/start-password-box";
 import { useActionState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -146,16 +147,11 @@ export function CustomerForm({ customer }: { customer?: AppUser }) {
       ) : null}
 
       {state.temporaryPassword ? (
-        <div className="rounded-md border border-warning/40 bg-warning/10 px-3 py-3 text-sm">
-          <p className="font-medium text-warning">Startpasswort</p>
-          <p className="mt-2 select-all rounded-md border border-border bg-background px-2 py-1 font-mono text-base">
-            {state.temporaryPassword}
-          </p>
-          <p className="mt-2 text-muted-foreground">
-            Wird nur jetzt angezeigt. Geben Sie es dem Kunden weiter – er kann es
-            unter „Konto“ selbst ändern.
-          </p>
-        </div>
+        <StartPasswordBox
+          title="Startpasswort"
+          password={state.temporaryPassword}
+          email={state.temporaryPasswordEmail}
+        />
       ) : null}
 
       <div className="flex gap-3">

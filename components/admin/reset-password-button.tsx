@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
+import { StartPasswordBox } from "@/components/admin/start-password-box";
 import { resetCustomerPassword } from "@/lib/actions/admin-customers";
 import type { CustomerFormState } from "@/lib/actions/admin-customers";
 import { Button } from "@/components/ui/button";
@@ -58,15 +59,11 @@ export function ResetPasswordButton({
         </DialogHeader>
 
         {state.temporaryPassword ? (
-          <div className="rounded-md border border-warning/40 bg-warning/10 px-3 py-3 text-sm">
-            <p className="font-medium text-warning">Neues Startpasswort</p>
-            <p className="mt-2 select-all rounded-md border border-border bg-background px-2 py-1 font-mono text-base">
-              {state.temporaryPassword}
-            </p>
-            <p className="mt-2 text-muted-foreground">
-              Wird nur jetzt angezeigt.
-            </p>
-          </div>
+          <StartPasswordBox
+            title="Neues Startpasswort"
+            password={state.temporaryPassword}
+            email={state.temporaryPasswordEmail ?? email}
+          />
         ) : (
           <form action={formAction}>
             <input type="hidden" name="id" value={customerId} />
