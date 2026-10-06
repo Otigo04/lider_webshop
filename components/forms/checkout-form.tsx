@@ -329,8 +329,8 @@ export function CheckoutForm({
                 className="h-9 w-full max-w-xs rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
               />
               <p className="text-xs text-muted-foreground">
-                Freiwillig. Ohne Termin melden wir uns, sobald die Ware
-                bereitsteht.
+                Abholbar in der Regel am selben oder am nächsten Werktag.
+                Rufen Sie dafür gerne kurz durch.
               </p>
             </div>
           )}

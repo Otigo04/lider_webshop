@@ -98,7 +98,7 @@ export default async function OrderDetailPage({
               Bestätigung und Rechnung sind unterwegs an Ihre E-Mail-Adresse.
               {ueberweisung
                 ? " Nach Zahlungseingang gehen wir in die Bearbeitung."
-                : " Wir melden uns, sobald die Ware bereitsteht."}
+                : " Abholbar in der Regel am selben oder am nächsten Werktag. Rufen Sie dafür gerne kurz durch."}
             </p>
           </div>
         </div>
@@ -207,7 +207,8 @@ export default async function OrderDetailPage({
                   </p>
                 ) : (
                   <p className="text-muted-foreground">
-                    Wir melden uns per E-Mail, sobald die Ware bereitsteht.
+                    Abholbar in der Regel am selben oder am nächsten Werktag.
+                    Rufen Sie dafür gerne kurz durch.
                   </p>
                 )}
                 {order.pickup_at ? (

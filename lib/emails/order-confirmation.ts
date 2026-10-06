@@ -67,7 +67,8 @@ export function orderConfirmationEmail(
          }`
       : `<p style="font-size:14px;color:#374151;margin-top:20px;">
            Sie zahlen <strong>${PAYMENT_METHOD_LABELS[order.payment_method].toLowerCase()}</strong>.
-           Vorab ist nichts zu tun – wir melden uns, sobald die Ware bereitsteht.
+           Vorab ist nichts zu tun. Abholbar in der Regel am selben oder am nächsten Werktag.
+           Rufen Sie dafür gerne kurz durch.
          </p>`;
 
   const abholung =
