@@ -27,9 +27,14 @@ const linkSchema = z
     "Link muss mit / oder https:// beginnen",
   );
 
+// Leer oder gar nicht mitgeschickt = nicht gesetzt. Ein deaktiviertes Feld
+// (Knopftext ohne Link) fehlt im Formular ganz und kommt als null an.
+const leerAlsUndefined = (v: unknown) =>
+  v == null || (typeof v === "string" && v.trim() === "") ? undefined : v;
+
 const optionalText = (max: number, meldung: string) =>
   z.preprocess(
-    (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
+    leerAlsUndefined,
     z.string().trim().max(max, meldung).optional(),
   );
 
@@ -44,10 +49,7 @@ const slideSchema = z
     title: optionalText(90, "Überschrift höchstens 90 Zeichen"),
     subtitle: optionalText(200, "Unterzeile höchstens 200 Zeichen"),
     cta_label: optionalText(40, "Knopftext höchstens 40 Zeichen"),
-    link_url: z.preprocess(
-      (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
-      linkSchema.optional(),
-    ),
+    link_url: z.preprocess(leerAlsUndefined, linkSchema.optional()),
     image_path: pfadSchema,
     mobile_image_path: z.preprocess(
       (v) => (v === "" || v == null ? undefined : v),

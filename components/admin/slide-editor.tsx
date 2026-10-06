@@ -22,6 +22,30 @@ interface Bild {
   url: string;
 }
 
+/** Dateiendung je erlaubtem Typ (ALLOWED_IMAGE_TYPES). */
+const ENDUNG: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/avif": "avif",
+};
+
+/**
+ * Bildtyp aus den ersten Bytes der Datei. Name und Browser-Angabe taugen
+ * dafür nicht: ein JPEG heißt unter Windows oft „bild.jfif", und je nach
+ * Rechner meldet der Browser dazu `image/jpeg`, gar nichts oder
+ * `application/octet-stream`.
+ */
+async function bildTyp(datei: File): Promise<string | null> {
+  const b = new Uint8Array(await datei.slice(0, 12).arrayBuffer());
+  const text = (von: number, bis: number) => String.fromCharCode(...b.slice(von, bis));
+  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return "image/jpeg";
+  if (b[0] === 0x89 && text(1, 4) === "PNG") return "image/png";
+  if (text(0, 4) === "RIFF" && text(8, 12) === "WEBP") return "image/webp";
+  if (text(4, 8) === "ftyp" && text(8, 12).startsWith("avi")) return "image/avif";
+  return null;
+}
+
 function berlinTag(iso: string | null, minusEinTag = false): string {
   if (!iso) return "";
   const t = new Date(iso).getTime() - (minusEinTag ? 1 : 0);
@@ -53,7 +77,8 @@ function BildFeld({
 
   async function hochladen(datei: File | undefined) {
     if (!datei) return;
-    if (!ALLOWED_IMAGE_TYPES.includes(datei.type)) {
+    const typ = await bildTyp(datei);
+    if (!typ || !ALLOWED_IMAGE_TYPES.includes(typ)) {
       toast.error("Nur JPEG, PNG, WebP oder AVIF.");
       return;
     }
@@ -62,12 +87,16 @@ function BildFeld({
       return;
     }
     setLaedt(true);
-    const endung = (datei.name.split(".").pop() ?? "jpg").toLowerCase().replace("jpeg", "jpg");
+    // Endung aus dem Typ, nicht aus dem Namen – mit „.jfif" fiele der Pfad
+    // beim Speichern durch die Prüfung („Ungültiger Bildpfad").
+    const endung = ENDUNG[typ];
     const pfad = `startseite/${crypto.randomUUID()}.${endung}`;
     const supabase = createClient();
     const { error } = await supabase.storage
       .from(PRODUCT_BUCKET)
-      .upload(pfad, datei, { contentType: datei.type, upsert: false });
+      // Bei einer Datei zählt für den Storage deren eigener Typ, nicht die
+      // contentType-Option – deshalb die Bytes mit dem erkannten Typ verpacken.
+      .upload(pfad, datei.slice(0, datei.size, typ), { contentType: typ, upsert: false });
     setLaedt(false);
     if (eingabe.current) eingabe.current.value = "";
     if (error) {
@@ -164,7 +193,6 @@ export function SlideEditor({
   mobileImageUrl?: string | null;
 }) {
   const isEdit = Boolean(slide);
-  const [state, formAction] = useActionState<AdminFormState, FormData>(saveSlide, {});
   const router = useRouter();
 
   const [bild, setBild] = useState<Bild | null>(
@@ -180,6 +208,25 @@ export function SlideEditor({
   const [cta, setCta] = useState(slide?.cta_label ?? "");
   const [link, setLink] = useState(slide?.link_url ?? "");
   const [tone, setTone] = useState<"dark" | "light">(slide?.tone ?? "dark");
+
+  // Nach dem Anlegen bleibt dieselbe Maske stehen. Ohne Leeren läge das eben
+  // gespeicherte Bild noch im Formular, und ein zweiter Klick legte es doppelt an.
+  const [state, formAction] = useActionState<AdminFormState, FormData>(
+    async (vorher, formData) => {
+      const ergebnis = await saveSlide(vorher, formData);
+      if (ergebnis.success && !isEdit) {
+        setBild(null);
+        setMobil(null);
+        setTitle("");
+        setSubtitle("");
+        setCta("");
+        setLink("");
+        setTone("dark");
+      }
+      return ergebnis;
+    },
+    {},
+  );
 
   useEffect(() => {
     if (state.error) toast.error(state.error);
@@ -230,111 +277,137 @@ export function SlideEditor({
         onChange={setBild}
         pflicht
       />
-      <BildFeld
-        label="Bild fürs Telefon (optional)"
-        hinweis="Etwa 1080 × 900 px (6:5). Ohne wird das Desktop-Bild beschnitten."
-        bild={mobil}
-        onChange={setMobil}
-        hochformat
-      />
+      <p className="text-sm text-muted-foreground">
+        Bild wählen und speichern genügt. Alles Weitere ist freiwillig – steht
+        die Werbung schon im Bild, bleibt der Rest leer.
+      </p>
 
-      <div className="space-y-1.5">
-        <Label htmlFor="title">Überschrift</Label>
-        <Input
-          id="title"
-          name="title"
-          maxLength={90}
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="z. B. Herbstaktion: 15 % auf Leuchtmittel"
-        />
-      </div>
-      <div className="space-y-1.5">
-        <Label htmlFor="subtitle">Unterzeile</Label>
-        <Input
-          id="subtitle"
-          name="subtitle"
-          maxLength={200}
-          value={subtitle}
-          onChange={(e) => setSubtitle(e.target.value)}
-          placeholder="z. B. Nur bis 31. Oktober, solange der Vorrat reicht"
-        />
-        <p className="text-xs text-muted-foreground">
-          Beides leer lassen, wenn der Text schon im Bild steht.
-        </p>
-      </div>
+      {/* <details> statt ein-/ausgebauter Felder: auch zugeklappt gehen die
+          Eingaben mit dem Formular mit. */}
+      <details
+        className="group rounded-md border border-border"
+        open={Boolean(slide?.title || slide?.subtitle || slide?.link_url)}
+      >
+        <summary className="cursor-pointer select-none px-3 py-2 text-sm font-medium">
+          Text über dem Bild und Link
+          <span className="font-normal text-muted-foreground"> (optional)</span>
+        </summary>
+        <div className="space-y-5 border-t border-border p-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="title">Überschrift</Label>
+            <Input
+              id="title"
+              name="title"
+              maxLength={90}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="z. B. Herbstaktion: 15 % auf Leuchtmittel"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="subtitle">Unterzeile</Label>
+            <Input
+              id="subtitle"
+              name="subtitle"
+              maxLength={200}
+              value={subtitle}
+              onChange={(e) => setSubtitle(e.target.value)}
+              placeholder="z. B. Nur bis 31. Oktober, solange der Vorrat reicht"
+            />
+          </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1.5">
-          <Label htmlFor="link_url">Link</Label>
-          <Input
-            id="link_url"
-            name="link_url"
-            maxLength={300}
-            value={link}
-            onChange={(e) => setLink(e.target.value)}
-            placeholder="/shop/reduziert"
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="cta_label">Knopftext</Label>
-          <Input
-            id="cta_label"
-            name="cta_label"
-            maxLength={40}
-            value={cta}
-            onChange={(e) => setCta(e.target.value)}
-            placeholder="Zu den Angeboten"
-            disabled={!link}
-          />
-        </div>
-      </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="link_url">Link</Label>
+              <Input
+                id="link_url"
+                name="link_url"
+                maxLength={300}
+                value={link}
+                onChange={(e) => setLink(e.target.value)}
+                placeholder="/shop/reduziert"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="cta_label">Knopftext</Label>
+              <Input
+                id="cta_label"
+                name="cta_label"
+                maxLength={40}
+                value={cta}
+                onChange={(e) => setCta(e.target.value)}
+                placeholder="Zu den Angeboten"
+                disabled={!link}
+              />
+            </div>
+          </div>
 
-      <div className="space-y-1.5">
-        <Label>Textfarbe</Label>
-        <div className="grid grid-cols-2 gap-1 rounded-md border border-border p-1">
-          {(
-            [
-              ["dark", "Weiß auf dunklem Verlauf"],
-              ["light", "Dunkel auf hellem Verlauf"],
-            ] as const
-          ).map(([wert, label]) => (
-            <button
-              key={wert}
-              type="button"
-              onClick={() => setTone(wert)}
-              aria-pressed={tone === wert}
-              className={cn(
-                "rounded px-2 py-1.5 text-xs font-medium transition-colors",
-                tone === wert ? "bg-brand text-brand-foreground" : "text-muted-foreground hover:bg-muted",
-              )}
-            >
-              {label}
-            </button>
-          ))}
+          <div className="space-y-1.5">
+            <Label>Textfarbe</Label>
+            <div className="grid grid-cols-2 gap-1 rounded-md border border-border p-1">
+              {(
+                [
+                  ["dark", "Weiß auf dunklem Verlauf"],
+                  ["light", "Dunkel auf hellem Verlauf"],
+                ] as const
+              ).map(([wert, label]) => (
+                <button
+                  key={wert}
+                  type="button"
+                  onClick={() => setTone(wert)}
+                  aria-pressed={tone === wert}
+                  className={cn(
+                    "rounded px-2 py-1.5 text-xs font-medium transition-colors",
+                    tone === wert ? "bg-brand text-brand-foreground" : "text-muted-foreground hover:bg-muted",
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
-      </div>
+      </details>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1.5">
-          <Label htmlFor="valid_from">Zeigen ab</Label>
-          <Input
-            id="valid_from"
-            name="valid_from"
-            type="date"
-            defaultValue={berlinTag(slide?.valid_from ?? null)}
+      <details
+        className="group rounded-md border border-border"
+        open={Boolean(slide?.mobile_image_path || slide?.valid_from || slide?.valid_until)}
+      >
+        <summary className="cursor-pointer select-none px-3 py-2 text-sm font-medium">
+          Telefonbild und Laufzeit
+          <span className="font-normal text-muted-foreground"> (optional)</span>
+        </summary>
+        <div className="space-y-5 border-t border-border p-3">
+          <BildFeld
+            label="Bild fürs Telefon"
+            hinweis="Etwa 1080 × 900 px (6:5). Ohne wird das Desktop-Bild beschnitten."
+            bild={mobil}
+            onChange={setMobil}
+            hochformat
           />
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="valid_from">Zeigen ab</Label>
+              <Input
+                id="valid_from"
+                name="valid_from"
+                type="date"
+                defaultValue={berlinTag(slide?.valid_from ?? null)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="valid_until">Zeigen bis</Label>
+              <Input
+                id="valid_until"
+                name="valid_until"
+                type="date"
+                defaultValue={berlinTag(slide?.valid_until ?? null, true)}
+              />
+            </div>
+          </div>
         </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="valid_until">Zeigen bis</Label>
-          <Input
-            id="valid_until"
-            name="valid_until"
-            type="date"
-            defaultValue={berlinTag(slide?.valid_until ?? null, true)}
-          />
-        </div>
-      </div>
+      </details>
 
       <label className="flex items-center gap-2 text-sm">
         <input
