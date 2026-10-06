@@ -21,8 +21,7 @@ import {
   labelSchrift,
   nameBreite,
   nameSatz,
-  nebenblockBreite,
-  preisSchriftgroesse,
+  preisAufteilung,
   preisTeile,
   raster,
   schildMasse,
@@ -85,10 +84,9 @@ export function schnittlinien(format: SchildFormat): string {
 /**
  * Ein Schild.
  *
- * Reduziert = rote Fläche mit schwarzer Schrift, sonst weiße Fläche mit
- * schwarzer Schrift. Der Großhandelscode ist die einzige Ausnahme: auf Weiß
- * steht er rot, auf Rot schwarz – er soll sich von der Artikelnummer absetzen,
- * ohne wie eine zweite Preisangabe auszusehen.
+ * Reduziert = rote Fläche mit weißer Schrift, sonst weiße Fläche mit
+ * schwarzer Schrift. Der Großhandelscode steht auf Weiß rot; auf Rot ist er
+ * weiß wie alles andere – eine zweite Farbe trüge die rote Fläche nicht.
  *
  * Preis- und Fußzeilengröße stehen inline und nicht im Stylesheet: beide
  * hängen von der Länge ihres Textes ab, damit ein vierstelliger Preis oder
@@ -98,19 +96,19 @@ function schild(s: Preisschild, format: SchildFormat, mitCode: boolean): string 
   const masse = schildMasse(format, { barcode: mitCode });
   const rot = istReduziert(s);
   const { euro, cent } = preisTeile(s.preis);
-  // Striche nur, wenn der Wert ein EAN ist und das Format Platz dafür hat –
-  // sonst wandert die Nummer als Text in die Fußzeile.
-  const belegt = nebenblockBreite(s.vorher, s.prozent, masse);
+  // Preiszeile nach Rangfolge (Preis, Prozentfeld, Streichpreis) – was nicht
+  // passt, fällt weg, statt den Preis kleinzudrücken oder überzulaufen.
+  const pa = preisAufteilung(s, masse);
 
   // Fußzeile nach Rangfolge: Artikelnummer, Strichcode, Label – gerechnet in
   // fussAufteilung(), damit Bogen, Vorschau und Werkbank dieselbe Zeile sehen.
   const fuss = fussAufteilung(s, masse);
 
   const neben =
-    s.vorher !== null || s.prozent !== null
+    pa.anordnung !== "solo"
       ? `<div class="neben">
-          ${s.vorher !== null ? `<span class="vorher">${esc(formatPrice(s.vorher))}</span>` : ""}
-          ${s.prozent !== null ? `<span class="prozent">−${s.prozent}&nbsp;%</span>` : ""}
+          ${pa.zeigeVorher && s.vorher !== null ? `<span class="vorher"${nebenStil(masse.vorher, pa.nebenSkala)}>${esc(formatPrice(s.vorher))}</span>` : ""}
+          ${pa.zeigeProzent && s.prozent !== null ? `<span class="prozent"${nebenStil(masse.prozent, pa.nebenSkala)}>−${s.prozent}&nbsp;%</span>` : ""}
         </div>`
       : "";
 
@@ -129,8 +127,8 @@ function schild(s: Preisschild, format: SchildFormat, mitCode: boolean): string 
     </div>
     <div class="trenner"></div>
     <div class="preisblock">
-      <div class="preiszeile">
-        <div class="preis" style="font-size:${mm(preisSchriftgroesse(s.preis, masse, belegt))}">
+      <div class="preiszeile${pa.anordnung === "unter" ? " unter" : ""}">
+        <div class="preis" style="font-size:${mm(pa.groesse)}">
           <span class="euro">${esc(euro)}</span><span class="cent">${esc(cent)}</span><span class="waehrung">€</span>
         </div>
         ${neben}
@@ -141,14 +139,19 @@ function schild(s: Preisschild, format: SchildFormat, mitCode: boolean): string 
       <span class="kennung" style="font-size:${mm(fuss.kennungGroesse)}">${
         esc(s.sku)
       }${s.code ? `<span class="code">#${esc(s.code)}</span>` : ""}${
-        !fuss.code && s.barcode
-          ? `<span class="barcode">${kennungTrenner(s.sku, s.code) ? " · " : ""}${esc(s.barcode)}</span>`
+        fuss.klartext
+          ? `<span class="barcode">${kennungTrenner(s.sku, s.code) ? " · " : ""}${esc(fuss.klartext)}</span>`
           : ""
       }</span>
       ${strichbild(fuss, masse, rot)}
       ${label}
     </div>
   </div>`;
+}
+
+/** Eigene Schriftgröße nur, wenn die Reihe unter dem Preis schrumpfen musste. */
+function nebenStil(groesse: number, skala: number): string {
+  return skala < 1 ? ` style="font-size:${mm(groesse * skala)}"` : "";
 }
 
 /**
@@ -407,8 +410,22 @@ export function buildLabelSheetHtml(
     flex: none;
   }
 
+  /* Schmales oder hohes Schild: Streichpreis und Prozentfeld in einer Reihe
+     unter dem Preis, der so die volle Breite behält. */
+  .preiszeile.unter {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: ${mm(m.luft * 0.45)};
+  }
+  .preiszeile.unter .neben {
+    flex-direction: row;
+    align-items: center;
+    gap: ${mm(m.luft * PREIS_ABSTAND)};
+  }
+
   .vorher {
     font-size: ${mm(m.vorher)};
+    line-height: 1;
     font-weight: 600;
     text-decoration: line-through;
     /* Kein Grau: auf rotem Grund verschwände es. Die Durchstreichung sagt

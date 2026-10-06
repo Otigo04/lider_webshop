@@ -19,8 +19,7 @@ import {
   labelSchrift,
   nameBreite,
   nameSatz,
-  nebenblockBreite,
-  preisSchriftgroesse,
+  preisAufteilung,
   preisTeile,
   schildMasse,
   type Preisschild,
@@ -74,8 +73,12 @@ export const PreisschildVorschau = memo(function PreisschildVorschau({
 
   // Fußzeile nach Rangfolge – dieselbe Rechnung wie im Druckbogen, damit die
   // Vorschau zeigt, was aus dem Drucker kommt.
-  const { kennung, kennungGroesse, code, balken, kasten, labelGroesse: labelG } =
+  const { kennungGroesse, klartext, code, balken, kasten, labelGroesse: labelG } =
     fussAufteilung(schild, m);
+
+  // Preiszeile nach Rangfolge – siehe preisAufteilung().
+  const pa = preisAufteilung(schild, m);
+  const unter = pa.anordnung === "unter";
 
   const trenner: React.CSSProperties = {
     height: `${m.linie}mm`,
@@ -166,8 +169,9 @@ export const PreisschildVorschau = memo(function PreisschildVorschau({
         <div
           style={{
             display: "flex",
-            alignItems: "center",
-            gap: `${m.luft * PREIS_ABSTAND}mm`,
+            flexDirection: unter ? "column" : "row",
+            alignItems: unter ? "flex-start" : "center",
+            gap: `${m.luft * (unter ? 0.45 : PREIS_ABSTAND)}mm`,
             minWidth: 0,
           }}
         >
@@ -175,11 +179,7 @@ export const PreisschildVorschau = memo(function PreisschildVorschau({
             style={{
               display: "flex",
               alignItems: "flex-start",
-              fontSize: `${preisSchriftgroesse(
-                schild.preis,
-                m,
-                nebenblockBreite(schild.vorher, schild.prozent, m),
-              )}mm`,
+              fontSize: `${pa.groesse}mm`,
               fontWeight: 700,
               lineHeight: 1,
               letterSpacing: "-0.035em",
@@ -209,22 +209,23 @@ export const PreisschildVorschau = memo(function PreisschildVorschau({
             </span>
           </div>
 
-          {/* Streichpreis und Prozentfeld untereinander rechts vom Preis:
-              zusammen in einer Reihe wären sie breiter als der Preis. */}
-          {schild.vorher !== null || schild.prozent !== null ? (
+          {/* Streichpreis und Prozentfeld: rechts vom Preis untereinander oder
+              – auf schmalen und hohen Schildern – in einer Reihe darunter. */}
+          {pa.anordnung !== "solo" ? (
             <div
               style={{
                 display: "flex",
-                flexDirection: "column",
-                alignItems: "flex-start",
-                gap: `${m.luft * 0.45}mm`,
+                flexDirection: unter ? "row" : "column",
+                alignItems: unter ? "center" : "flex-start",
+                gap: `${m.luft * (unter ? PREIS_ABSTAND : 0.45)}mm`,
                 flex: "none",
               }}
             >
-              {schild.vorher !== null ? (
+              {pa.zeigeVorher && schild.vorher !== null ? (
                 <span
                   style={{
-                    fontSize: `${m.vorher}mm`,
+                    fontSize: `${m.vorher * pa.nebenSkala}mm`,
+                    lineHeight: 1,
                     fontWeight: 600,
                     textDecoration: "line-through",
                     textDecorationThickness: "0.1em",
@@ -234,10 +235,10 @@ export const PreisschildVorschau = memo(function PreisschildVorschau({
                   {formatPrice(schild.vorher)}
                 </span>
               ) : null}
-              {schild.prozent !== null ? (
+              {pa.zeigeProzent && schild.prozent !== null ? (
                 <span
                   style={{
-                    fontSize: `${m.prozent}mm`,
+                    fontSize: `${m.prozent * pa.nebenSkala}mm`,
                     fontWeight: 700,
                     lineHeight: 1,
                     padding: "0.22em 0.4em",
@@ -285,10 +286,10 @@ export const PreisschildVorschau = memo(function PreisschildVorschau({
             <span style={{ color: rot ? "#fff" : CODEROT }}>#{schild.code}</span>
           ) : null}
           {/* Rückfall nur bei einer Nummer, die kein EAN ist. */}
-          {!code && schild.barcode ? (
+          {klartext ? (
             <span style={{ opacity: 0.7, fontWeight: 500 }}>
               {kennungTrenner(schild.sku, schild.code) ? " · " : ""}
-              {schild.barcode}
+              {klartext}
             </span>
           ) : null}
         </span>

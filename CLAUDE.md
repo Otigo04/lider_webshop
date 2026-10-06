@@ -845,6 +845,67 @@ die Lieferung, die mit einer Rechnung oder Preisliste kommt.
 
 ---
 
+## 🔍 Barcode-Nachschlag beim Wareneingang
+
+`lib/ean-lookup.ts`, Actions in `lib/actions/ean.ts`. Ein unbekannter Code
+wird in öffentlichen Produktdatenbanken gesucht; Bezeichnung und Foto kommen
+von dort, getippt wird nur noch der Preis.
+
+- **Nur freie Quellen**, kein Schlüssel, kein Vertrag: Open
+  Food/Beauty/Products/Pet Food Facts und der freie Zugang von UPCitemdb
+  (100 Abfragen/Tag; danach fällt die Quelle für den Tag still aus). Alle
+  zugleich gefragt, Rangfolge = Reihenfolge in `sucheEan()`. Markenlose
+  Importware kennt keine davon – dann bleibt die Zeile zum Eintippen offen.
+- **„Wie oben"**: Enter in einem leeren Preisfeld einer Neuanlage übernimmt
+  den Preis der Zeile darüber (steht als Platzhalter im Feld). Ein Karton
+  gleich bepreister Ware ist damit Scan, Enter, Enter.
+- **Vorher-Preis** als eigene Spalte, für Ware, die gleich reduziert ins
+  Regal kommt. Nachgetragen nach dem Buchen über `updateProductField()` wie
+  die Merkmale; `record_stock_entries()` bleibt unangetastet. Vor dem Buchen
+  geprüft: ohne Ladenpreis oder nicht darüber wäre es keine Reduzierung, und
+  das Schild käme weiß statt rot aus dem Drucker.
+- **Die Aufnahme überlebt den Browser**: Liste und Notiz liegen als Entwurf in
+  `localStorage` (`lider_wareneingang_entwurf`) und stehen nach Neuladen oder
+  Absturz wieder da. Eine Erstaufnahme dauert Stunden; ein versehentliches F5
+  darf sie nicht kosten. Gebucht oder verworfen heißt Entwurf weg.
+- **Hauseigene Nummern (Präfix 2) gehen nicht nach draußen**
+  (`istHandelscode()`): jeder Laden vergibt sie selbst, ein Treffer wäre
+  Zufall. Bezeichnungen in fremder Schrift (kyrillisch, arabisch …) werden
+  verworfen – die offenen Datenbanken führen den Namen in der Sprache des
+  Eintragenden.
+- **Fokus über `fokusWunsch`**, nicht über `requestAnimationFrame`: das Feld
+  einer neuen Zeile gibt es erst nach dem Rendern, und rAF läuft in einem
+  verdeckten Fenster gar nicht. Sprünge zwischen Feldern markieren den
+  Inhalt (`fokus()`), sonst hängt sich die neue Zahl an die alte.
+- **Der Nachschlag hält den Scanner nicht auf**: die Zeile steht sofort, die
+  Bezeichnung kommt nach. Was inzwischen getippt wurde, wird nicht
+  überschrieben.
+- **Vorschlag, keine Wahrheit**: an der Zeile steht die Quelle und „bitte
+  prüfen". Die Datenbanken sind von Freiwilligen gepflegt, Händlertitel von
+  UPCitemdb sind englisch.
+- **Das Bild wird erst nach dem Buchen geholt** (`uebernehmeArtikelbild()`),
+  weil es den Artikel vorher nicht gibt. Übergeben wird der Barcode, nicht die
+  Bildadresse – welche Adresse der Server abruft, entscheidet er selbst.
+  `ladeBild()` prüft jede Station: nur https, kein Ziel im eigenen Netz,
+  Dateityp und 5 MB wie beim Upload von Hand. Ein Artikel mit Foto bleibt
+  unberührt.
+- **Enter-Kette**: Bezeichnung → Großhandelspreis → Ladenpreis → Scanner.
+  Der Ladenpreis liegt auf dem Weg, weil er aufs Preisschild kommt; der
+  Vorher-Preis nicht (per Tab). Ein Barcode im Preisfeld gilt wie im
+  Mengenfeld als Scan.
+- **Zweiter Scan derselben neuen Ware** erhöht die Menge; zwei Neuanlagen mit
+  demselben Barcode ließen die ganze Buchung scheitern.
+- **Preisschilder der Lieferung**: nach dem Buchen führt ein Knopf zu
+  `/admin/preisschilder?eingang=<created_at>`. Alle Zeilen einer Buchung
+  tragen dasselbe `now()`, das genügt als Kennung
+  (`getEingangProductIds()`). Je Artikel ein Schild.
+- **„Letzte 10"**: `/admin/preisschilder?letzte=10` lädt die zuletzt
+  aufgenommenen Artikel aus dem Journal (`getZuletztAufgenommen()`), in
+  Scanreihenfolge. In der Werkbank stehen dafür Knöpfe (5/10/20/50) über der
+  Artikelsuche; sie ergänzen die Liste, ohne Stückzahlen zu verdoppeln.
+
+---
+
 ## 🏷️ Preisschilder fürs Regal
 
 `/admin/preisschilder`, Grundlage `supabase/migrations/038_preisschilder.sql`
@@ -884,6 +945,23 @@ setzen, drucken – A4 mit Schnittlinien.
   untereinander kostete Höhe, die auf einem 40-mm-Schild der Preis besser
   braucht. Das Prozentfeld ist schwarz mit weißer Schrift – die einzige
   Auszeichnung, die auf weißem wie auf rotem Grund gleich stark steht.
+- **Die Preiszeile ist modular** (`preisAufteilung()`), Rangfolge **Preis,
+  Prozentfeld, Streichpreis**. Gewählt wird, was den Preis am größten lässt:
+  Streichpreis und Prozentfeld *neben* dem Preis (breites Schild) oder in
+  einer Reihe *unter* ihm (schmales, hohes Schild; die Reihe darf bis 55 %
+  schrumpfen). Bliebe dem Preis weniger als 62 % seiner möglichen Größe,
+  fällt erst der Streichpreis weg, dann das Prozentfeld – reduziert sagt dann
+  die rote Fläche. Vorher gab es nur „Preis kleiner": auf 25 mm Breite stand
+  er in 2 mm da, und der Streichpreis lief trotzdem über den Rand. Eine
+  Anordnung, deren Teile nicht in den Block passen, scheidet aus, statt
+  abgeschnitten zu werden.
+- **Obergrenzen wachsen mit**: ein A4-großes Schild trägt einen 108-mm-Preis.
+  Die alten Deckel (Preis 40 mm) machten aus einem Plakat ein großes Blatt
+  mit kleinem Schild darauf.
+- **Geprüft über 18 Formate × 6 Schildtypen** (25 × 25 bis 194 × 281 mm;
+  vierstellige Preise, Reduzierung, Label, Strichcode, Nicht-EAN): kein
+  Element verlässt die Zelle, keins überdeckt ein anderes. Gemessen im
+  gerenderten Bogen, nicht gerechnet.
 - **Zwei Haarlinien** teilen das Schild in Kopf, Preis und Fußzeile. Sie tragen
   nichts vor, sie ordnen: drei Felder statt drei Zeilen, die im Weißraum
   schwimmen.
@@ -920,7 +998,7 @@ setzen, drucken – A4 mit Schnittlinien.
   Euro-Zeichen, kein Trennzeichen). **Mindestens dreistellig**: 0,77 € ergäbe
   sonst `#77`, und das liest sich wie 77 Euro; mit führender Null steht dort
   `#077`, und drei Stellen heißen immer Euro-Euro-Cent-Cent. Auf weißem Schild
-  rot, auf rotem schwarz. Leeres Feld heißt „kein Code", nicht „0 €".
+  rot, auf rotem weiß. Leeres Feld heißt „kein Code", nicht „0 €".
 - **Maße und Farben stehen in `lib/preisschild.ts`**, nicht im Bogen-Baustein:
   die Werkbank zeigt dieselbe Vorschau in Originalgröße, die der Drucker aufs
   Papier bringt (`components/admin/preisschild-vorschau.tsx`, Millimeter statt
@@ -948,9 +1026,10 @@ setzen, drucken – A4 mit Schnittlinien.
 - Ein zweiter Klick auf denselben Artikel heißt „noch eins", nicht „noch eine
   Zeile" – wie beim Wareneingang. Zwei Zeilen für denselben Artikel ließen sich
   getrennt bepreisen, und das fiele erst auf dem Papier auf.
-- **Bezeichnung: zwei Zeilen, voll ausgeschrieben** (`nameSatz()`). Zeile 1
-  wird bis zum Rand gefüllt; passt ein Wort nicht mehr ganz, wird es dort mit
-  „-" getrennt und in Zeile 2 fortgesetzt (mind. 3 Zeichen vorn, 2 hinten, nie
+- **Bezeichnung: zwei Zeilen, voll ausgeschrieben** (`nameSatz()`).
+  Umbrochen wird am Wortende, solange der Rest in Zeile 2 passt. Sonst wird
+  getrennt: zuerst an einem vorhandenen Bindestrich („Akku- / Bohrschrauber"),
+  erst dann mitten im Wort mit „-" (mind. 3 Zeichen vorn, 2 hinten, nie
   mitten in einer Zahl). Reicht es nicht, wird die Schrift bis auf die Hälfte
   kleiner, erst dann gekürzt. Gemessen wird per Canvas im Browser – im
   Druckbogen läuft dieselbe Funktion, per `toString()` eingebettet. Deshalb
@@ -1287,7 +1366,11 @@ nicht als Bild.
   sonst stünde eine andere Nummer auf dem Schild als im Artikelstamm. Eine
   ganz fehlende Prüfziffer (12 bzw. 7 Ziffern) wird ergänzt – das ist keine
   Änderung, sondern dieselbe Nummer vollständig.
-- **Klartext-Rückfall nur bei einer Nummer, die kein EAN ist.** Wurde der Code
+- **Klartext-Rückfall nur bei einer Nummer, die kein EAN ist** – und zwar in
+  Bogen *und* Vorschau über `fuss.klartext`. Beide prüften vorher selbst
+  („kein Code gezeichnet") und hängten die dreizehn Ziffern auch dann an, wenn
+  der Code nur aus Platzmangel fehlte: auf 25 mm Breite schnitt das die
+  Artikelnummer ab. Wurde der Code
   bloß aus Platzmangel weggelassen, hilft die Ziffernfolge niemandem: sie ist
   dreizehnstellig und stünde in der Restbreite in Ameisengröße da.
 - **Platz kommt notfalls vom Preis.** `schildMasse(format, { barcode: true })`

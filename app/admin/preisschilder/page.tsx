@@ -7,6 +7,7 @@ import {
   getLabelSizes,
   getPreisschildArtikel,
 } from "@/lib/queries/preisschilder";
+import { getEingangProductIds, getZuletztAufgenommen } from "@/lib/queries/stock";
 
 export const metadata: Metadata = { title: "Preisschilder" };
 
@@ -20,13 +21,29 @@ export const metadata: Metadata = { title: "Preisschilder" };
  * müssen allein die Symbole (Migration 038) und die Schildgrößen
  * (Migration 039) – beides Werkzeug, das über den einzelnen Druck hinausgeht.
  */
-export default async function PreisschilderPage() {
-  const [artikel, icons, formate, labels] = await Promise.all([
+export default async function PreisschilderPage({
+  searchParams,
+}: PageProps<"/admin/preisschilder">) {
+  const params = await searchParams;
+  // Vom Wareneingang kommend: die eben gebuchte Lieferung steht schon auf der
+  // Liste. Gespeichert wird weiterhin nichts – die Vorauswahl ist eine Abfrage
+  // des Journals, keine abgelegte Schilderliste.
+  const eingang = typeof params.eingang === "string" ? params.eingang : null;
+  // `?letzte=10`: die zehn zuletzt aufgenommenen Artikel, ohne Buchungsbezug.
+  const letzte = Math.min(
+    200,
+    Math.max(0, Math.floor(Number(typeof params.letzte === "string" ? params.letzte : 0)) || 0),
+  );
+
+  const [artikel, icons, formate, labels, ausEingang, zuletzt] = await Promise.all([
     getPreisschildArtikel(),
     getLabelIcons(),
     getLabelSizes(),
     getLabelOptionen(),
+    eingang ? getEingangProductIds(eingang) : Promise.resolve([]),
+    getZuletztAufgenommen(),
   ]);
+  const vorauswahl = eingang ? ausEingang : zuletzt.slice(0, letzte);
 
   return (
     <div className="space-y-6">
@@ -45,6 +62,11 @@ export default async function PreisschilderPage() {
       </header>
 
       <PreisschildWerkbank
+        // Andere Lieferung, andere Liste: der Anfangszustand wird nur beim
+        // Einhängen gelesen.
+        key={eingang ?? `letzte-${letzte}`}
+        vorauswahl={vorauswahl}
+        zuletzt={zuletzt}
         artikel={artikel}
         icons={icons}
         formate={formate}
