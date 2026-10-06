@@ -165,7 +165,7 @@ export default async function AdminOrderDetailPage({
                     {zeile.label}
                   </td>
                   <td className="py-1 text-right tabular text-success">
-                    {formatPrice(zeile.betrag)}
+                    −{formatPrice(-zeile.betrag)}
                   </td>
                 </tr>
               ))}

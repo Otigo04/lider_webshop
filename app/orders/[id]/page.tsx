@@ -271,7 +271,7 @@ export default async function OrderDetailPage({
                     <Zeile
                       key={zeile.label}
                       label={zeile.label}
-                      value={formatPrice(zeile.betrag)}
+                      value={`−${formatPrice(-zeile.betrag)}`}
                     />
                   ))}
                 </>

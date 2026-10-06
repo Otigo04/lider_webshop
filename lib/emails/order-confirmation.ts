@@ -31,7 +31,7 @@ export function orderConfirmationEmail(
           .map(
             (zeile) => `<tr>
         <td style="font-size:13px;color:#6b7280;text-align:right;padding:2px 0;">${zeile.label}</td>
-        <td style="font-size:13px;color:#374151;text-align:right;padding:2px 0;width:120px;">${formatPrice(zeile.betrag)}</td>
+        <td style="font-size:13px;color:#374151;text-align:right;padding:2px 0;width:120px;">${zeile.betrag < 0 ? `−${formatPrice(-zeile.betrag)}` : formatPrice(zeile.betrag)}</td>
       </tr>`,
           )
           .join("")

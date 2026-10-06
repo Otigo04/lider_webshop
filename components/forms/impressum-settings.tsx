@@ -50,7 +50,10 @@ export function ImpressumSettings({
   daten: ImpressumDaten;
 }) {
   const [zeilen, setZeilen] = useState<Zeile[]>(() =>
-    abschnitte.map((a) => ({ ...a, key: crypto.randomUUID() })),
+    // Index statt randomUUID(): Server und Client müssen denselben
+    // Schlüssel erzeugen (er steckt in id/htmlFor). Neu angelegte Zeilen
+    // bekommen weiter eine UUID – die entstehen nur im Browser.
+    abschnitte.map((a, i) => ({ ...a, key: `abschnitt-${i}` })),
   );
   const [state, formAction] = useActionState<AdminFormState, FormData>(
     updateImpressum,

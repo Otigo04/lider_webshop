@@ -39,9 +39,9 @@ interface ManualRow {
   vatRate: VatRate;
 }
 
-function emptyManualRow(): ManualRow {
+function emptyManualRow(key: string = crypto.randomUUID()): ManualRow {
   return {
-    key: crypto.randomUUID(),
+    key,
     description: "",
     quantity: "1",
     unitPrice: "",
@@ -73,7 +73,11 @@ export function InvoiceForm({
   const [productQuery, setProductQuery] = useState("");
   const [deliveryAddress, setDeliveryAddress] = useState("");
 
-  const [manualRows, setManualRows] = useState<ManualRow[]>([emptyManualRow()]);
+  const [manualRows, setManualRows] = useState<ManualRow[]>([
+    // Fester Schlüssel für die erste Zeile: sie wird auch auf dem Server
+    // gerendert, eine UUID ergäbe dort eine andere als im Browser.
+    emptyManualRow("zeile-1"),
+  ]);
   const [notes, setNotes] = useState("");
 
   const [catalogState, catalogAction] = useActionState<InvoiceActionState, FormData>(

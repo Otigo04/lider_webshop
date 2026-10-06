@@ -138,7 +138,10 @@ export function ProductForm({
             max_quantity: variant.max_quantity ? String(variant.max_quantity) : "",
             unit_price: String(variant.unit_price),
           }))
-      : [{ key: crypto.randomUUID(), min_quantity: "1", max_quantity: "", unit_price: "" }],
+      : // Fester Schlüssel statt randomUUID(): der Initialwert entsteht auf
+        // Server und Client, und abweichende ids im Label/Eingabefeld
+        // ergaben eine Hydration-Warnung.
+        [{ key: "staffel-neu", min_quantity: "1", max_quantity: "", unit_price: "" }],
   );
 
   // Vorschau der Reduzierung. Der Vorher-Preis ist ein Ladenpreis und wird
