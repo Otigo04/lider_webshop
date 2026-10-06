@@ -13,12 +13,11 @@
 **Die WebApp darf NICHT nach KI aussehen!**
 
 - ❌ KEINE Glasmorphism, Neumorphism, oder trendy AI-Aesthetics
-- ❌ KEINE überdesignten Animationen oder unnötigen Micro-Interactions
 - ❌ KEINE generische Placeholder-Texte ("Willkommen", "Lorem Ipsum")
 - ✅ Klassisch-professionelle B2B Ästhetik (wie LinkedIn, Shopify für Business)
 - ✅ Klare Typografie, Weißraum, konservative Farben
 - ✅ Funktionalität > Dekoration
-- ✅ Schnelle Ladezeiten, keine unnötigen Effekte
+- ✅ Schnelle Ladezeiten
 
 **Design-Palette:**
 - Primär: Dunkles Grau/Charcoal (#1F2937, #111827)

@@ -72,12 +72,19 @@ export function PreisschildArtikelSuche({
    * Bezeichnung kommt dann aus dem Stamm oder gehört zu einem neuen Artikel.
    * Eine offen stehende Liste würde über Angaben schweben, die gerade
    * jemand anders gesetzt hat.
+   *
+   * Geleert wird beim Rendern und nicht in einem Effekt: so steht die Liste
+   * keinen Durchlauf lang noch offen. Der Zeitgeber ist ein Ref und darf erst
+   * im Effekt angefasst werden.
    */
+  const [warAktiv, setWarAktiv] = useState(aktiv);
+  if (aktiv !== warAktiv) {
+    setWarAktiv(aktiv);
+    if (!aktiv) setTreffer([]);
+  }
+
   useEffect(() => {
-    if (!aktiv) {
-      if (zeitgeber.current) clearTimeout(zeitgeber.current);
-      setTreffer([]);
-    }
+    if (!aktiv && zeitgeber.current) clearTimeout(zeitgeber.current);
   }, [aktiv]);
 
   /* Markierung im Blick behalten, sonst blättert man bei zwölf Treffern ins
