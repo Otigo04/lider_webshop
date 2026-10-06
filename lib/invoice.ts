@@ -11,6 +11,7 @@ import {
 import type { AppUser, CompanySettings, Invoice, InvoiceItem, Order } from "@/lib/types";
 import { formatDate, formatPrice, formatQuantity, toNumber } from "@/lib/format";
 import { steuer } from "@/lib/vat";
+import { abzugszeilen } from "@/lib/rabatt";
 import { getLogoPrintFile } from "@/lib/logo";
 
 /**
@@ -30,6 +31,8 @@ export interface InvoicePdfLineItem {
   quantity: number;
   unitPrice: number;
   subtotal: number;
+  /** Rabattzeile: ohne Positionsnummer, Menge und Stückpreis (Migration 054) */
+  abzug?: boolean;
 }
 
 export interface InvoicePdfVatBreakdown {
@@ -324,13 +327,25 @@ export function buildOrderInvoicePdfData(
     customerCity: customer?.billing_city,
     customerVatId: customer?.vat_id,
     deliveryAddress: lieferanschrift,
-    items: (order.items ?? []).map((item) => ({
+    items: (order.items ?? []).map((item): InvoicePdfLineItem => ({
       description: item.product_name,
       sku: item.product_sku,
       quantity: toNumber(item.quantity),
       unitPrice: toNumber(item.unit_price),
       subtotal: toNumber(item.subtotal),
-    })),
+    })).concat(
+      // Sonderkondition und Gutschein als eigene Zeilen mit negativem Betrag
+      // (Migration 054). So addieren sich die Zeilen zur Nettosumme, auf die
+      // die Steuer gerechnet ist – eine Rechnung, deren Positionen nicht zur
+      // Summe passen, wirft beim Kunden die erste Rückfrage auf.
+      abzugszeilen(order).map((zeile) => ({
+        description: zeile.label,
+        quantity: 1,
+        unitPrice: zeile.betrag,
+        subtotal: zeile.betrag,
+        abzug: true,
+      })),
+    ),
     netTotal: betraege.netto,
     vatTotal: betraege.steuer,
     grossTotal: betraege.brutto,
@@ -1090,8 +1105,8 @@ export async function generateInvoicePdf(data: InvoicePdfData): Promise<Buffer> 
     // Zahlen stehen alle auf der ersten Zeile der Position, auch wenn die
     // Bezeichnung darunter weiterläuft – sonst rutschen Menge und Preis bei
     // langen Namen optisch zur nächsten Position.
-    text(String(index + 1), SPALTE.pos, { size: 9, color: MUTED });
-    text(formatQuantity(item.quantity), mengeR, {
+    if (!item.abzug) text(String(index + 1), SPALTE.pos, { size: 9, color: MUTED });
+    if (!item.abzug) text(formatQuantity(item.quantity), mengeR, {
       size: 9,
       // Auf dem Lieferschein ist die Menge die Aussage des Blattes – dort wird
       // abgezählt, ob die Kiste stimmt.
@@ -1099,7 +1114,9 @@ export async function generateInvoicePdf(data: InvoicePdfData): Promise<Buffer> 
       rechts: true,
     });
     if (!ohnePreise) {
-      text(formatPrice(item.unitPrice), SPALTE.preisR, { size: 9, rechts: true });
+      if (!item.abzug) {
+        text(formatPrice(item.unitPrice), SPALTE.preisR, { size: 9, rechts: true });
+      }
       text(formatPrice(item.subtotal), SPALTE.summeR, {
         size: 9,
         useFont: bold,

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { CheckoutForm } from "@/components/forms/checkout-form";
 import { requireUser } from "@/lib/auth";
 import { getCompanySettings } from "@/lib/queries/settings";
+import { getMeineKondition } from "@/lib/queries/vouchers";
 
 /*
  * „Bestellung aufgeben", nicht „Kasse": in diesem Projekt heißt so das
@@ -14,7 +15,10 @@ export default async function CheckoutPage() {
   const user = await requireUser("/checkout");
   // Nur für die Anzeige der Bruttosumme. Verbindlich rechnet create_order()
   // mit dem Satz, den es selbst aus den Firmendaten festschreibt.
-  const company = await getCompanySettings();
+  const [company, kondition] = await Promise.all([
+    getCompanySettings(),
+    getMeineKondition(),
+  ]);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
@@ -34,6 +38,7 @@ export default async function CheckoutPage() {
           }}
           vatRate={company.pos_vat_rate}
           versandFreiAb={company.free_shipping_threshold}
+          kundenSatz={kondition}
         />
       </div>
     </div>

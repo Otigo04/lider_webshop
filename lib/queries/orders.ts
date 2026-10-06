@@ -25,6 +25,8 @@ export interface OrderWithItems extends Order {
 
 const ORDER_COLUMNS = `
   id, customer_id, order_number, status, total_amount, notes,
+  subtotal_amount, customer_discount_percent, customer_discount_amount,
+  voucher_code, voucher_discount_amount,
   delivery_method, payment_method, vat_rate,
   delivery_address, delivery_name, delivery_street, delivery_zip,
   delivery_city, delivery_country, pickup_at, ready_at,

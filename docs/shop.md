@@ -442,3 +442,51 @@ damit war überladen. Seitlich schiebbar statt umbrechend.
 
 Merkliste, FAQ und Kontakt stehen im Klappmenü mit `nurMenue: true`: in der
 breiten Leiste ist kein Platz, dort führen Fußzeile und Schnellleiste hin.
+
+---
+
+## 🎟️ Sonderkonditionen und Gutscheine
+
+Grundlage: `supabase/migrations/054_kundenrabatt_und_gutscheine.sql`.
+
+- **Sonderkondition** (`customer_conditions`): Prozent auf alles für einen
+  Kunden, gepflegt in der Kundenakte `/admin/customers/[id]`. Eigene Tabelle,
+  nicht an `users`: die Zeile in `users` darf der Kunde selbst ändern. Er
+  sieht nur seinen Satz über `meine_kondition()`, nie die interne Notiz.
+- **Gutscheine** (`vouchers`) unter `/admin/gutscheine`: Prozent oder fester
+  Betrag, Mindestwert, Laufzeit (ganze Tage, Berliner Zeit), Grenze gesamt
+  und je Kunde, optional an einen Kunden gebunden. Code in Großbuchstaben,
+  Eingabe des Kunden wird normalisiert (`normalisiereCode()`).
+- **Reihenfolge**: Warenwert → Sonderkondition → Gutschein auf den Rest
+  (fest: höchstens bis 0). Mindestwert gilt gegen den Warenwert vor Rabatt.
+  `create_order()` schreibt `subtotal_amount`, beide Abzüge und den Code an
+  die Bestellung; `total_amount` ist der Nettobetrag danach, auf den die
+  Steuer geht. Rechnung, Kasse, Buchhaltung lesen weiter nur `total_amount`.
+- **Prüfung**: `gutschein_pruefen()` (intern, für Kunden gesperrt) sperrt
+  die Gutscheinzeile beim Bestellen – zwei gleichzeitige Bestellungen
+  bekommen nicht beide den letzten Platz. Ein fremder kundengebundener Code
+  meldet „ungültig", nicht „gehört jemand anderem". Vorschau im
+  Bestellformular über `gutschein_abfragen()`; ein ungültiger Code bricht die
+  Bestellung ab, statt still ohne Rabatt durchzulaufen.
+- **Eingelöste Gutscheine** lassen sich nicht löschen (`ON DELETE RESTRICT`),
+  nur deaktivieren – sonst zählten ihre Einlösungen nicht mehr.
+- **Rechnung/Mail/Bestellseite** zeigen die Abzüge als eigene Zeilen
+  (`abzugszeilen()`), im PDF ohne Positionsnummer und Menge.
+- **Direktes INSERT** in `orders`/`order_items` durch Kunden ist seit 054
+  entzogen: Bestellungen entstehen nur über die DEFINER-Funktionen.
+
+---
+
+## 🖼️ Werbebilder-Slider
+
+Migration 055, Tabelle `home_slides`, gepflegt unter `/admin/startseite`,
+angezeigt von `components/home-slider.tsx` ganz oben auf der Startseite.
+
+- Bild im Bucket `products` unter `startseite/<uuid>.<ext>`, für alle lesbar
+  (eigene Storage-Policy). Optional eigenes Telefonbild (6:5).
+- Text optional – viele Werbebilder tragen ihn schon. Textfarbe hell/dunkel
+  mit Verlauf nur hinter dem Text. Laufzeit „zeigen ab/bis"; RLS gibt
+  Besuchern nur, was gerade läuft.
+- Überblenden statt Schieben, 6,5 s je Bild, hält bei Maus/Fokus und per
+  Pausenknopf, bei `prefers-reduced-motion` kein Autowechsel. Wischen,
+  Pfeiltasten. Ein einzelnes Bild = Banner ohne Steuerung.

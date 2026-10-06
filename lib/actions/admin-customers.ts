@@ -202,6 +202,7 @@ export async function updateCustomer(
   }
 
   revalidatePath("/admin/customers");
+  revalidatePath(`/admin/customers/${parsed.data.id}`);
   return { success: "Kundendaten gespeichert." };
 }
 
@@ -235,6 +236,7 @@ export async function toggleCustomerActive(
   }
 
   revalidatePath("/admin/customers");
+  revalidatePath(`/admin/customers/${id}`);
   return { success: active ? "Kunde aktiviert." : "Kunde deaktiviert." };
 }
 

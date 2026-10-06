@@ -17,6 +17,8 @@ import {
   shippingNote,
 } from "@/lib/shipping";
 import { steuer } from "@/lib/vat";
+import { rabatte, satzText, type GutscheinKern } from "@/lib/rabatt";
+import { VoucherField } from "@/components/voucher-field";
 import { AddressFields } from "@/components/forms/address-fields";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -105,12 +107,15 @@ export function CheckoutForm({
   adresse,
   vatRate,
   versandFreiAb,
+  kundenSatz = 0,
 }: {
   adresse: HinterlegteAdresse;
   /** Steuersatz aus den Firmendaten – nur Anzeige, gerechnet wird in der DB */
   vatRate: number;
   /** Netto-Grenze für den kostenfreien Versand (company_settings) */
   versandFreiAb: number;
+  /** Sonderkondition des Kunden in Prozent (meine_kondition()) */
+  kundenSatz?: number;
 }) {
   const { items, ready, total, clear } = useCart();
   const bilder = useCartImages(items);
@@ -118,6 +123,7 @@ export function CheckoutForm({
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("transfer");
   const [abweichend, setAbweichend] = useState(false);
   const [abholung, setAbholung] = useState("");
+  const [gutschein, setGutschein] = useState<GutscheinKern | null>(null);
   const [state, formAction] = useActionState<CheckoutState, FormData>(createOrder, {});
   const router = useRouter();
 
@@ -163,7 +169,12 @@ export function CheckoutForm({
     quantity: item.quantity,
   }));
 
-  const betraege = steuer(total, vatRate);
+  // Anzeige: dieselbe Reihenfolge wie create_order (lib/rabatt.ts). Die
+  // Versandgrenze gilt gegen den Betrag nach Rabatt – so steht er auch an der
+  // Bestellung (total_amount).
+  const rechnung = rabatte(total, kundenSatz, gutschein);
+  const netto = rechnung.netto;
+  const betraege = steuer(netto, vatRate);
   const versand = deliveryMethod === "shipping";
 
   return (
@@ -171,6 +182,7 @@ export function CheckoutForm({
       <input type="hidden" name="items" value={JSON.stringify(payload)} />
       <input type="hidden" name="deliveryMethod" value={deliveryMethod} />
       <input type="hidden" name="paymentMethod" value={zahlart} />
+      <input type="hidden" name="voucherCode" value={gutschein?.code ?? ""} />
       <input
         type="hidden"
         name="differentAddress"
@@ -250,7 +262,7 @@ export function CheckoutForm({
               icon={<Package className="size-5" aria-hidden />}
               title="Versand"
               text={
-                qualifiesForFreeShipping(total, versandFreiAb)
+                qualifiesForFreeShipping(netto, versandFreiAb)
                   ? `Kostenfrei ab ${formatThreshold(versandFreiAb)} netto – erreicht.`
                   : "Kosten nach Gewicht und Ziel, Mitteilung mit der Auftragsbestätigung."
               }
@@ -378,6 +390,26 @@ export function CheckoutForm({
         <h2 className="font-medium">Zusammenfassung</h2>
 
         <dl className="mt-4 space-y-2 border-t border-border pt-4 text-sm">
+          {rechnung.kundenRabatt > 0 || rechnung.gutscheinRabatt > 0 ? (
+            <div className="flex justify-between">
+              <dt className="text-muted-foreground">Warenwert netto</dt>
+              <dd className="tabular">{formatPrice(rechnung.warenwert)}</dd>
+            </div>
+          ) : null}
+          {rechnung.kundenRabatt > 0 ? (
+            <div className="flex justify-between text-success">
+              <dt>Ihre Sonderkondition {satzText(rechnung.kundenSatz)}</dt>
+              <dd className="tabular">−{formatPrice(rechnung.kundenRabatt)}</dd>
+            </div>
+          ) : null}
+          {rechnung.gutscheinRabatt > 0 ? (
+            <div className="flex justify-between text-success">
+              <dt>
+                Gutschein <span className="code">{gutschein?.code}</span>
+              </dt>
+              <dd className="tabular">−{formatPrice(rechnung.gutscheinRabatt)}</dd>
+            </div>
+          ) : null}
           <div className="flex justify-between">
             <dt className="text-muted-foreground">Summe netto</dt>
             <dd className="tabular">{formatPrice(betraege.netto)}</dd>
@@ -390,6 +422,14 @@ export function CheckoutForm({
           </div>
         </dl>
 
+        <div className="mt-4 border-t border-border pt-4">
+          <VoucherField
+            gutschein={gutschein}
+            onChange={setGutschein}
+            mindestwertFehlt={rechnung.mindestwertFehlt}
+          />
+        </div>
+
         <div className="mt-4 flex items-end justify-between border-t border-border pt-4">
           <span className="text-sm font-medium">Zu zahlen</span>
           <span className="text-2xl font-semibold tabular">
@@ -401,12 +441,12 @@ export function CheckoutForm({
           <p
             className={cn(
               "mt-3 rounded-md border px-3 py-2 text-xs",
-              qualifiesForFreeShipping(total, versandFreiAb)
+              qualifiesForFreeShipping(netto, versandFreiAb)
                 ? "border-success/30 bg-success/10 text-success"
                 : "border-border bg-muted text-muted-foreground",
             )}
           >
-            {shippingNote(total, versandFreiAb)}
+            {shippingNote(netto, versandFreiAb)}
           </p>
         ) : (
           <p className="mt-3 rounded-md border border-border bg-muted px-3 py-2 text-xs text-muted-foreground">

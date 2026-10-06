@@ -15,6 +15,7 @@ import {
   formatQuantity,
   toNumber,
 } from "@/lib/format";
+import { abzugszeilen, warenwertVon } from "@/lib/rabatt";
 import { steuer } from "@/lib/vat";
 import { PAYMENT_METHOD_LABELS } from "@/lib/types";
 import { getAdminOrder } from "@/lib/queries/admin";
@@ -47,6 +48,7 @@ export default async function AdminOrderDetailPage({
   const invoiceUrl = await getInvoiceUrl(invoice?.file_path);
   const betraege = steuer(toNumber(order.total_amount), toNumber(order.vat_rate));
   const abholung = order.delivery_method === "pickup";
+  const abzuege = abzugszeilen(order);
 
   return (
     <div>
@@ -147,6 +149,36 @@ export default async function AdminOrderDetailPage({
               </tr>
             ))}
           </tbody>
+          {abzuege.length > 0 ? (
+            <tfoot className="border-t-2 border-border">
+              <tr>
+                <td colSpan={3} className="py-2 pr-4 text-right text-muted-foreground">
+                  Warenwert
+                </td>
+                <td className="py-2 text-right tabular">
+                  {formatPrice(warenwertVon(order))}
+                </td>
+              </tr>
+              {abzuege.map((zeile) => (
+                <tr key={zeile.label}>
+                  <td colSpan={3} className="py-1 pr-4 text-right text-muted-foreground">
+                    {zeile.label}
+                  </td>
+                  <td className="py-1 text-right tabular text-success">
+                    {formatPrice(zeile.betrag)}
+                  </td>
+                </tr>
+              ))}
+              <tr>
+                <td colSpan={3} className="py-2 pr-4 text-right font-medium">
+                  Summe netto
+                </td>
+                <td className="py-2 text-right font-semibold tabular">
+                  {formatPrice(betraege.netto)}
+                </td>
+              </tr>
+            </tfoot>
+          ) : null}
         </table>
       </div>
 
