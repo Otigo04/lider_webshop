@@ -239,8 +239,9 @@ export function InvoiceForm({
                       </p>
                     </div>
                     <div className="w-24 space-y-1">
-                      <Label className="text-xs">Menge</Label>
+                      <Label htmlFor={`kat-${row.key}-menge`} className="text-xs">Menge</Label>
                       <Input
+                        id={`kat-${row.key}-menge`}
                         type="number"
                         min={1}
                         step={1}
@@ -256,8 +257,9 @@ export function InvoiceForm({
                       />
                     </div>
                     <div className="w-32 space-y-1">
-                      <Label className="text-xs">Preis / Stück (€)</Label>
+                      <Label htmlFor={`kat-${row.key}-preis`} className="text-xs">Preis / Stück (€)</Label>
                       <Input
+                        id={`kat-${row.key}-preis`}
                         type="number"
                         min={0}
                         step="0.01"
@@ -374,8 +376,9 @@ export function InvoiceForm({
                   className="flex flex-wrap items-end gap-3 rounded-md border border-border p-3"
                 >
                   <div className="min-w-48 flex-1 space-y-1">
-                    <Label className="text-xs">Beschreibung</Label>
+                    <Label htmlFor={`frei-${row.key}-text`} className="text-xs">Beschreibung</Label>
                     <Input
+                      id={`frei-${row.key}-text`}
                       value={row.description}
                       onChange={(event) =>
                         setManualRows((current) =>
@@ -387,8 +390,9 @@ export function InvoiceForm({
                     />
                   </div>
                   <div className="w-24 space-y-1">
-                    <Label className="text-xs">Menge</Label>
+                    <Label htmlFor={`frei-${row.key}-menge`} className="text-xs">Menge</Label>
                     <Input
+                      id={`frei-${row.key}-menge`}
                       type="number"
                       min={0.01}
                       step="0.01"
@@ -404,8 +408,9 @@ export function InvoiceForm({
                     />
                   </div>
                   <div className="w-32 space-y-1">
-                    <Label className="text-xs">Preis / Stück (€)</Label>
+                    <Label htmlFor={`frei-${row.key}-preis`} className="text-xs">Preis / Stück (€)</Label>
                     <Input
+                      id={`frei-${row.key}-preis`}
                       type="number"
                       min={0}
                       step="0.01"
@@ -421,8 +426,9 @@ export function InvoiceForm({
                     />
                   </div>
                   <div className="w-28 space-y-1">
-                    <Label className="text-xs">MwSt.</Label>
+                    <Label htmlFor={`frei-${row.key}-ust`} className="text-xs">MwSt.</Label>
                     <select
+                      id={`frei-${row.key}-ust`}
                       value={row.vatRate}
                       onChange={(event) =>
                         setManualRows((current) =>
