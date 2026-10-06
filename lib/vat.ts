@@ -34,7 +34,8 @@ export function steuer(netto: number, satz: number): Steuerbetraege {
   return {
     netto: aufCent(netto),
     steuer: steuerbetrag,
-    brutto: aufCent(netto) + steuerbetrag,
+    // Nochmals auf den Cent: 0,05 + 0,01 ergibt in Gleitkomma 0,060000000000000005.
+    brutto: aufCent(aufCent(netto) + steuerbetrag),
     satz: sauber,
   };
 }

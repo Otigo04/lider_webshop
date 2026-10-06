@@ -8,6 +8,15 @@ Fachliche Vorgaben stehen in `CLAUDE.md`, der Bauplan in
 
 ---
 
+## Tests
+
+```bash
+npm test                    # Preis-, Steuer- und Nummernkreis-Regeln
+npm run check:migrations    # Nummerierung der Migrationen
+```
+
+---
+
 ## Lokal starten
 
 ```bash
@@ -33,8 +42,9 @@ Supabase Dashboard → Project Settings → API.
 Im Supabase SQL Editor, in dieser Reihenfolge. Alle Skripte sind idempotent.
 
 `supabase/schema.sql` zuerst, danach die Dateien in `supabase/migrations/`
-aufsteigend nach Nummer – von `001_bestand_auf_produkt.sql` bis
-`012_bildzugriff_ohne_produkt_rls.sql`.
+aufsteigend nach Nummer, bis zur letzten im Ordner. `npm run check:migrations`
+prüft Lücken und doppelte Nummern. Ablauf, Backups und Rückfall:
+`docs/betrieb.md`.
 
 ### Testdaten
 
