@@ -174,3 +174,42 @@ export function warenwertVon(order: BestellRabatte): number {
     ? zahl(order.total_amount)
     : zahl(order.subtotal_amount);
 }
+
+export interface KassenSummen {
+  /** Summe aller Positionen vor der Kondition, in der Preislesart des Bons */
+  summe: number;
+  /** Abzug der Sonderkondition auf die Katalogartikel */
+  abzug: number;
+  netto: number;
+  ust: number;
+  brutto: number;
+}
+
+/**
+ * Summen an der Kasse – dieselbe Rechnung wie create_pos_sale()
+ * (Migration 056): jede Zeile auf den Cent, Kondition nur auf
+ * Katalogartikel (freie Positionen bleiben unberührt), danach die Steuer.
+ * Bei Bruttopreisen wird sie herausgerechnet, sonst aufgeschlagen.
+ */
+export function kassenSummen(
+  zeilen: { unitPrice: number; quantity: number; katalog: boolean }[],
+  satz: number,
+  brutto: boolean,
+  ustSatz: number,
+): KassenSummen {
+  let summe = 0;
+  let artikel = 0;
+  for (const z of zeilen) {
+    const sub = aufCent(zahl(z.unitPrice) * zahl(z.quantity));
+    summe = aufCent(summe + sub);
+    if (z.katalog) artikel = aufCent(artikel + sub);
+  }
+  const abzug = aufCent((artikel * kundenSatz(satz)) / 100);
+  const basis = aufCent(summe - abzug);
+  if (brutto) {
+    const netto = aufCent(basis / (1 + ustSatz / 100));
+    return { summe, abzug, netto, ust: aufCent(basis - netto), brutto: basis };
+  }
+  const ust = aufCent((basis * ustSatz) / 100);
+  return { summe, abzug, netto: basis, ust, brutto: aufCent(basis + ust) };
+}

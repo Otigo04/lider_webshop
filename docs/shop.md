@@ -474,6 +474,15 @@ Grundlage: `supabase/migrations/054_kundenrabatt_und_gutscheine.sql`.
   (`abzugszeilen()`), im PDF ohne Positionsnummer und Menge.
 - **Direktes INSERT** in `orders`/`order_items` durch Kunden ist seit 054
   entzogen: Bestellungen entstehen nur über die DEFINER-Funktionen.
+- **An der Kasse** (Migration 056): `create_pos_sale()` zieht die
+  Sonderkondition des gewählten Händlerkontos ab – nur auf Katalogartikel,
+  nicht auf freie Positionen (Pfand, Dienstleistung: dort ist der Preis gerade
+  von Hand getippt). Ebenso `create_admin_order()` für „Rechnung aus
+  Katalog". Beide haben `p_apply_condition` (Vorgabe true); in Terminal und
+  Rechnungsformular ist das ein Häkchen am Abzug. Anzeige über
+  `kassenSummen()` bzw. `rabatte()` in `lib/rabatt.ts`. `pos_sales` hält
+  `subtotal_amount`, Satz und Abzug; Bon, Beleg und Rechnung zeigen den Abzug
+  als eigene Zeile.
 
 ---
 

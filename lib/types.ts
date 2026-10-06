@@ -379,6 +379,11 @@ export interface PosSale {
   net_amount: number;
   vat_amount: number;
   total_amount: number;
+  /** Summe der Positionen vor der Sonderkondition (Migration 056) */
+  subtotal_amount?: number | null;
+  customer_discount_percent?: number;
+  /** Abzug der Sonderkondition, in der Preislesart des Verkaufs */
+  customer_discount_amount?: number;
   note: string | null;
   /** Beleg-PDF im Bucket `invoices` unter pos/<id>/<receipt_number>.pdf */
   file_path: string | null;

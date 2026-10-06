@@ -81,3 +81,25 @@ test("Code-Normalisierung und Zufallscode", () => {
     assert.doesNotMatch(code, /[01OIL]/);
   }
 });
+
+test("Kasse: Kondition nur auf Katalogartikel, netto", async () => {
+  const { kassenSummen } = await import("@/lib/rabatt");
+  const s = kassenSummen(
+    [
+      { unitPrice: 2.5, quantity: 1, katalog: true },
+      { unitPrice: 1.2, quantity: 1, katalog: true },
+      { unitPrice: 12.5, quantity: 2, katalog: false },
+    ],
+    10,
+    false,
+    19,
+  );
+  // Artikel 3,70 → 10 % = 0,37; 28,70 − 0,37 = 28,33; USt 5,38 → 33,71
+  assert.deepEqual(s, { summe: 28.7, abzug: 0.37, netto: 28.33, ust: 5.38, brutto: 33.71 });
+});
+
+test("Kasse: ohne Kondition wie bisher, brutto herausgerechnet", async () => {
+  const { kassenSummen } = await import("@/lib/rabatt");
+  const s = kassenSummen([{ unitPrice: 11.9, quantity: 1, katalog: true }], 0, true, 19);
+  assert.deepEqual(s, { summe: 11.9, abzug: 0, netto: 10, ust: 1.9, brutto: 11.9 });
+});

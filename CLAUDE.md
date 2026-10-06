@@ -489,6 +489,9 @@ gelten.
   die Anzeige `lib/rabatt.ts` in derselben Reihenfolge: Warenwert →
   Sonderkondition % → Gutschein auf den Rest. `total_amount` ist der Betrag
   danach. Wer eins ändert, ändert das andere und `tests/rabatt.test.ts` mit.
+  An der Kasse und bei „Rechnung aus Katalog" gilt die Kondition ebenso
+  (`create_pos_sale`, `create_admin_order`, Migration 056) – an der Kasse
+  nur auf Katalogartikel, nicht auf freie Positionen.
 - **Reduziert** entscheidet allein `reduzierung()` (`lib/pricing.ts`), nur
   gegen einen gepflegten Ladenpreis.
 - **Nummernkreise sind lückenlos** und stehen in der Datenbank

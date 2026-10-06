@@ -4,6 +4,7 @@ import { getCustomers } from "@/lib/queries/admin";
 import { getProductAttributes } from "@/lib/queries/attributes";
 import { getCategories, getLastUsedCategoryId } from "@/lib/queries/products";
 import { getCompanySettings } from "@/lib/queries/settings";
+import { getConditions } from "@/lib/queries/vouchers";
 
 export const metadata: Metadata = { title: "Kasse" };
 
@@ -14,13 +15,14 @@ export const metadata: Metadata = { title: "Kasse" };
  * läuft danach über Server Actions (lib/actions/pos.ts).
  */
 export default async function AdminPosPage() {
-  const [customers, categories, settings, attributes, zuletztKategorieId] =
+  const [customers, categories, settings, attributes, zuletztKategorieId, konditionen] =
     await Promise.all([
       getCustomers(),
       getCategories(),
       getCompanySettings(),
       getProductAttributes(),
       getLastUsedCategoryId(),
+      getConditions(),
     ]);
 
   return (
@@ -31,6 +33,9 @@ export default async function AdminPosPage() {
       zuletztKategorieId={zuletztKategorieId}
       vatRate={Number(settings.pos_vat_rate)}
       pricesGross={settings.pos_prices_gross}
+      konditionen={Object.fromEntries(
+        [...konditionen].map(([id, k]) => [id, Number(k.discount_percent)]),
+      )}
     />
   );
 }
