@@ -3,13 +3,15 @@ import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { InvoiceForm } from "@/components/forms/invoice-form";
 import { getAdminProducts, getCustomers } from "@/lib/queries/admin";
+import { getConditions } from "@/lib/queries/vouchers";
 
 export const metadata: Metadata = { title: "Neue Rechnung" };
 
 export default async function NewInvoicePage() {
-  const [customers, products] = await Promise.all([
+  const [customers, products, konditionen] = await Promise.all([
     getCustomers(),
     getAdminProducts(),
+    getConditions(),
   ]);
 
   return (
@@ -34,6 +36,9 @@ export default async function NewInvoicePage() {
         <InvoiceForm
           customers={customers.filter((customer) => customer.role === "customer")}
           products={products}
+          konditionen={Object.fromEntries(
+            [...konditionen].map(([id, k]) => [id, Number(k.discount_percent)]),
+          )}
         />
       </div>
     </div>

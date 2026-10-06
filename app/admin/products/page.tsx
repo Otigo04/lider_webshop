@@ -373,6 +373,15 @@ export default async function AdminProductsPage({
             <tbody>
               {products.map((product) => {
                 const ab = lowestUnitPrice(product.variants ?? []);
+                // GH-Zelle zeigt und ändert die Grundstaffel (kleinste
+                // Mindestmenge) – dorthin schreibt updateProductField. Mit
+                // dem günstigsten Staffelpreis hier stand eine andere Zahl in
+                // der Zelle als die, die man beim Tippen überschrieb.
+                const grund = [...(product.variants ?? [])].sort(
+                  (x, y) => x.min_quantity - y.min_quantity,
+                )[0];
+                const grundpreis = grund ? Number(grund.unit_price) : null;
+                const staffelAnzahl = product.variants?.length ?? 0;
                 const rabatt = reduzierung(product.list_price, ab, product.retail_price);
                 return (
                   <tr
@@ -451,8 +460,12 @@ export default async function AdminProductsPage({
                             field="unit_price"
                             typ="decimal"
                             ausrichtung="right"
-                            value={ab !== null ? String(ab) : "0"}
-                            anzeige={ab !== null ? formatPrice(ab) : "—"}
+                            value={grundpreis !== null ? String(grundpreis) : "0"}
+                            anzeige={
+                              grundpreis !== null
+                                ? `${formatPrice(grundpreis)}${staffelAnzahl > 1 ? ` · ${staffelAnzahl} Staffeln` : ""}`
+                                : "—"
+                            }
                           />
                         </PreisZeile>
                         <PreisZeile kuerzel="EH">

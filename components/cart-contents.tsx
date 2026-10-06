@@ -12,6 +12,7 @@ import {
   shippingNote,
 } from "@/lib/shipping";
 import { steuer } from "@/lib/vat";
+import { rabatte, satzText } from "@/lib/rabatt";
 import { cn } from "@/lib/utils";
 import { QuantityInput } from "@/components/quantity-input";
 import { Button } from "@/components/ui/button";
@@ -20,8 +21,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 export function CartContents({
   vatRate,
   versandFreiAb,
+  kundenSatz = 0,
 }: {
   vatRate: number;
+  /** Sonderkondition des Kunden in Prozent (Migration 054) */
+  kundenSatz?: number;
   /** Netto-Grenze aus den Firmendaten (company_settings, Migration 037) */
   versandFreiAb: number;
 }) {
@@ -57,7 +61,10 @@ export function CartContents({
     );
   }
 
-  const betraege = steuer(total, vatRate);
+  // Gutscheine erst im Bestellformular; hier nur die feste Kondition.
+  const rechnung = rabatte(total, kundenSatz);
+  const netto = rechnung.netto;
+  const betraege = steuer(netto, vatRate);
 
   return (
     <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
@@ -175,6 +182,18 @@ export function CartContents({
         </dl>
 
         <dl className="mt-4 space-y-2 border-t border-border pt-4 text-sm">
+          {rechnung.kundenRabatt > 0 ? (
+            <>
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">Warenwert netto</dt>
+                <dd className="tabular">{formatPrice(rechnung.warenwert)}</dd>
+              </div>
+              <div className="flex justify-between text-success">
+                <dt>Ihre Sonderkondition {satzText(rechnung.kundenSatz)}</dt>
+                <dd className="tabular">−{formatPrice(rechnung.kundenRabatt)}</dd>
+              </div>
+            </>
+          ) : null}
           <div className="flex justify-between">
             <dt className="text-muted-foreground">Summe netto</dt>
             <dd className="tabular">{formatPrice(betraege.netto)}</dd>
@@ -197,23 +216,23 @@ export function CartContents({
         <p
           className={cn(
             "mt-3 rounded-md border px-3 py-2 text-xs",
-            qualifiesForFreeShipping(total, versandFreiAb)
+            qualifiesForFreeShipping(netto, versandFreiAb)
               ? "border-success/30 bg-success/10 text-success"
               : "border-border bg-muted text-muted-foreground",
           )}
         >
-          {shippingNote(total, versandFreiAb)}
+          {shippingNote(netto, versandFreiAb)}
         </p>
 
         {/* Wie weit es noch bis zur Versandkostenfreiheit ist – dieselbe Grenze,
             die oben in der Hinweisleiste steht. Eine Zahl zum Auffüllen ist
             greifbarer als eine Bedingung im Fließtext. */}
-        {!qualifiesForFreeShipping(total, versandFreiAb) && versandFreiAb > 0 ? (
+        {!qualifiesForFreeShipping(netto, versandFreiAb) && versandFreiAb > 0 ? (
           <div className="mt-3">
             <div className="flex justify-between text-xs">
               <span className="text-muted-foreground">Bis versandkostenfrei</span>
               <span className="font-semibold tabular">
-                noch {formatPrice(versandFreiAb - total)}
+                noch {formatPrice(versandFreiAb - netto)}
               </span>
             </div>
             <div
@@ -221,12 +240,12 @@ export function CartContents({
               aria-label="Fortschritt bis zur Versandkostenfreiheit"
               aria-valuemin={0}
               aria-valuemax={versandFreiAb}
-              aria-valuenow={Math.round(total)}
+              aria-valuenow={Math.round(netto)}
               className="mt-1.5 h-2 overflow-hidden rounded-full bg-muted"
             >
               <div
                 className="h-full rounded-full bg-gold transition-[width] duration-500 ease-out"
-                style={{ width: `${Math.min(100, (total / versandFreiAb) * 100)}%` }}
+                style={{ width: `${Math.min(100, (netto / versandFreiAb) * 100)}%` }}
               />
             </div>
           </div>

@@ -3,17 +3,11 @@
 --
 -- Reihenfolge beim Neuaufsetzen, jeweils im Supabase SQL Editor:
 --   1. supabase/schema.sql                              (diese Datei)
---   2. supabase/migrations/001_bestand_auf_produkt.sql
---   3. supabase/migrations/002_bestellung_anlegen.sql
---   4. supabase/migrations/003_erstadmin_ermoeglichen.sql
---   5. supabase/migrations/004_artikelnummern_und_versand.sql
---   6. supabase/migrations/005_zugangsanfragen_und_adressen.sql
---   7. supabase/migrations/006_oeffentlicher_katalog.sql
---   8. supabase/migrations/007_strukturierte_adressen.sql
---   9. supabase/migrations/008_vorname_nachname.sql
---  10. supabase/migrations/009_produkt_flags.sql
---  11. supabase/migrations/010_topseller_flag.sql
---  12. supabase/migrations/011_bildzugriff_oeffentlich_fix.sql
+--   2. alle Dateien unter supabase/migrations/ in der Reihenfolge ihrer
+--      Nummer (001_… bis zur höchsten), keine auslassen
+--
+-- Diese Datei ist der Ausgangsstand, nicht der heutige: Spalten, Funktionen
+-- und Policies aus den Migrationen stehen hier nicht.
 --
 -- Alle Skripte sind idempotent und können gefahrlos erneut laufen.
 -- =============================================================================
@@ -320,9 +314,11 @@ DROP POLICY IF EXISTS orders_admin_all    ON public.orders;
 CREATE POLICY orders_select_own ON public.orders
   FOR SELECT TO authenticated
   USING (customer_id = auth.uid() AND public.is_active_user());
-CREATE POLICY orders_insert_own ON public.orders
-  FOR INSERT TO authenticated
-  WITH CHECK (customer_id = auth.uid() AND public.is_active_user());
+-- Kein orders_insert_own / order_items_insert_own mehr (Migration 054):
+-- Bestellungen entstehen nur über create_order() / create_admin_order().
+-- Ein direktes INSERT durch den Kunden könnte Rabattfelder und Summen frei
+-- setzen. Die DROP-Zeilen bleiben, damit ein erneuter Lauf dieser Datei die
+-- alten Policies nicht stehen lässt.
 CREATE POLICY orders_admin_all ON public.orders
   FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
 
@@ -332,12 +328,6 @@ DROP POLICY IF EXISTS order_items_admin_all  ON public.order_items;
 CREATE POLICY order_items_select_own ON public.order_items
   FOR SELECT TO authenticated
   USING (EXISTS (
-    SELECT 1 FROM public.orders o
-    WHERE o.id = order_items.order_id AND o.customer_id = auth.uid()
-  ) AND public.is_active_user());
-CREATE POLICY order_items_insert_own ON public.order_items
-  FOR INSERT TO authenticated
-  WITH CHECK (EXISTS (
     SELECT 1 FROM public.orders o
     WHERE o.id = order_items.order_id AND o.customer_id = auth.uid()
   ) AND public.is_active_user());

@@ -44,6 +44,7 @@ import { formatPrice, formatQuantity } from "@/lib/format";
 import { counterUnitPrice, marge, reduzierung } from "@/lib/pricing";
 import { RabattBadge } from "@/components/sale-price";
 import { cn } from "@/lib/utils";
+import { kassenSummen, satzText } from "@/lib/rabatt";
 import {
   POS_PRICE_MODE_LABELS,
   type AppUser,
@@ -80,6 +81,7 @@ export function PosTerminal({
   zuletztKategorieId,
   vatRate,
   pricesGross,
+  konditionen = {},
 }: {
   customers: AppUser[];
   categories: Category[];
@@ -91,6 +93,8 @@ export function PosTerminal({
   vatRate: number;
   /** true = eingegebene Preise sind Endpreise inkl. USt. */
   pricesGross: boolean;
+  /** Sonderkondition je Kunden-ID in Prozent (Migration 054/056) */
+  konditionen?: Record<string, number>;
 }) {
   const router = useRouter();
   // Ton und Statusleiste in einem: jeder Vorgang meldet sich hörbar und
@@ -98,6 +102,8 @@ export function PosTerminal({
   const { meldung, melden } = useKassenMeldung();
 
   const [kunde, setKunde] = useState<PosCustomerChoice | null>(null);
+  // Sonderkondition des gewählten Händlers – abschaltbar für diesen Bon.
+  const [konditionAn, setKonditionAn] = useState(true);
   /*
    * Wer den Laden aufschließt und sofort scannt, hat noch keinen Kunden
    * gewählt. Der Kundenschritt entscheidet dann selbst auf Barverkauf und
@@ -363,22 +369,24 @@ export function PosTerminal({
   // Ladenpreis-Einstellung – wie in completePosSale()/create_pos_sale().
   const effektivBrutto = preisModus === "wholesale" ? false : pricesGross;
 
-  const summen = useMemo(() => {
-    const positionen = bon.reduce(
-      (summe, zeile) => summe + zeile.unitPrice * zeile.quantity,
-      0,
-    );
-    const runden = (wert: number) => Math.round(wert * 100) / 100;
+  const kundenSatzWert = kunde?.customerId ? (konditionen[kunde.customerId] ?? 0) : 0;
+  const satzAktiv = konditionAn ? kundenSatzWert : 0;
 
-    if (effektivBrutto) {
-      const brutto = runden(positionen);
-      const netto = runden(brutto / (1 + vatRate / 100));
-      return { netto, ust: runden(brutto - netto), brutto };
-    }
-    const netto = runden(positionen);
-    const ust = runden((netto * vatRate) / 100);
-    return { netto, ust, brutto: runden(netto + ust) };
-  }, [bon, effektivBrutto, vatRate]);
+  // Gleiche Rechnung wie create_pos_sale() (Migration 056), lib/rabatt.ts.
+  const summen = useMemo(
+    () =>
+      kassenSummen(
+        bon.map((zeile) => ({
+          unitPrice: zeile.unitPrice,
+          quantity: zeile.quantity,
+          katalog: Boolean(zeile.productId),
+        })),
+        satzAktiv,
+        effektivBrutto,
+        vatRate,
+      ),
+    [bon, satzAktiv, effektivBrutto, vatRate],
+  );
 
   const stueckzahl = bon.reduce((summe, zeile) => summe + zeile.quantity, 0);
 
@@ -399,6 +407,7 @@ export function PosTerminal({
         customerLabel: kunde.customerId ? null : kunde.label,
         paymentMethod: zahlart,
         note: notiz.trim() || null,
+        applyCondition: konditionAn,
       });
 
       if (ergebnis.error || !ergebnis.sale) {
@@ -465,6 +474,7 @@ export function PosTerminal({
         onWeiter={(auswahl, code) => {
           startCodeRef.current = code ?? null;
           setKunde(auswahl);
+          setKonditionAn(true);
         }}
       />
     );
@@ -493,6 +503,11 @@ export function PosTerminal({
                 <UserRound className="size-4" aria-hidden />
                 {kunde.label}
                 {kunde.customerId ? null : " · ohne Kundenkonto"}
+                {kundenSatzWert > 0 ? (
+                  <span className="rounded bg-gold-soft px-1.5 py-0.5 text-xs font-semibold text-[#7a4a10]">
+                    Sonderkondition −{satzText(kundenSatzWert)}
+                  </span>
+                ) : null}
                 <span
                   className={cn(
                     "eyebrow rounded px-1.5 py-0.5",
@@ -815,6 +830,35 @@ export function PosTerminal({
           </div>
 
           <dl className="space-y-2 px-5 py-4 text-sm">
+            {kundenSatzWert > 0 ? (
+              <>
+                <div className="flex justify-between">
+                  <dt className="text-muted-foreground">Positionen</dt>
+                  <dd className="tabular">{formatPrice(summen.summe)}</dd>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <dt>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={konditionAn}
+                        onChange={(event) => setKonditionAn(event.target.checked)}
+                        className="size-4 accent-[var(--brand)]"
+                      />
+                      <span className={konditionAn ? "text-success" : "text-muted-foreground line-through"}>
+                        Sonderkondition {satzText(kundenSatzWert)}
+                      </span>
+                    </label>
+                  </dt>
+                  <dd className={cn("tabular", konditionAn ? "text-success" : "text-muted-foreground")}>
+                    −{formatPrice(summen.abzug)}
+                  </dd>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Gilt für Katalogartikel, nicht für freie Positionen.
+                </p>
+              </>
+            ) : null}
             <div className="flex justify-between">
               <dt className="text-muted-foreground">Zwischensumme netto</dt>
               <dd className="tabular">{formatPrice(summen.netto)}</dd>

@@ -30,7 +30,14 @@ function SubmitButton({ isEdit }: { isEdit: boolean }) {
   );
 }
 
-export function CustomerForm({ customer }: { customer?: AppUser }) {
+export function CustomerForm({
+  customer,
+  zurueck = "/admin/customers",
+}: {
+  customer?: AppUser;
+  /** Ziel nach dem Speichern einer Änderung */
+  zurueck?: string;
+}) {
   const isEdit = Boolean(customer);
   const [state, formAction] = useActionState<CustomerFormState, FormData>(
     isEdit ? updateCustomer : createCustomer,
@@ -42,9 +49,9 @@ export function CustomerForm({ customer }: { customer?: AppUser }) {
     if (!state.success) return;
     toast.success(state.success);
     // Beim Anlegen bleibt die Seite stehen, damit das Startpasswort lesbar ist.
-    if (isEdit) router.push("/admin/customers");
+    if (isEdit) router.push(zurueck);
     router.refresh();
-  }, [state.success, isEdit, router]);
+  }, [state.success, isEdit, router, zurueck]);
 
   return (
     <form action={formAction} className="space-y-4">

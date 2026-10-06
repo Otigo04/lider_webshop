@@ -12,7 +12,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 
 type Action = (
@@ -73,7 +72,18 @@ export function ConfirmAction({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      {/*
+        Kein <DialogTrigger asChild>: der Auslöser kommt meist als JSX aus
+        einer Server Component. Beim Server-Rendering kann so ein Element noch
+        als „lazy“ Referenz ankommen, und Radix' Slot verlangt ein fertiges
+        Element – mal klappte es, mal brach das SSR mit „Primitive.button
+        failed to slot onto its children“ ab (gesehen auf /admin/categories).
+        Der Wrapper öffnet per Klick; Tastatur funktioniert über den Knopf
+        darin, dessen Klick hierher hochläuft.
+      */}
+      <span className="contents" onClick={() => setOpen(true)}>
+        {trigger}
+      </span>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>

@@ -17,6 +17,7 @@ import { getInvoiceForOrder, getNachbestellung, getOrder } from "@/lib/queries/o
 import { ReorderButton } from "@/components/reorder-button";
 import { getCompanySettings } from "@/lib/queries/settings";
 import { getInvoiceUrl } from "@/lib/storage";
+import { abzugszeilen, warenwertVon } from "@/lib/rabatt";
 import { steuer } from "@/lib/vat";
 import { DELIVERY_METHOD_LABELS } from "@/lib/shipping";
 import { INVOICE_STATUS_LABELS, PAYMENT_METHOD_LABELS } from "@/lib/types";
@@ -67,6 +68,7 @@ export default async function OrderDetailPage({
   const invoiceUrl = await getInvoiceUrl(invoice?.file_path);
 
   const betraege = steuer(toNumber(order.total_amount), toNumber(order.vat_rate));
+  const abzuege = abzugszeilen(order);
   const frischBestellt = query.neu !== undefined;
   const abholung = order.delivery_method === "pickup";
   const ueberweisung = order.payment_method === "transfer";
@@ -262,6 +264,18 @@ export default async function OrderDetailPage({
           <div className="rounded-md border border-border p-5">
             <h2 className="font-medium">Betrag</h2>
             <dl className="mt-3">
+              {abzuege.length > 0 ? (
+                <>
+                  <Zeile label="Warenwert netto" value={formatPrice(warenwertVon(order))} />
+                  {abzuege.map((zeile) => (
+                    <Zeile
+                      key={zeile.label}
+                      label={zeile.label}
+                      value={`−${formatPrice(-zeile.betrag)}`}
+                    />
+                  ))}
+                </>
+              ) : null}
               <Zeile label="Summe netto" value={formatPrice(betraege.netto)} />
               <Zeile
                 label={`zzgl. ${betraege.satz.toFixed(0)} % USt.`}

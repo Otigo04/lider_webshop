@@ -13,12 +13,11 @@
 **Die WebApp darf NICHT nach KI aussehen!**
 
 - ❌ KEINE Glasmorphism, Neumorphism, oder trendy AI-Aesthetics
-- ❌ KEINE überdesignten Animationen oder unnötigen Micro-Interactions
 - ❌ KEINE generische Placeholder-Texte ("Willkommen", "Lorem Ipsum")
 - ✅ Klassisch-professionelle B2B Ästhetik (wie LinkedIn, Shopify für Business)
 - ✅ Klare Typografie, Weißraum, konservative Farben
 - ✅ Funktionalität > Dekoration
-- ✅ Schnelle Ladezeiten, keine unnötigen Effekte
+- ✅ Schnelle Ladezeiten
 
 **Design-Palette:**
 - Primär: Dunkles Grau/Charcoal (#1F2937, #111827)
@@ -190,7 +189,10 @@ CREATE TABLE product_images (
 
 ### **Admin Pages (Protected, nur für Admins):**
 - `/admin` – Admin Dashboard (Stats, Übersicht, Tagesumsatz der Kasse)
-- `/admin/customers` – Kundenverwaltung
+- `/admin/customers` – Kundenliste (Suche, Filter, Kondition, Umsatz)
+- `/admin/customers/[id]` – Kundenakte: Stammdaten, Sonderkondition, persönliche Gutscheine, Bestellungen
+- `/admin/gutscheine` – Gutscheine / Aktionscodes mit Einlösungen
+- `/admin/startseite` – Werbebilder (Slider) ganz oben auf der Startseite
 - `/admin/products` – Produktverwaltung
 - `/admin/gruppen` – Angebote mit Ausführungen (Farbe, Größe, Wattzahl)
 - `/admin/bestand` – Wareneingang (Schnellerfassung) und sein Journal
@@ -469,7 +471,7 @@ gelten.
 | `docs/lager.md` | Einkaufspreis, Bestandsführung, Wareneingang, Sammelimport, Barcode-Nachschlag, Schnellfilter, Warengruppen-Vorgabe |
 | `docs/preisschilder.md` | Preisschilder fürs Regal, freie Preisschilder, Strichcode |
 | `docs/kataloge.md` | Katalog-Generator |
-| `docs/shop.md` | Neu/Reduziert, Bestellablauf, Startseite, FAQ, Impressum, Merkmale, Artikelgruppen, Merkliste |
+| `docs/shop.md` | Neu/Reduziert, Bestellablauf, Startseite, Slider, FAQ, Impressum, Merkmale, Artikelgruppen, Merkliste, Sonderkonditionen und Gutscheine |
 | `docs/todo.md` | Offene Punkte |
 
 ### Harte Regeln (gelten überall)
@@ -482,6 +484,13 @@ gelten.
   festgeschrieben. Nichts davon im Code festverdrahten.
 - **Der Einkaufspreis (`product_costs`) wird nie gedruckt oder an Kunden
   geladen** – nicht auf Schild, Bon, Rechnung, Katalog.
+- **Kundenrabatt und Gutschein** rechnet `create_order()` (Migration 054),
+  die Anzeige `lib/rabatt.ts` in derselben Reihenfolge: Warenwert →
+  Sonderkondition % → Gutschein auf den Rest. `total_amount` ist der Betrag
+  danach. Wer eins ändert, ändert das andere und `tests/rabatt.test.ts` mit.
+  An der Kasse und bei „Rechnung aus Katalog" gilt die Kondition ebenso
+  (`create_pos_sale`, `create_admin_order`, Migration 056) – an der Kasse
+  nur auf Katalogartikel, nicht auf freie Positionen.
 - **Reduziert** entscheidet allein `reduzierung()` (`lib/pricing.ts`), nur
   gegen einen gepflegten Ladenpreis.
 - **Nummernkreise sind lückenlos** und stehen in der Datenbank

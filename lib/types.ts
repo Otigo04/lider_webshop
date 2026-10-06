@@ -178,6 +178,46 @@ export interface AppUser {
   shipping_country: string | null;
 }
 
+/** Werbebild im Startseiten-Slider (Migration 055) */
+export interface HomeSlide {
+  id: string;
+  title: string | null;
+  subtitle: string | null;
+  cta_label: string | null;
+  link_url: string | null;
+  image_path: string;
+  mobile_image_path: string | null;
+  tone: "dark" | "light";
+  is_active: boolean;
+  valid_from: string | null;
+  valid_until: string | null;
+  order_index: number;
+}
+
+/** Gutschein / Aktionscode (Migration 054) */
+export interface Voucher {
+  id: string;
+  code: string;
+  description: string | null;
+  kind: "percent" | "fixed";
+  value: number;
+  min_order_amount: number;
+  valid_from: string | null;
+  valid_until: string | null;
+  max_redemptions: number | null;
+  max_per_customer: number | null;
+  customer_id: string | null;
+  is_active: boolean;
+  created_at: string;
+}
+
+/** Sonderkondition eines Kunden (Migration 054) */
+export interface CustomerCondition {
+  customer_id: string;
+  discount_percent: number;
+  note: string | null;
+}
+
 export interface OrderItem {
   id: string;
   order_id: string;
@@ -197,8 +237,17 @@ export interface Order {
   customer_id: string;
   order_number: string;
   status: OrderStatus;
-  /** Reiner Warenwert netto. Versandkosten sind nicht enthalten. */
+  /**
+   * Nettobetrag nach Sonderkondition und Gutschein – darauf wird die Steuer
+   * gerechnet. Versandkosten sind nicht enthalten.
+   */
   total_amount: number;
+  /** Warenwert vor Rabatten (Migration 054); null bei älteren Bestellungen */
+  subtotal_amount?: number | null;
+  customer_discount_percent?: number;
+  customer_discount_amount?: number;
+  voucher_code?: string | null;
+  voucher_discount_amount?: number;
   notes: string | null;
   delivery_method: DeliveryMethod;
   payment_method: PaymentMethod;
@@ -330,6 +379,11 @@ export interface PosSale {
   net_amount: number;
   vat_amount: number;
   total_amount: number;
+  /** Summe der Positionen vor der Sonderkondition (Migration 056) */
+  subtotal_amount?: number | null;
+  customer_discount_percent?: number;
+  /** Abzug der Sonderkondition, in der Preislesart des Verkaufs */
+  customer_discount_amount?: number;
   note: string | null;
   /** Beleg-PDF im Bucket `invoices` unter pos/<id>/<receipt_number>.pdf */
   file_path: string | null;

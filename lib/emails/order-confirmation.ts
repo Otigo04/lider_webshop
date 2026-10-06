@@ -1,4 +1,5 @@
 import "server-only";
+import { abzugszeilen, warenwertVon } from "@/lib/rabatt";
 import type { CompanySettings, Order } from "@/lib/types";
 import { PAYMENT_METHOD_LABELS } from "@/lib/types";
 import { formatDateTime, formatPrice, formatQuantity, toNumber } from "@/lib/format";
@@ -21,6 +22,20 @@ export function orderConfirmationEmail(
 ): { subject: string; html: string } {
   const items = order.items ?? [];
   const betraege = steuer(toNumber(order.total_amount), toNumber(order.vat_rate));
+
+  // Code ist durch den CHECK der Tabelle auf [A-Z0-9-] beschränkt, also HTML-sicher.
+  const abzuege = abzugszeilen(order);
+  const abzugsHtml =
+    abzuege.length > 0
+      ? [{ label: "Warenwert netto", betrag: warenwertVon(order) }, ...abzuege]
+          .map(
+            (zeile) => `<tr>
+        <td style="font-size:13px;color:#6b7280;text-align:right;padding:2px 0;">${zeile.label}</td>
+        <td style="font-size:13px;color:#374151;text-align:right;padding:2px 0;width:120px;">${zeile.betrag < 0 ? `−${formatPrice(-zeile.betrag)}` : formatPrice(zeile.betrag)}</td>
+      </tr>`,
+          )
+          .join("")
+      : "";
 
   const rows = items
     .map(
@@ -76,6 +91,7 @@ export function orderConfirmationEmail(
       <tbody>${rows}</tbody>
     </table>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:12px;">
+      ${abzugsHtml}
       <tr>
         <td style="font-size:13px;color:#6b7280;text-align:right;padding:2px 0;">Summe netto</td>
         <td style="font-size:13px;color:#374151;text-align:right;padding:2px 0;width:120px;">${formatPrice(betraege.netto)}</td>

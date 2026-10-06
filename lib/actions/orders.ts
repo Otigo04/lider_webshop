@@ -6,6 +6,7 @@ import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { generateAndSendOrderInvoice } from "@/lib/actions/invoicing";
 import { composeAddress } from "@/lib/address";
+import { normalisiereCode } from "@/lib/rabatt";
 
 export interface CheckoutState {
   error?: string;
@@ -40,6 +41,7 @@ const checkoutSchema = z
     /** ISO-Zeitstempel, im Browser aus der lokalen Eingabe erzeugt */
     pickupAt: z.string().datetime().optional(),
     notes: z.string().trim().max(2000).optional(),
+    voucherCode: z.string().trim().max(40).optional(),
   })
   .refine(
     (data) =>
@@ -84,6 +86,7 @@ export async function createOrder(
     delivery_country: formData.get("delivery_country") ?? undefined,
     pickupAt: formData.get("pickupAt") || undefined,
     notes: formData.get("notes") ?? undefined,
+    voucherCode: formData.get("voucherCode") || undefined,
   });
 
   if (!parsed.success) {
@@ -153,6 +156,8 @@ export async function createOrder(
     p_delivery_zip: versand ? anschrift.zip : null,
     p_delivery_city: versand ? anschrift.city : null,
     p_delivery_country: versand ? anschrift.country : null,
+    // Geprüft und verrechnet wird in create_order (Migration 054).
+    p_voucher_code: eingabe.voucherCode ? normalisiereCode(eingabe.voucherCode) : null,
   });
 
   if (error) {

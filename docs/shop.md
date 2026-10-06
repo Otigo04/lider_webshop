@@ -120,6 +120,10 @@ Grundlage: `supabase/migrations/029_bestellablauf.sql`.
   der Warengruppenfarbe aus `lib/accent-colors.ts` (dieselbe wie in
   Filterspalte und Artikelliste). Die frühere Scroll-Reihe zeigte nur, was
   hineinpasste, und bei Gruppen ohne Bild eine leere Fläche.
+- **Alle Warengruppen**, auch leere („Noch keine Artikel"). Schnellleiste,
+  Sortiment-Reiter und Kennzahl bleiben bei den gefüllten.
+- **Höchstens drei Spalten**, große Kacheln (Name bis 1,7 rem, Bild bis
+  176 px): der Einstieg ins Sortiment soll auffallen.
 - Darunter drei **Schnellwege** zu Reduziert, Neuheiten, Topseller.
 
 ---
@@ -442,3 +446,68 @@ damit war überladen. Seitlich schiebbar statt umbrechend.
 
 Merkliste, FAQ und Kontakt stehen im Klappmenü mit `nurMenue: true`: in der
 breiten Leiste ist kein Platz, dort führen Fußzeile und Schnellleiste hin.
+
+---
+
+## 🎟️ Sonderkonditionen und Gutscheine
+
+Grundlage: `supabase/migrations/054_kundenrabatt_und_gutscheine.sql`.
+
+- **Sonderkondition** (`customer_conditions`): Prozent auf alles für einen
+  Kunden, gepflegt in der Kundenakte `/admin/customers/[id]`. Eigene Tabelle,
+  nicht an `users`: die Zeile in `users` darf der Kunde selbst ändern. Er
+  sieht nur seinen Satz über `meine_kondition()`, nie die interne Notiz.
+- **Gutscheine** (`vouchers`) unter `/admin/gutscheine`: Prozent oder fester
+  Betrag, Mindestwert, Laufzeit (ganze Tage, Berliner Zeit), Grenze gesamt
+  und je Kunde, optional an einen Kunden gebunden. Code in Großbuchstaben,
+  Eingabe des Kunden wird normalisiert (`normalisiereCode()`).
+- **Reihenfolge**: Warenwert → Sonderkondition → Gutschein auf den Rest
+  (fest: höchstens bis 0). Mindestwert gilt gegen den Warenwert vor Rabatt.
+  `create_order()` schreibt `subtotal_amount`, beide Abzüge und den Code an
+  die Bestellung; `total_amount` ist der Nettobetrag danach, auf den die
+  Steuer geht. Rechnung, Kasse, Buchhaltung lesen weiter nur `total_amount`.
+- **Prüfung**: `gutschein_pruefen()` (intern, für Kunden gesperrt) sperrt
+  die Gutscheinzeile beim Bestellen – zwei gleichzeitige Bestellungen
+  bekommen nicht beide den letzten Platz. Ein fremder kundengebundener Code
+  meldet „ungültig", nicht „gehört jemand anderem". Vorschau im
+  Bestellformular über `gutschein_abfragen()`; ein ungültiger Code bricht die
+  Bestellung ab, statt still ohne Rabatt durchzulaufen.
+- **Eingelöste Gutscheine** lassen sich nicht löschen (`ON DELETE RESTRICT`),
+  nur deaktivieren – sonst zählten ihre Einlösungen nicht mehr.
+- **Rechnung/Mail/Bestellseite** zeigen die Abzüge als eigene Zeilen
+  (`abzugszeilen()`), im PDF ohne Positionsnummer und Menge.
+- **Direktes INSERT** in `orders`/`order_items` durch Kunden ist seit 054
+  entzogen: Bestellungen entstehen nur über die DEFINER-Funktionen.
+- **An der Kasse** (Migration 056): `create_pos_sale()` zieht die
+  Sonderkondition des gewählten Händlerkontos ab – nur auf Katalogartikel,
+  nicht auf freie Positionen (Pfand, Dienstleistung: dort ist der Preis gerade
+  von Hand getippt). Ebenso `create_admin_order()` für „Rechnung aus
+  Katalog". Beide haben `p_apply_condition` (Vorgabe true); in Terminal und
+  Rechnungsformular ist das ein Häkchen am Abzug. Anzeige über
+  `kassenSummen()` bzw. `rabatte()` in `lib/rabatt.ts`. `pos_sales` hält
+  `subtotal_amount`, Satz und Abzug; Bon, Beleg und Rechnung zeigen den Abzug
+  als eigene Zeile.
+
+---
+
+## 🖼️ Werbebilder-Slider
+
+Migration 055, Tabelle `home_slides`, gepflegt unter `/admin/startseite`,
+angezeigt von `components/home-slider.tsx` ganz oben auf der Startseite.
+
+- Bild im Bucket `products` unter `startseite/<uuid>.<ext>`, für alle lesbar
+  (eigene Storage-Policy). Optional eigenes Telefonbild (6:5).
+- **Fläche ist immer 3:1**, bis 1920 px breit, ohne Höhengrenze. Eine
+  `max-h` machte sie auf breiten Bildschirmen flacher als das Bild und
+  schnitt oben und unten ab. Auf dem Telefon 6:5 nur, wenn ein Bild ein
+  eigenes Telefonbild oder Text hat; reine Werbebilder bleiben 3:1 bzw.
+  werden in der hohen Fläche ganz gezeigt (`object-contain`). Der Editor
+  warnt beim Hochladen, wenn das Bild mehr als 5 % von 3:1 abweicht.
+- Bildtyp und Endung kommen aus den ersten Bytes der Datei, nicht aus Name
+  oder Browser-Angabe (`.jfif` von Windows).
+- Text optional – viele Werbebilder tragen ihn schon. Textfarbe hell/dunkel
+  mit Verlauf nur hinter dem Text. Laufzeit „zeigen ab/bis"; RLS gibt
+  Besuchern nur, was gerade läuft.
+- Überblenden statt Schieben, 6,5 s je Bild, hält bei Maus/Fokus und per
+  Pausenknopf, bei `prefers-reduced-motion` kein Autowechsel. Wischen,
+  Pfeiltasten. Ein einzelnes Bild = Banner ohne Steuerung.

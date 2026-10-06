@@ -1,4 +1,5 @@
 import "server-only";
+import { satzText } from "@/lib/rabatt";
 import { readFileSync } from "node:fs";
 import { getLogoPrintFile } from "@/lib/logo";
 import { toNumber } from "@/lib/format";
@@ -311,6 +312,15 @@ export function buildReceiptHtml(
       ? `<div class="row"><span>Zwischensumme netto</span><span>${esc(geld(netto))}</span></div>`
       : "";
 
+  // Sonderkondition (Migration 056) als eigene Zeile vor den Summen.
+  const abzugBetrag = toNumber(sale.customer_discount_amount);
+  const kondition =
+    abzugBetrag > 0
+      ? `<div class="row"><span>Sonderkondition ${esc(
+          satzText(toNumber(sale.customer_discount_percent)),
+        )}</span><span>-${esc(geld(abzugBetrag))}</span></div>`
+      : "";
+
   const koerper = `${firmenkopf(company)}
 
   <hr class="voll">
@@ -336,6 +346,7 @@ export function buildReceiptHtml(
     String(items.length),
   )} · ${esc(menge(stueck))} Stück</span></div>
 
+  ${kondition}
   ${zwischensumme}
 
   <div class="row summe abstand"><span>SUMME</span><span>${esc(geld(brutto))} EUR</span></div>

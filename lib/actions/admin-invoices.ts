@@ -31,6 +31,8 @@ const catalogSchema = z.object({
   notes: z.string().trim().max(2000).optional(),
   delivery_address: z.string().trim().max(500).optional(),
   delivery_method: z.enum(["pickup", "shipping"]).default("pickup"),
+  /** Sonderkondition anwenden (Migration 056), Vorgabe ja */
+  apply_condition: z.boolean().default(true),
 });
 
 /**
@@ -57,6 +59,7 @@ export async function createCatalogInvoiceOrder(
     notes: formData.get("notes") || undefined,
     delivery_address: formData.get("delivery_address") || undefined,
     delivery_method: formData.get("delivery_method") || "pickup",
+    apply_condition: formData.get("apply_condition") !== "0",
   });
 
   if (!parsed.success) {
@@ -70,6 +73,7 @@ export async function createCatalogInvoiceOrder(
     p_notes: parsed.data.notes ?? null,
     p_delivery_address: parsed.data.delivery_address ?? null,
     p_delivery_method: parsed.data.delivery_method,
+    p_apply_condition: parsed.data.apply_condition,
   });
 
   if (error || !data) {

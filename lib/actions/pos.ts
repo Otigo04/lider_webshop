@@ -311,6 +311,8 @@ const saleSchema = z.object({
   customerLabel: z.string().trim().max(160).nullable(),
   paymentMethod: z.enum(["cash", "card"]),
   note: z.string().trim().max(500).nullable(),
+  /** Sonderkondition des Händlers anwenden (Migration 056), Vorgabe ja */
+  applyCondition: z.boolean().default(true),
 });
 
 export interface CompleteSaleResult {
@@ -375,6 +377,7 @@ export async function completePosSale(
     p_payment_method: daten.paymentMethod,
     p_note: daten.note,
     p_prices_gross: pricesGross,
+    p_apply_condition: daten.applyCondition,
   });
 
   if (error || !data) {

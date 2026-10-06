@@ -11,6 +11,7 @@ import {
 import type { AppUser, CompanySettings, Invoice, InvoiceItem, Order } from "@/lib/types";
 import { formatDate, formatPrice, formatQuantity, toNumber } from "@/lib/format";
 import { steuer } from "@/lib/vat";
+import { abzugszeilen, satzText } from "@/lib/rabatt";
 import { getLogoPrintFile } from "@/lib/logo";
 
 /**
@@ -30,6 +31,8 @@ export interface InvoicePdfLineItem {
   quantity: number;
   unitPrice: number;
   subtotal: number;
+  /** Rabattzeile: ohne Positionsnummer, Menge und Stückpreis (Migration 054) */
+  abzug?: boolean;
 }
 
 export interface InvoicePdfVatBreakdown {
@@ -104,6 +107,27 @@ export interface InvoicePdfData {
  * steuerlich dasselbe Dokument, nur mit anderer Überschrift und ohne
  * Zahlungsziel.
  */
+/**
+ * Sonderkondition eines Kassenverkaufs als Abzugszeile (Migration 056) –
+ * wie bei der Bestellung, damit die Zeilen zur Summe passen.
+ */
+function kassenAbzug(sale: {
+  customer_discount_percent?: number | null;
+  customer_discount_amount?: number | null;
+}): InvoicePdfLineItem[] {
+  const betrag = toNumber(sale.customer_discount_amount);
+  if (betrag <= 0) return [];
+  return [
+    {
+      description: `Sonderkondition ${satzText(toNumber(sale.customer_discount_percent))} auf Katalogartikel`,
+      quantity: 1,
+      unitPrice: -betrag,
+      subtotal: -betrag,
+      abzug: true,
+    },
+  ];
+}
+
 export function buildPosReceiptPdfData(
   sale: {
     receipt_number: string;
@@ -115,6 +139,8 @@ export function buildPosReceiptPdfData(
     total_amount: number;
     note: string | null;
     customer_label: string | null;
+    customer_discount_percent?: number | null;
+    customer_discount_amount?: number | null;
   },
   items: {
     product_name: string;
@@ -145,13 +171,17 @@ export function buildPosReceiptPdfData(
     customerStreet: customer?.billing_street ?? null,
     customerZip: customer?.billing_zip ?? null,
     customerCity: customer?.billing_city ?? null,
-    items: items.map((item) => ({
-      description: item.product_name,
-      sku: item.product_sku,
-      quantity: toNumber(item.quantity),
-      unitPrice: toNumber(item.unit_price),
-      subtotal: toNumber(item.subtotal),
-    })),
+    items: items
+      .map(
+        (item): InvoicePdfLineItem => ({
+          description: item.product_name,
+          sku: item.product_sku,
+          quantity: toNumber(item.quantity),
+          unitPrice: toNumber(item.unit_price),
+          subtotal: toNumber(item.subtotal),
+        }),
+      )
+      .concat(kassenAbzug(sale)),
     netTotal: toNumber(sale.net_amount),
     vatTotal: toNumber(sale.vat_amount),
     grossTotal: toNumber(sale.total_amount),
@@ -190,6 +220,8 @@ export function buildPosSaleInvoicePdfData(
     vat_amount: number;
     total_amount: number;
     note: string | null;
+    customer_discount_percent?: number | null;
+    customer_discount_amount?: number | null;
   },
   items: {
     product_name: string;
@@ -214,13 +246,17 @@ export function buildPosSaleInvoicePdfData(
     customerZip: customer.billing_zip,
     customerCity: customer.billing_city,
     customerVatId: customer.vat_id,
-    items: items.map((item) => ({
-      description: item.product_name,
-      sku: item.product_sku,
-      quantity: toNumber(item.quantity),
-      unitPrice: toNumber(item.unit_price),
-      subtotal: toNumber(item.subtotal),
-    })),
+    items: items
+      .map(
+        (item): InvoicePdfLineItem => ({
+          description: item.product_name,
+          sku: item.product_sku,
+          quantity: toNumber(item.quantity),
+          unitPrice: toNumber(item.unit_price),
+          subtotal: toNumber(item.subtotal),
+        }),
+      )
+      .concat(kassenAbzug(sale)),
     netTotal: toNumber(sale.net_amount),
     vatTotal: toNumber(sale.vat_amount),
     grossTotal: toNumber(sale.total_amount),
@@ -324,13 +360,25 @@ export function buildOrderInvoicePdfData(
     customerCity: customer?.billing_city,
     customerVatId: customer?.vat_id,
     deliveryAddress: lieferanschrift,
-    items: (order.items ?? []).map((item) => ({
+    items: (order.items ?? []).map((item): InvoicePdfLineItem => ({
       description: item.product_name,
       sku: item.product_sku,
       quantity: toNumber(item.quantity),
       unitPrice: toNumber(item.unit_price),
       subtotal: toNumber(item.subtotal),
-    })),
+    })).concat(
+      // Sonderkondition und Gutschein als eigene Zeilen mit negativem Betrag
+      // (Migration 054). So addieren sich die Zeilen zur Nettosumme, auf die
+      // die Steuer gerechnet ist – eine Rechnung, deren Positionen nicht zur
+      // Summe passen, wirft beim Kunden die erste Rückfrage auf.
+      abzugszeilen(order).map((zeile) => ({
+        description: zeile.label,
+        quantity: 1,
+        unitPrice: zeile.betrag,
+        subtotal: zeile.betrag,
+        abzug: true,
+      })),
+    ),
     netTotal: betraege.netto,
     vatTotal: betraege.steuer,
     grossTotal: betraege.brutto,
@@ -1090,8 +1138,8 @@ export async function generateInvoicePdf(data: InvoicePdfData): Promise<Buffer> 
     // Zahlen stehen alle auf der ersten Zeile der Position, auch wenn die
     // Bezeichnung darunter weiterläuft – sonst rutschen Menge und Preis bei
     // langen Namen optisch zur nächsten Position.
-    text(String(index + 1), SPALTE.pos, { size: 9, color: MUTED });
-    text(formatQuantity(item.quantity), mengeR, {
+    if (!item.abzug) text(String(index + 1), SPALTE.pos, { size: 9, color: MUTED });
+    if (!item.abzug) text(formatQuantity(item.quantity), mengeR, {
       size: 9,
       // Auf dem Lieferschein ist die Menge die Aussage des Blattes – dort wird
       // abgezählt, ob die Kiste stimmt.
@@ -1099,7 +1147,9 @@ export async function generateInvoicePdf(data: InvoicePdfData): Promise<Buffer> 
       rechts: true,
     });
     if (!ohnePreise) {
-      text(formatPrice(item.unitPrice), SPALTE.preisR, { size: 9, rechts: true });
+      if (!item.abzug) {
+        text(formatPrice(item.unitPrice), SPALTE.preisR, { size: 9, rechts: true });
+      }
       text(formatPrice(item.subtotal), SPALTE.summeR, {
         size: 9,
         useFont: bold,

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { rabatte, satzText } from "@/lib/rabatt";
 import { useActionState } from "react";
 import { useRouter } from "next/navigation";
 import { useFormStatus } from "react-dom";
@@ -39,9 +40,9 @@ interface ManualRow {
   vatRate: VatRate;
 }
 
-function emptyManualRow(): ManualRow {
+function emptyManualRow(key: string = crypto.randomUUID()): ManualRow {
   return {
-    key: crypto.randomUUID(),
+    key,
     description: "",
     quantity: "1",
     unitPrice: "",
@@ -61,19 +62,27 @@ function SubmitButton({ label, disabled }: { label: string; disabled: boolean })
 export function InvoiceForm({
   customers,
   products,
+  konditionen = {},
 }: {
   customers: AppUser[];
   products: AdminProductRow[];
+  /** Sonderkondition je Kunden-ID in Prozent (Migration 054/056) */
+  konditionen?: Record<string, number>;
 }) {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>("catalog");
   const [customerId, setCustomerId] = useState<string | null>(null);
+  const [konditionAn, setKonditionAn] = useState(true);
 
   const [catalogRows, setCatalogRows] = useState<CatalogRow[]>([]);
   const [productQuery, setProductQuery] = useState("");
   const [deliveryAddress, setDeliveryAddress] = useState("");
 
-  const [manualRows, setManualRows] = useState<ManualRow[]>([emptyManualRow()]);
+  const [manualRows, setManualRows] = useState<ManualRow[]>([
+    // Fester Schlüssel für die erste Zeile: sie wird auch auf dem Server
+    // gerendert, eine UUID ergäbe dort eine andere als im Browser.
+    emptyManualRow("zeile-1"),
+  ]);
   const [notes, setNotes] = useState("");
 
   const [catalogState, catalogAction] = useActionState<InvoiceActionState, FormData>(
@@ -133,6 +142,9 @@ export function InvoiceForm({
   const catalogTotal = catalogRows.reduce((sum, row) => {
     return sum + (Number(row.quantity) || 0) * (Number(row.unitPrice) || 0);
   }, 0);
+  // Gleiche Reihenfolge wie create_admin_order (Migration 056).
+  const kundenSatzWert = customerId ? (konditionen[customerId] ?? 0) : 0;
+  const katalogRechnung = rabatte(catalogTotal, konditionAn ? kundenSatzWert : 0);
 
   const manualNet = manualRows.reduce((sum, row) => {
     return sum + (Number(row.quantity) || 0) * (Number(row.unitPrice) || 0);
@@ -181,6 +193,7 @@ export function InvoiceForm({
             }));
             formData.set("customer_id", customerId ?? "");
             formData.set("items", JSON.stringify(payload));
+            formData.set("apply_condition", konditionAn ? "1" : "0");
             formData.set("delivery_address", deliveryAddress);
             formData.set(
               "delivery_method",
@@ -235,8 +248,9 @@ export function InvoiceForm({
                       </p>
                     </div>
                     <div className="w-24 space-y-1">
-                      <Label className="text-xs">Menge</Label>
+                      <Label htmlFor={`kat-${row.key}-menge`} className="text-xs">Menge</Label>
                       <Input
+                        id={`kat-${row.key}-menge`}
                         type="number"
                         min={1}
                         step={1}
@@ -252,8 +266,9 @@ export function InvoiceForm({
                       />
                     </div>
                     <div className="w-32 space-y-1">
-                      <Label className="text-xs">Preis / Stück (€)</Label>
+                      <Label htmlFor={`kat-${row.key}-preis`} className="text-xs">Preis / Stück (€)</Label>
                       <Input
+                        id={`kat-${row.key}-preis`}
                         type="number"
                         min={0}
                         step="0.01"
@@ -311,11 +326,37 @@ export function InvoiceForm({
             <Textarea id="notes" name="notes" rows={3} maxLength={2000} />
           </section>
 
-          <div className="flex items-center justify-between rounded-md border border-border p-4">
-            <span className="text-sm text-muted-foreground">Summe netto</span>
-            <span className="text-xl font-semibold tabular">
-              {formatPrice(catalogTotal)}
-            </span>
+          <div className="space-y-2 rounded-md border border-border p-4">
+            {kundenSatzWert > 0 ? (
+              <>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Warenwert netto</span>
+                  <span className="tabular">{formatPrice(katalogRechnung.warenwert)}</span>
+                </div>
+                <div className="flex items-center justify-between gap-2 text-sm">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={konditionAn}
+                      onChange={(event) => setKonditionAn(event.target.checked)}
+                      className="size-4 accent-[var(--brand)]"
+                    />
+                    <span className={konditionAn ? "text-success" : "text-muted-foreground line-through"}>
+                      Sonderkondition {satzText(kundenSatzWert)}
+                    </span>
+                  </label>
+                  <span className={konditionAn ? "tabular text-success" : "tabular text-muted-foreground"}>
+                    −{formatPrice(katalogRechnung.kundenRabatt)}
+                  </span>
+                </div>
+              </>
+            ) : null}
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Summe netto</span>
+              <span className="text-xl font-semibold tabular">
+                {formatPrice(katalogRechnung.netto)}
+              </span>
+            </div>
           </div>
 
           {state.error ? (
@@ -370,8 +411,9 @@ export function InvoiceForm({
                   className="flex flex-wrap items-end gap-3 rounded-md border border-border p-3"
                 >
                   <div className="min-w-48 flex-1 space-y-1">
-                    <Label className="text-xs">Beschreibung</Label>
+                    <Label htmlFor={`frei-${row.key}-text`} className="text-xs">Beschreibung</Label>
                     <Input
+                      id={`frei-${row.key}-text`}
                       value={row.description}
                       onChange={(event) =>
                         setManualRows((current) =>
@@ -383,8 +425,9 @@ export function InvoiceForm({
                     />
                   </div>
                   <div className="w-24 space-y-1">
-                    <Label className="text-xs">Menge</Label>
+                    <Label htmlFor={`frei-${row.key}-menge`} className="text-xs">Menge</Label>
                     <Input
+                      id={`frei-${row.key}-menge`}
                       type="number"
                       min={0.01}
                       step="0.01"
@@ -400,8 +443,9 @@ export function InvoiceForm({
                     />
                   </div>
                   <div className="w-32 space-y-1">
-                    <Label className="text-xs">Preis / Stück (€)</Label>
+                    <Label htmlFor={`frei-${row.key}-preis`} className="text-xs">Preis / Stück (€)</Label>
                     <Input
+                      id={`frei-${row.key}-preis`}
                       type="number"
                       min={0}
                       step="0.01"
@@ -417,8 +461,9 @@ export function InvoiceForm({
                     />
                   </div>
                   <div className="w-28 space-y-1">
-                    <Label className="text-xs">MwSt.</Label>
+                    <Label htmlFor={`frei-${row.key}-ust`} className="text-xs">MwSt.</Label>
                     <select
+                      id={`frei-${row.key}-ust`}
                       value={row.vatRate}
                       onChange={(event) =>
                         setManualRows((current) =>

@@ -18,6 +18,7 @@ import { CatalogRow } from "@/components/catalog-row";
 import { CatalogTicker } from "@/components/catalog-ticker";
 import { CategoryGrid } from "@/components/category-grid";
 import { FaqListe } from "@/components/faq-liste";
+import { HomeSlider } from "@/components/home-slider";
 import { ProductRail } from "@/components/product-rail";
 import { RabattBadge } from "@/components/sale-price";
 import { Schnellleiste } from "@/components/schnellleiste";
@@ -32,6 +33,7 @@ import { formatPrice } from "@/lib/format";
 import { reduzierung } from "@/lib/pricing";
 import { getLandingData } from "@/lib/queries/products";
 import { getPublicContact } from "@/lib/queries/settings";
+import { getActiveSlides } from "@/lib/queries/slides";
 import { formatThreshold } from "@/lib/shipping";
 import { cn } from "@/lib/utils";
 
@@ -89,10 +91,11 @@ const leistungen = (versandFreiAb: number) => [
 ];
 
 export default async function HomePage() {
-  const [daten, user, firma] = await Promise.all([
+  const [daten, user, firma, slides] = await Promise.all([
     getLandingData(),
     getCurrentUser(),
     getPublicContact(),
+    getActiveSlides(),
   ]);
   // Werbeangabe, deshalb auch ohne Anmeldung sichtbar: public_company_contact()
   // gibt die Grenze mit heraus (Migration 037).
@@ -188,6 +191,21 @@ export default async function HomePage() {
 
   return (
     <>
+      {/* Werbebilder ganz oben (Migration 055, gepflegt unter
+          /admin/startseite). Ohne aktive Bilder fällt der Block weg. */}
+      <HomeSlider
+        slides={slides.map((slide) => ({
+          id: slide.id,
+          title: slide.title,
+          subtitle: slide.subtitle,
+          ctaLabel: slide.cta_label,
+          href: slide.link_url,
+          imageUrl: slide.imageUrl!,
+          mobileImageUrl: slide.mobileImageUrl,
+          tone: slide.tone,
+        }))}
+      />
+
       {/* Direktwege unter der Hinweisleiste, über dem Kopfbereich */}
       <Schnellleiste
         warengruppen={gelistet.map(({ slug, name }) => ({ slug, name }))}
@@ -365,7 +383,7 @@ export default async function HomePage() {
       <CatalogTicker items={ticker} />
 
       {/* ------------------------------------------------------ Warengruppen */}
-      {gelistet.length > 0 ? (
+      {categories.length > 0 ? (
         <section className="dot-grid-dark border-b border-border bg-brand-soft">
           <div className="mx-auto max-w-6xl px-4 py-16">
             <Reveal>
@@ -376,7 +394,11 @@ export default async function HomePage() {
               />
             </Reveal>
             <Reveal delay={80} className="mt-8">
-              <CategoryGrid categories={gelistet} />
+              {/* Alle Warengruppen, auch die noch ohne Artikel: wer hier
+                  eine vermisst, hält das Sortiment für kleiner, als es ist.
+                  Schnellleiste und Reiter weiter unten bleiben bei den
+                  gefüllten – dort führte eine leere ins Nichts. */}
+              <CategoryGrid categories={categories} />
             </Reveal>
 
             {/* Schnellwege zu den Sonderlisten – dieselben Ziele wie in der
