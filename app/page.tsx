@@ -24,6 +24,7 @@ import { RabattBadge } from "@/components/sale-price";
 import { Schnellleiste } from "@/components/schnellleiste";
 import { Reveal } from "@/components/reveal";
 import { SortimentTabs, type SortimentReiter } from "@/components/sortiment-tabs";
+import { StructuredData } from "@/components/structured-data";
 import { StatCounter } from "@/components/stat-counter";
 import { Button } from "@/components/ui/button";
 import { accentIndex } from "@/lib/accent-colors";
@@ -191,6 +192,7 @@ export default async function HomePage() {
 
   return (
     <>
+      <StructuredData firma={firma} />
       {/* Werbebilder ganz oben (Migration 055, gepflegt unter
           /admin/startseite). Ohne aktive Bilder fällt der Block weg. */}
       <HomeSlider

@@ -26,6 +26,10 @@ export const metadata: Metadata = {
   title: { default: TITEL, template: "%s | LIDER" },
   description: BESCHREIBUNG,
   alternates: { canonical: "/" },
+  // Search-Console-Bestätigung per Meta-Tag; Code kommt aus der Umgebung.
+  verification: process.env.GOOGLE_SITE_VERIFICATION
+    ? { google: process.env.GOOGLE_SITE_VERIFICATION }
+    : undefined,
   openGraph: {
     type: "website",
     locale: "de_DE",
