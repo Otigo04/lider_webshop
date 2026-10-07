@@ -167,6 +167,8 @@ export interface AppUser {
   customer_number: string | null;
   role: UserRole;
   is_active: boolean;
+  /** Zeitpunkt der E-Mail-Bestätigung (Migration 058). null = noch nicht bestätigt. */
+  verified_at: string | null;
   created_at: string;
   billing_street: string | null;
   billing_zip: string | null;

@@ -6,6 +6,12 @@ import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import {
+  createVerification,
+  markUnverified,
+  sendVerification,
+  updatePendingPassword,
+} from "@/lib/verification";
 import type { AdminFormState } from "@/lib/actions/admin-categories";
 
 export interface CustomerFormState extends AdminFormState {
@@ -151,9 +157,16 @@ export async function createCustomer(
     console.error("[admin] Kundenprofil:", profileError.message);
   }
 
+  // Konto bleibt gesperrt, bis der Kunde den Link klickt. Die Mail geht erst
+  // auf Knopfdruck in der Kundenakte raus; das Startpasswort liegt bis dahin
+  // verschlüsselt in email_verifications und geht nach dem Klick per Mail raus.
+  if (await markUnverified(data.user.id)) {
+    await createVerification(data.user.id, "admin", password);
+  }
+
   revalidatePath("/admin/customers");
   return {
-    success: `Konto für ${email} angelegt.`,
+    success: `Konto für ${email} angelegt. Es ist gesperrt, bis der Kunde seine Adresse bestätigt – den Versand der Bestätigungsmail löst du in der Kundenakte aus.`,
     temporaryPassword: password,
     temporaryPasswordEmail: email,
   };
@@ -262,9 +275,29 @@ export async function resetCustomerPassword(
     return { error: "Das Passwort konnte nicht zurückgesetzt werden." };
   }
 
+  // Noch unbestätigtes Konto: die spätere Zugangsmail soll das neue Passwort nennen.
+  await updatePendingPassword(id, password);
+
   return {
     success: "Neues Startpasswort gesetzt.",
     temporaryPassword: password,
     temporaryPasswordEmail: data.user?.email ?? undefined,
   };
+}
+
+/** Bestätigungsmail an den Kunden schicken (auch erneut, mit neuem Link). */
+export async function sendCustomerVerification(
+  _prevState: AdminFormState,
+  formData: FormData,
+): Promise<AdminFormState> {
+  await requireAdmin();
+
+  const id = String(formData.get("id") ?? "");
+  if (!id) return { error: "Kein Kunde ausgewählt." };
+
+  const result = await sendVerification(id);
+  if (!result.ok) return { error: result.error };
+
+  revalidatePath(`/admin/customers/${id}`);
+  return { success: `Bestätigungsmail an ${result.email} gesendet.` };
 }
