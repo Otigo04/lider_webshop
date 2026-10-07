@@ -395,10 +395,9 @@ Die Logodateien liegen unter `public/logo/`, der Zugriff läuft über
 
 | Datei | Zweck |
 |-------|-------|
-| `logo.png` | Lockup (Wappen über Schriftzug) – Impressum, Fußzeile, Anmeldeseiten |
-| `logo-mark.png` | nur das Wappen, quadratisch – Kopfleiste und Menü |
-| `logo-print.png` | RGB ohne Alpha, klein – Briefkopf im Rechnungs-PDF |
-| `logo-original.png` | unbeschnittene Quelldatei, wird nicht ausgeliefert |
+| `logo_v1.png` | Lockup (Wappen über Schriftzug) – Kopfleiste, Impressum, Fußzeile, Anmeldeseiten, OG-Bild |
+| `logo-mark.png` | nur das Wappen, quadratisch – Klappmenü, Wartungsseite, Favicon |
+| `logo-print.png` | aus `logo_v1.png` abgeleitet: weißer Grund, RGB ohne Alpha, 600 px – Briefkopf im Rechnungs-PDF |
 
 `app/icon.png` ist das Favicon (Wappen, 256 px). Die Markenfarben in
 `app/globals.css` sind aus dem Logo gezogen: Wappenblau `#284078` (`--brand`),

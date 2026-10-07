@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
-import { getLogoMarkPath, getLogoWordmarkPath, LOGO_WORDMARK_ASPECT } from "@/lib/logo";
+import { getLogoMarkPath, getLogoPath, LOGO_ASPECT } from "@/lib/logo";
 import { CartLink } from "@/components/cart-link";
 import { MainNav } from "@/components/main-nav";
 import { MerklisteLink } from "@/components/merkliste-link";
@@ -12,7 +12,7 @@ export async function Header() {
   const user = await getCurrentUser();
   const isAdmin = user?.role === "admin";
   const logoPath = getLogoMarkPath();
-  const wordmarkPath = getLogoWordmarkPath();
+  const lockupPath = getLogoPath();
 
   // /shop und die Flag-Filter sind auch ohne Login sichtbar (Schaufenster
   // ohne Preise), deshalb unabhängig vom Login-Status.
@@ -43,38 +43,20 @@ export async function Header() {
       <div className="mx-auto flex h-[4.5rem] max-w-6xl items-center justify-between gap-4 px-4">
         <Link
           href="/"
-          className="group flex shrink-0 flex-col items-center gap-0.5 leading-none focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold"
+          className="group flex shrink-0 items-center leading-none focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold"
         >
-          {logoPath ? (
-            <span className="relative block size-10 shrink-0 transition-transform duration-300 group-hover:scale-105">
-              <Image
-                src={logoPath}
-                alt="LIDER Groß- und Einzelhandel"
-                fill
-                sizes="40px"
-                priority
-                className="object-contain"
-              />
-            </span>
-          ) : null}
-          {wordmarkPath ? (
-            /* Unter dem Wappen, wie im Lockup: so bleibt die Leiste bei h-16
-               und wird schmaler statt höher. Die Breite folgt der Höhe über
-               das Seitenverhältnis der Datei, damit der Schriftzug nicht
-               verzerrt. */
+          {lockupPath ? (
+            /* Lockup (Wappen über Schriftzug): die Breite folgt der Höhe über
+               das Seitenverhältnis der Datei, damit nichts verzerrt. */
             <span
-              className="relative block h-5 w-[calc(1.25rem*var(--wortmarke-ar))]"
-              style={
-                {
-                  "--wortmarke-ar": String(LOGO_WORDMARK_ASPECT),
-                } as React.CSSProperties
-              }
+              className="relative block h-[3.25rem] w-[calc(3.25rem*var(--logo-ar))] transition-transform duration-300 group-hover:scale-105"
+              style={{ "--logo-ar": String(LOGO_ASPECT) } as React.CSSProperties}
             >
               <Image
-                src={wordmarkPath}
-                alt="LIDER"
+                src={lockupPath}
+                alt="LIDER Groß- und Einzelhandel"
                 fill
-                sizes="100px"
+                sizes="80px"
                 priority
                 className="object-contain"
               />

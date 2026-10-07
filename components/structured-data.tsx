@@ -31,7 +31,7 @@ export function StructuredData({ firma }: { firma: PublicContact }) {
     description: "Groß- und Einzelhandel für Spielzeug, Multimedia und Handyzubehör.",
     url: basis,
     logo: `${basis}/logo/logo-mark.png`,
-    image: `${basis}/logo/logo.png`,
+    image: `${basis}/logo/logo_v1.png`,
     telephone: firma.phone ?? undefined,
     email: firma.email ?? undefined,
     vatID: firma.vat_id ?? undefined,

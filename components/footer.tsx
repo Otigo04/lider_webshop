@@ -18,7 +18,7 @@ export async function Footer() {
                 src={logoPath}
                 alt="LIDER"
                 width={124}
-                height={94}
+                height={99}
                 className="h-auto w-24 object-contain"
               />
             ) : (

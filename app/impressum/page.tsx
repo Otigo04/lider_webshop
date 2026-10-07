@@ -25,7 +25,7 @@ export default async function ImpressumPage() {
           src={logoPath}
           alt="LIDER Groß- und Einzelhandel"
           width={420}
-          height={320}
+          height={335}
           priority
           className="mb-10 h-auto w-64 object-contain sm:w-80"
         />

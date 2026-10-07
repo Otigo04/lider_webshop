@@ -33,7 +33,7 @@ export function AuthShell({
                 src={logoPath}
                 alt="LIDER"
                 width={132}
-                height={100}
+                height={105}
                 className="mb-8 h-auto w-28 object-contain"
               />
             ) : null}

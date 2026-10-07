@@ -7,12 +7,11 @@ import path from "node:path";
  *
  * Es gibt drei Varianten derselben Marke, weil ein einziges Bild nicht überall
  * funktioniert:
- *   - logo.png       Lockup (Wappen über Schriftzug), quer – Impressum, Fußzeile
+ *   - logo_v1.png    Lockup (Wappen über Schriftzug, 1037 × 826) – Kopfleiste,
+ *                    Impressum, Fußzeile, Anmeldeseiten
  *   - logo-mark.png  nur das Wappen, quadratisch – Kopfleiste, Kachel, Icon
  *   - logo-print.png kleine Fassung des Lockups für das Rechnungs-PDF
  *
- * Die unbeschnittene Originaldatei liegt als logo-original.png daneben und
- * wird nicht ausgeliefert.
  */
 
 function vorhanden(...kandidaten: string[]): string | null {
@@ -26,7 +25,7 @@ function vorhanden(...kandidaten: string[]): string | null {
 
 /** Vollständiges Logo mit Schriftzug. */
 export function getLogoPath(): string | null {
-  return vorhanden("logo.svg", "logo.png");
+  return vorhanden("logo_v1.png", "logo.svg", "logo.png");
 }
 
 /** Nur das Wappen – überall dort, wo eine quadratische Fläche gebraucht wird. */
@@ -41,15 +40,15 @@ export function getLogoWordmarkPath(): string | null {
 
 /** Absoluter Dateipfad der Druckfassung, für das Einbetten ins PDF. */
 export function getLogoPrintFile(): string | null {
-  for (const datei of ["logo-print.png", "logo.png"]) {
+  for (const datei of ["logo-print.png", "logo_v1.png", "logo.png"]) {
     const voll = path.join(process.cwd(), "public", "logo", datei);
     if (existsSync(voll)) return voll;
   }
   return null;
 }
 
-/** Seitenverhältnis der Lockup-Datei (900 × 685) für Breiten-/Höhenangaben. */
-export const LOGO_ASPECT = 900 / 685;
+/** Seitenverhältnis der Lockup-Datei (1037 × 826) für Breiten-/Höhenangaben. */
+export const LOGO_ASPECT = 1037 / 826;
 
 /** Seitenverhältnis der Wordmark-Datei (2400 × 603) für Breiten-/Höhenangaben. */
 export const LOGO_WORDMARK_ASPECT = 2400 / 603;

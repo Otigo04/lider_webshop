@@ -17,7 +17,7 @@ export const contentType = "image/png";
 
 function logoDataUri(): string | null {
   try {
-    const datei = path.join(process.cwd(), "public", "logo", "logo.png");
+    const datei = path.join(process.cwd(), "public", "logo", "logo_v1.png");
     return `data:image/png;base64,${readFileSync(datei).toString("base64")}`;
   } catch {
     // Ohne Logodatei bleibt das Schild trotzdem lesbar.
@@ -45,7 +45,7 @@ export default async function Image() {
           {logo ? (
             /* ImageResponse rendert echtes <img>; next/image gibt es dort nicht. */
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={logo} width={104} height={79} alt="" />
+            <img src={logo} width={104} height={83} alt="" />
           ) : null}
           <div
             style={{
