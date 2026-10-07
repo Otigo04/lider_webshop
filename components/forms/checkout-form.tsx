@@ -173,7 +173,7 @@ export function CheckoutForm({
   // Versandgrenze gilt gegen den Betrag nach Rabatt – so steht er auch an der
   // Bestellung (total_amount).
   // Gilt der Gutschein nur für bestimmte Warengruppen, rechnet er auf die
-  // Zeilen der Artikel, die die Datenbank dafür genannt hat (Migration 057).
+  // Zeilen der Artikel, die die Datenbank dafür genannt hat (Migration 059).
   const rechnung = rabatte(
     total,
     kundenSatz,

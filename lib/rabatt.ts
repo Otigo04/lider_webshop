@@ -3,7 +3,7 @@
  *
  * Verbindlich rechnet `create_order()` in der Datenbank
  * (supabase/migrations/054_kundenrabatt_und_gutscheine.sql, Gutschein-Block
- * zuletzt in 057_gutschein_warengruppen.sql). Diese Datei
+ * zuletzt in 059_gutschein_warengruppen.sql). Diese Datei
  * bildet dieselbe Reihenfolge und Rundung nach, damit Warenkorb und
  * Bestellformular den Betrag zeigen, der hinterher auf der Rechnung steht.
  * Wer hier etwas ändert, ändert die SQL-Funktion und tests/rabatt.test.ts mit.
@@ -19,7 +19,7 @@
  * Rabatten – das ist die Zahl, die der Kunde im Warenkorb sieht und mit der
  * Angabe auf dem Gutschein vergleicht.
  *
- * Gutschein nur für bestimmte Warengruppen (Migration 057): gerechnet wird
+ * Gutschein nur für bestimmte Warengruppen (Migration 059): gerechnet wird
  * dann auf den **Anteil** – die Summe der Positionen aus diesen Gruppen –
  * statt auf den ganzen Warenwert. Die Sonderkondition geht anteilig ab
  * (Anteil − Anteil × Satz), der Mindestwert gilt gegen den Anteil. Ohne

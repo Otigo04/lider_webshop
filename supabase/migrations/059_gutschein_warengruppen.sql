@@ -1,5 +1,5 @@
 -- =============================================================================
--- 057 – Gutscheine auf Warengruppen beschränken
+-- 059 – Gutscheine auf Warengruppen beschränken
 --
 -- Ein Gutschein kann optional nur für bestimmte Warengruppen gelten
 -- („BATTERIEN10" nur auf Batterien). Ohne Auswahl gilt er wie bisher für den
@@ -30,7 +30,7 @@ ALTER TABLE public.vouchers
   ADD COLUMN IF NOT EXISTS category_ids UUID[] NOT NULL DEFAULT '{}';
 
 COMMENT ON COLUMN public.vouchers.category_ids IS
-  'Warengruppen, für die der Gutschein gilt. Leer = alle (Migration 057).';
+  'Warengruppen, für die der Gutschein gilt. Leer = alle (Migration 059).';
 
 -- -----------------------------------------------------------------------------
 -- 1. Vorschau im Bestellformular

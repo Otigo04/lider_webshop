@@ -485,7 +485,7 @@ gelten.
 - **Der Einkaufspreis (`product_costs`) wird nie gedruckt oder an Kunden
   geladen** – nicht auf Schild, Bon, Rechnung, Katalog.
 - **Kundenrabatt und Gutschein** rechnet `create_order()` (Migration 054,
-  Gutschein für Warengruppen 057),
+  Gutschein für Warengruppen 059),
   die Anzeige `lib/rabatt.ts` in derselben Reihenfolge: Warenwert →
   Sonderkondition % → Gutschein auf den Rest. `total_amount` ist der Betrag
   danach. Wer eins ändert, ändert das andere und `tests/rabatt.test.ts` mit.

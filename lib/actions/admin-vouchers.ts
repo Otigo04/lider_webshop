@@ -52,7 +52,7 @@ const voucherSchema = z
       (v) => (v === "" || v == null ? undefined : v),
       z.string().uuid().optional(),
     ),
-    /** Leer = gilt für alle Warengruppen (Migration 057) */
+    /** Leer = gilt für alle Warengruppen (Migration 059) */
     category_ids: z.array(z.string().uuid()).max(200),
     is_active: z.boolean(),
   })
@@ -275,7 +275,7 @@ const artikelSchema = z.array(z.string().uuid()).max(500);
  *
  * `productIds` sind die Artikel im Warenkorb: gilt der Gutschein nur für
  * bestimmte Warengruppen, sagt die Datenbank, welche davon darunter fallen
- * (Migration 057).
+ * (Migration 059).
  */
 export async function pruefeGutschein(
   code: string,
