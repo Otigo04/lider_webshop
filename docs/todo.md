@@ -1,4 +1,46 @@
-# To-do – Ausbaustufe „Farbe, Logo, POS"
+# To-do – Livegang
+
+Stand: 2026-10-07. Der Stand der Produktiv-Datenbank steht nirgends sonst –
+hier abhaken, was eingespielt ist.
+
+## Migrationen (Supabase SQL Editor, der Reihe nach, vorher Backup)
+
+Alle idempotent. Eingespielt bis: **offen – bitte eintragen**
+
+- [ ] `057_kassenbuch.sql`
+- [ ] `058_email_bestaetigung.sql`
+- [ ] `059_gutschein_warengruppen.sql` (auf Branch `feat/gutschein-warengruppen`)
+
+## Vercel – Environment Variables (Production **und** Preview)
+
+- [ ] `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- [ ] `SUPABASE_SERVICE_KEY` (auch Schlüssel für die E-Mail-Bestätigung)
+- [ ] `NEXT_PUBLIC_SITE_URL` = echte Domain, ohne Schrägstrich am Ende
+- [ ] `RESEND_API_KEY`, `EMAIL_FROM` (Domain bei Resend per DNS verifiziert)
+- [ ] `AI_GATEWAY_API_KEY` (optional, nur KI-Fotoanalyse)
+
+## Supabase
+
+- [ ] Authentication → URL Configuration: Site URL und Redirect-URL auf die Domain
+- [ ] Database → Backups prüfen (siehe `docs/betrieb.md`)
+- [ ] Region notieren; `app/datenschutz/page.tsx` sagt „innerhalb der EU“.
+      Liegt das Projekt woanders, Text anpassen
+- [ ] Optional: Auth-Mails von Supabase abschalten – Passwort-Reset läuft über Resend
+
+## Vor dem Start
+
+- [ ] `/admin/settings`: Impressum-Pflichtfelder gefüllt, keine `[Label]` auf
+      `/impressum`, `/kontakt`, Startseite
+- [ ] Cloudflare Turnstile an Login, Registrierung, Passwort vergessen;
+      danach Datenschutz um Cloudflare ergänzen
+- [ ] Admin-Konto: starkes Passwort
+- [ ] Testlauf: Registrieren → Mail bestätigen → Bestellen → Rechnung-PDF →
+      Passwort vergessen, auch am Handy
+- [ ] Erst mit Wartungsmodus deployen, prüfen, dann abschalten
+
+---
+
+# Archiv – Ausbaustufe „Farbe, Logo, POS"
 
 Stand: 2026-09-04 · alles umgesetzt, offen ist nur das Einspielen der
 Migrationen (siehe ganz unten).

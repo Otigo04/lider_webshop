@@ -43,6 +43,41 @@ export default async function DatenschutzPage() {
         </section>
 
         <section>
+          <h2 className="font-medium">Registrierung und E-Mail-Bestätigung</h2>
+          <p className="mt-2 text-muted-foreground">
+            Das Kundenportal ist Gewerbekunden vorbehalten. Bei der Registrierung
+            speichern wir E-Mail-Adresse, Name, Firmenname und die Bestätigung,
+            dass Sie als Gewerbetreibender bestellen. Das Konto wird erst
+            freigeschaltet, wenn Sie den Link in der Bestätigungsmail anklicken
+            (Double-Opt-in); den Zeitpunkt der Bestätigung speichern wir.
+            Bestätigungs- und Passwort-Links sind befristet und nur einmal
+            nutzbar. Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="font-medium">E-Mails</h2>
+          <p className="mt-2 text-muted-foreground">
+            Wir verschicken ausschließlich Mails, die zur Nutzung des Portals
+            gehören: Bestätigung der Adresse, Zurücksetzen des Passworts,
+            Bestellbestätigung, Statusänderungen und Rechnungen. Dafür übergeben
+            wir Empfängeradresse und Mailinhalt an Resend. Werbe-Mails
+            verschicken wir nicht.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="font-medium">Server-Logfiles</h2>
+          <p className="mt-2 text-muted-foreground">
+            Beim Aufruf der Website verarbeitet unser Hosting-Anbieter Vercel
+            technisch notwendige Verbindungsdaten, darunter die IP-Adresse,
+            Zeitpunkt, aufgerufene Adresse und Browserkennung. Das dient dem
+            sicheren und stabilen Betrieb (Art. 6 Abs. 1 lit. f DSGVO). Die Daten
+            werden nach kurzer Zeit automatisch gelöscht.
+          </p>
+        </section>
+
+        <section>
           <h2 className="font-medium">Cookies</h2>
           <p className="mt-2 text-muted-foreground">
             Technisch notwendige Cookies (Anmeldung) setzen wir immer –
@@ -63,9 +98,12 @@ export default async function DatenschutzPage() {
           <h2 className="font-medium">Auftragsverarbeiter</h2>
           <p className="mt-2 text-muted-foreground">
             Datenbank, Anmeldung und Dateispeicher betreiben wir bei Supabase.
-            Der Betrieb der Website erfolgt über Vercel. Mit beiden Anbietern
-            besteht ein Vertrag zur Auftragsverarbeitung. Serverstandort:
-            [REGION EINTRAGEN].
+            Der Betrieb der Website erfolgt über Vercel, den Versand von
+            E-Mails übernimmt Resend. Mit allen Anbietern besteht ein Vertrag
+            zur Auftragsverarbeitung. Die Datenbank liegt in Rechenzentren
+            innerhalb der Europäischen Union. Soweit Vercel und Resend Daten in
+            den USA verarbeiten, stützt sich die Übermittlung auf
+            Standardvertragsklauseln der EU-Kommission.
           </p>
         </section>
 

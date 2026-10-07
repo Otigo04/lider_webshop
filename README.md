@@ -138,7 +138,8 @@ Configuration die Vercel-Domain als Site URL eintragen.
 - [ ] Anschrift, Telefon, E-Mail und Registerdaten in `app/impressum/page.tsx`,
       `app/datenschutz/page.tsx`, `app/page.tsx` und `app/login/page.tsx`
       eintragen (mit `[ ]` markiert)
-- [ ] Supabase → Serverregion prüfen und in der Datenschutzerklärung eintragen
+- [ ] Supabase → Serverregion prüfen (Datenschutzerklärung sagt „innerhalb der EU“)
+- [ ] Rest der Liste: `docs/todo.md` (Migrationen, Variablen, Testlauf)
 - [ ] Supabase → Database → Backups aktivieren
 - [ ] Eigenen SMTP-Anbieter hinterlegen, falls Kunden per E-Mail eingeladen
       werden sollen; aktuell wird das Startpasswort im Portal angezeigt

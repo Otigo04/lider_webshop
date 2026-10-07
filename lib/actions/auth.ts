@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { sendEmail } from "@/lib/email";
+import { passwordResetEmail } from "@/lib/emails/password-reset";
 import { clearMustChangePassword } from "@/lib/password-flag";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -299,15 +301,28 @@ export async function requestPasswordReset(
     return { error: parsed.error.issues[0].message };
   }
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-  const supabase = await createClient();
-  const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
-    redirectTo: `${siteUrl}/auth/confirm?type=recovery`,
+  /*
+   * Den Link erzeugt Supabase (generateLink schickt selbst keine Mail), den
+   * Versand übernimmt Resend – mit eigener Domain und eigenem Layout statt des
+   * Standard-SMTP von Supabase. Gibt es kein Konto, schlägt generateLink fehl;
+   * der Aufrufer sieht trotzdem dieselbe Antwort.
+   */
+  const { data, error } = await createAdminClient().auth.admin.generateLink({
+    type: "recovery",
+    email: parsed.data.email,
   });
 
-  if (error) {
-    console.error("[auth] Passwort-Reset-Anfrage:", error.message);
+  if (error || !data?.properties?.hashed_token) {
+    if (error && !/not found|no user/i.test(error.message)) {
+      console.error("[auth] Passwort-Reset-Anfrage:", error.message);
+    }
+    return { success };
   }
+
+  await sendEmail({
+    to: parsed.data.email,
+    ...passwordResetEmail(data.properties.hashed_token),
+  });
 
   return { success };
 }
