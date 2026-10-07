@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { ChevronLeft, Mail, Plus, Ticket } from "lucide-react";
 import { ConfirmAction } from "@/components/admin/confirm-action";
 import { ResetPasswordButton } from "@/components/admin/reset-password-button";
+import { SendVerificationButton } from "@/components/admin/send-verification-button";
 import { ConditionForm } from "@/components/forms/condition-form";
 import { CustomerForm } from "@/components/forms/customer-form";
 import { OrderStatusBadge } from "@/components/order-status-badge";
@@ -53,7 +54,11 @@ export default async function AdminCustomerPage({
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-2xl font-semibold tracking-tight">{name}</h1>
-            {kunde.is_active ? (
+            {!kunde.verified_at && !kunde.is_active ? (
+              <span className="rounded-md border border-gold/40 bg-gold-soft px-2 py-0.5 text-xs font-medium text-[#7a4a10]">
+                E-Mail unbestätigt
+              </span>
+            ) : kunde.is_active ? (
               <span className="rounded-md border border-success/30 bg-success/10 px-2 py-0.5 text-xs font-medium text-success">
                 aktiv
               </span>
@@ -84,6 +89,9 @@ export default async function AdminCustomerPage({
         </div>
 
         <div className="flex flex-wrap gap-2">
+          {!kunde.verified_at && !kunde.is_active ? (
+            <SendVerificationButton customerId={kunde.id} erneut={false} />
+          ) : null}
           <ResetPasswordButton customerId={kunde.id} email={kunde.email} />
           {kunde.id === admin.id ? null : (
             <ConfirmAction

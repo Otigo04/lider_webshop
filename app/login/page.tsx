@@ -12,11 +12,15 @@ export const metadata: Metadata = {
 
 const ERROR_MESSAGES: Record<string, string> = {
   deaktiviert: "Dieses Konto ist deaktiviert. Bitte wenden Sie sich an uns.",
+  link_ungueltig:
+    "Der Bestätigungslink ist ungültig oder abgelaufen. Bitte wenden Sie sich an uns, wir schicken Ihnen einen neuen.",
   bestaetigung:
     "Der Bestätigungslink ist ungültig oder abgelaufen. Melden Sie sich an – wir schicken Ihnen dann einen neuen.",
 };
 
 const NOTICE_MESSAGES: Record<string, string> = {
+  bestaetigt:
+    "E-Mail-Adresse bestätigt, Ihr Konto ist freigeschaltet. Wurde das Konto von uns angelegt, haben wir Ihnen die Zugangsdaten gerade per E-Mail geschickt.",
   passwort_gesetzt: "Passwort geändert. Sie können sich jetzt anmelden.",
 };
 

@@ -4,7 +4,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { clearMustChangePassword } from "@/lib/password-flag";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { createVerification, markUnverified, sendVerification } from "@/lib/verification";
 
 export interface LoginState {
   error?: string;
@@ -56,7 +58,7 @@ export async function signIn(
 
   const { data: profile } = await supabase
     .from("users")
-    .select("role, is_active")
+    .select("role, is_active, verified_at")
     .eq("id", data.user.id)
     .single();
 
@@ -65,6 +67,14 @@ export async function signIn(
     return {
       error:
         "Zu diesem Konto gibt es kein Kundenprofil. Bitte wenden Sie sich an uns.",
+    };
+  }
+
+  if (!profile.is_active && !profile.verified_at) {
+    await supabase.auth.signOut();
+    return {
+      error:
+        "Bitte bestätigen Sie zuerst Ihre E-Mail-Adresse über den Link in unserer Mail. Keine Mail erhalten? Bitte wenden Sie sich an uns.",
     };
   }
 
@@ -133,8 +143,8 @@ const signUpSchema = z
   );
 
 /**
- * Self-Signup für B2B-Kunden: sofort aktiv (users.is_active ist DEFAULT true,
- * siehe supabase/schema.sql), keine Freischaltung durch den Admin nötig. Der
+ * Self-Signup für B2B-Kunden: aktiv wird das Konto durch den Klick auf den
+ * Link der Bestätigungsmail (Migration 058), nicht durch den Admin. Der
  * Trigger handle_new_user() legt das public.users-Profil automatisch an –
  * hier wird bewusst NIE eine "role" mitgegeben, damit niemand sich selbst zum
  * Admin macht.
@@ -172,7 +182,6 @@ export async function signUp(
   }
 
   const { email, password, full_name, company_name } = parsed.data;
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
   /*
    * Die Adresse reist als Metadatum mit und wird vom Trigger handle_new_user()
@@ -216,29 +225,36 @@ export async function signUp(
     };
   }
 
-  const { data, error } = await supabase.auth.signUp({
+  /*
+   * Anlegen über den Admin-Client statt supabase.auth.signUp(): Die
+   * Bestätigung läuft über unsere eigene Mail (lib/verification.ts), nicht
+   * über Supabase. email_confirm = true, damit Supabase selbst nie blockt;
+   * gesperrt ist das Konto über users.is_active = false, bis der Link
+   * geklickt wurde.
+   */
+  const admin = createAdminClient();
+  const { data, error } = await admin.auth.admin.createUser({
     email,
     password,
-    options: {
-      data: { full_name, company_name, ...adresse },
-      emailRedirectTo: `${siteUrl}/auth/confirm?type=signup`,
-    },
+    email_confirm: true,
+    user_metadata: { full_name, company_name, ...adresse },
   });
 
   if (error || !data.user) {
     return {
-      error: error?.message.includes("already")
+      error: /already|registered/i.test(error?.message ?? "")
         ? "Zu dieser E-Mail-Adresse gibt es bereits ein Konto."
         : "Die Registrierung ist fehlgeschlagen.",
     };
   }
 
-  if (data.session) {
-    // "Confirm email" ist im Supabase-Dashboard deaktiviert – die Session
-    // steht sofort, direkt weiter auf die Begrüßungsseite.
-    revalidatePath("/", "layout");
-    redirect("/willkommen");
+  if (!(await markUnverified(data.user.id))) {
+    // Ohne Sperre wäre das Konto sofort aktiv – dann lieber abbrechen.
+    await admin.auth.admin.deleteUser(data.user.id);
+    return { error: "Die Registrierung ist fehlgeschlagen." };
   }
+  await createVerification(data.user.id, "selbst");
+  await sendVerification(data.user.id);
 
   return {
     success:

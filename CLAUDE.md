@@ -195,6 +195,7 @@ CREATE TABLE product_images (
 - `/admin/startseite` – Werbebilder (Slider) ganz oben auf der Startseite
 - `/admin/products` – Produktverwaltung
 - `/admin/gruppen` – Angebote mit Ausführungen (Farbe, Größe, Wattzahl)
+- `/admin/kassenbuch` – Tageskasse von Hand (Bargeld, Karte, Großhandel je Tag), unabhängig von der Kasse (Migration 057)
 - `/admin/bestand` – Wareneingang (Schnellerfassung) und sein Journal
 - `/admin/preisschilder` – Preisschilder fürs Regal, druckfertig auf A4
 - `/admin/preisschilder/frei` – Preisschilder von Hand, mit Artikelabgleich
