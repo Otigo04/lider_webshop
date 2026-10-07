@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
 import {
   BookOpen,
+  Banknote,
   Building2,
   FileText,
   FolderTree,
@@ -47,6 +48,7 @@ const ICONS = {
   anfragen: UserPlus,
   kasse: ScanBarcode,
   verkaeufe: Receipt,
+  kassenbuch: Banknote,
   einstellungen: Building2,
 } satisfies Record<string, LucideIcon>;
 
