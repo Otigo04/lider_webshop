@@ -3,6 +3,8 @@ import Link from "next/link";
 import {
   ArrowDownRight,
   ArrowUpRight,
+  FileSpreadsheet,
+  FileText,
   PackagePlus,
   Printer,
   Search,
@@ -74,6 +76,30 @@ export default async function BestandPage({
           </Button>
         </div>
       </div>
+
+      {/* Bestandsliste: reines GET-Formular, kein Skript nötig. Der Haken
+          entscheidet, ob der Einkaufspreis mit in die Datei kommt. */}
+      <form
+        method="get"
+        action="/admin/bestand/export"
+        className="mt-4 flex flex-wrap items-center gap-3 rounded-lg border border-border px-4 py-3 text-sm"
+      >
+        <span className="font-medium">Bestandsliste exportieren</span>
+        <label className="flex items-center gap-2 text-muted-foreground">
+          <input type="checkbox" name="ek" value="1" defaultChecked />
+          mit Einkaufspreis und Warenwert (intern)
+        </label>
+        <div className="flex gap-2 sm:ml-auto">
+          <Button type="submit" name="format" value="xlsx" variant="outline" size="sm">
+            <FileSpreadsheet className="size-4" aria-hidden />
+            Excel
+          </Button>
+          <Button type="submit" name="format" value="pdf" variant="outline" size="sm">
+            <FileText className="size-4" aria-hidden />
+            PDF
+          </Button>
+        </div>
+      </form>
 
       {categories.length === 0 ? (
         <p className="mt-8 rounded-md border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning">

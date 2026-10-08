@@ -284,6 +284,38 @@ von dort, getippt wird nur noch der Preis.
 
 ---
 
+## 📤 Bestandsliste exportieren (PDF und Excel)
+
+`/admin/bestand` → „Bestandsliste exportieren“. Route
+`app/admin/bestand/export/route.ts` (`GET ?format=xlsx|pdf&ek=1`, nur Admin),
+Zeilen und Summen in `lib/bestand-export.ts`, Zeichner in `lib/bestand-pdf.ts`
+(pdf-lib) und `lib/bestand-xlsx.ts` (exceljs), Abfrage in
+`lib/queries/bestand-export.ts`.
+
+- **Ein Datenmodell, zwei Zeichner.** Sortierung (Warengruppe, dann
+  Bezeichnung), Summen und Warenwert (Bestand × Einkauf) entstehen allein in
+  `lib/bestand-export.ts` mit Tests; PDF und Excel zeichnen nur. So stehen in
+  beiden dieselben Zahlen.
+- **Seitenweise gelesen** (1000 je Anfrage). PostgREST schneidet bei 1000
+  Zeilen ab; eine Bestandsliste, die bei Artikel 1000 still aufhört, wäre
+  schlimmer als keine. Ein Ladefehler bricht den Export ab, statt eine
+  unvollständige Datei zu liefern.
+- **Einkaufspreis nur auf Wunsch.** Der Haken (Vorgabe an) schaltet Einkauf und
+  Warenwert zu. Ohne ihn werden beide schon in der Route aus den Zeilen
+  genommen, bevor ein Zeichner sie sieht. Die Liste ist ein internes Papier;
+  sie gehört nicht in Kundenhand.
+- **Excel:** echte Zahlenzellen; Artikelnummer und Barcode als Text (sonst
+  macht Excel aus `0196214147249` ein `1,96E+11`); Kopfzeile fixiert, Filter,
+  Summenzeile als `SUBTOTAL` – sie rechnet nur, was der Filter zeigt.
+- **PDF:** A4 quer, eine Zeile je Artikel (lange Bezeichnungen mit „...“
+  gekürzt), Kopfzeile auf jeder Seite, „Seite x von y“. Helvetica ohne
+  eingebetteten Font: unbekannte Zeichen werden „?“, der Export bricht nicht ab.
+- **Bestand** ist `stock_available`, nicht „frei verfügbar“: die Liste soll
+  zeigen, was im Lager liegt. Ein negativer Bestand zählt weder bei den Stück
+  noch beim Warenwert.
+
+---
+
 ## 🔎 Schnellfilter der Artikelliste
 
 `lib/admin-product-filter.ts`. Sechs Fragen, die im Laden täglich anfallen –
