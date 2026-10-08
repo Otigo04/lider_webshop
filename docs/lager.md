@@ -182,6 +182,45 @@ die Lieferung, die mit einer Rechnung oder Preisliste kommt.
   Reihenfolge. Zusammengelegt wird nur über den Code – zwei Zeilen ohne
   Barcode sind zwei Posten, auch wenn sie gleich heißen.
 
+### Rechnung hochladen
+
+`components/admin/wareneingang-rechnung.tsx`, Route
+`app/admin/bestand/rechnung/route.ts`, Regeln in `lib/rechnung-import.ts`,
+Modellaufruf in `lib/rechnung-lesen.ts`. Vierter Weg neben Scanner,
+Namenssuche und Sammelimport – für die Lieferung, die als PDF kommt.
+
+- **Das Modell liest ab, es rechnet nicht.** Preise, Summen und Prüfungen
+  entstehen in `lib/rechnung-import.ts` (mit `tests/rechnung-import.test.ts`).
+  Eine falsch gelesene Zahl soll an einer Rechenprobe hängen bleiben, nicht im
+  Bestand.
+- **Erst Vorschau, dann Buchen.** Der Route Handler liest und gleicht ab, er
+  bucht nichts. Gebucht wird vom Dialog über `recordStockEntries()` – derselbe
+  Weg wie überall im Wareneingang.
+- **Gegenproben.** Je Zeile: Menge × Listenpreis × (1 − Rabatt) gegen den
+  Zeilenbetrag, 6 Cent Toleranz; nicht aus dem gerundeten Stückpreis (120 ×
+  0,98 wären 117,60, die Rechnung sagt 117,72). Über alles: Summe der Zeilen
+  gegen „Gesamt ohne MwSt.“ minus Servicegebühr/Versand. Eine rote Zeile oder
+  Summenabweichung sperrt „Buchen“, bis sie korrigiert oder bestätigt ist.
+- **Doppelt-Schutz.** Steht die Rechnungsnummer schon in einer
+  `stock_entries.note`, sperrt die Vorschau (aufhebbar durch „Trotzdem
+  buchen“). Die Notiz folgt `Lieferant, Rechnung Nr vom Datum`, so findet der
+  Schutz auch Lieferungen, die früher per Skript gebucht wurden.
+- **Preise neuer Artikel.** Mit UVP (Iden): Laden = UVP, Großhandel = UVP ÷
+  (1 + MwSt aus `company_settings.pos_vat_rate`), Einkauf = Listenpreis ×
+  (1 − Rabatt). Ohne UVP (Alpalium): Großhandel = EK × 1,30 auf 10 Cent,
+  Laden = EK × 2 auf X,99 – beides aufgerundet, ganzzahlig gerechnet (100 ×
+  1,3 ist in Gleitkomma 130,00000000000001 und würde auf 1,40 kippen).
+- **Bekannte Artikel** bekommen nur Bestand und Einkaufspreis; Großhandels- und
+  Ladenpreis bleiben (`null` heißt „unverändert“).
+- **Gleicher Barcode zweimal** heißt eine Zeile mit summierter Menge.
+  Zeilen ohne Barcode bleiben getrennt und sind Neuanlagen – die Vorschau
+  weist darauf hin, damit ein Artikel, der schon ohne Barcode im Stamm steht,
+  nicht doppelt entsteht.
+- **PDF bis 4 MB**, geprüft am Dateikopf (`%PDF-`), nicht an Endung oder Typ.
+  Route Handler statt Server Action, weil die nur 1 MB Body annimmt.
+- **Prüfen an echten PDFs** ohne Browser:
+  `scripts/rechnung-lesen-check.mjs` (Aufruf im Kopfkommentar).
+
 ---
 
 ## 🔍 Barcode-Nachschlag beim Wareneingang

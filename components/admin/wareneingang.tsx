@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ClipboardPaste,
+  FileUp,
   Loader2,
   PackagePlus,
   Plus,
@@ -25,6 +26,7 @@ import {
   WareneingangImport,
   type ImportTreffer,
 } from "@/components/admin/wareneingang-import";
+import { WareneingangRechnung } from "@/components/admin/wareneingang-rechnung";
 import { NumericInput } from "@/components/numeric-input";
 import { PosInlineSuche } from "@/components/pos/pos-inline-suche";
 import { PosProductSearch } from "@/components/pos/pos-product-search";
@@ -159,6 +161,7 @@ export function Wareneingang({
   const [notiz, setNotiz] = useState("");
   const [suchend, setSuchend] = useState(false);
   const [importOffen, setImportOffen] = useState(false);
+  const [rechnungOffen, setRechnungOffen] = useState(false);
   const [buchend, startBuchen] = useTransition();
   const [gebucht, setGebucht] = useState<Gebucht | null>(null);
 
@@ -928,6 +931,16 @@ export function Wareneingang({
             <ClipboardPaste className="size-4" aria-hidden />
             Liste einfügen
           </Button>
+          {/* Vierter Weg: die Rechnung als PDF. Wird gelesen, geprüft und im
+              Dialog gebucht – derselbe Buchungsweg wie unten. */}
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setRechnungOffen(true)}
+          >
+            <FileUp className="size-4" aria-hidden />
+            Rechnung hochladen
+          </Button>
         </div>
       </div>
 
@@ -936,6 +949,15 @@ export function Wareneingang({
         onOpenChange={setImportOffen}
         onUebernehmen={importUebernehmen}
         categories={categories}
+      />
+
+      <WareneingangRechnung
+        open={rechnungOffen}
+        onOpenChange={setRechnungOffen}
+        categories={categories}
+        onGebucht={({ zeitpunkt, positionen }) =>
+          setGebucht({ zeitpunkt, positionen, bilder: 0 })
+        }
       />
 
       {gebucht && zeilen.length === 0 ? (

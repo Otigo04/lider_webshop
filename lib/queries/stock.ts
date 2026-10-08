@@ -133,3 +133,31 @@ export async function getZuletztAufgenommen(anzahl = 200): Promise<string[]> {
     anzahl,
   );
 }
+
+/**
+ * Wurde diese Rechnung schon gebucht? Antwort: created_at der jüngsten
+ * Journalzeile, sonst null.
+ *
+ * Gesucht wird die Rechnungsnummer in der Notiz der Buchung („Iden, Rechnung
+ * 26080071391 vom 06.10.2026“) – so findet sie auch Lieferungen, die früher
+ * über ein Skript gebucht wurden. Platzhalter der Suche werden entfernt, und
+ * unter vier Zeichen gibt es keine Antwort: „1“ stünde in jeder Notiz.
+ */
+export async function findGebuchteRechnung(nummer: string): Promise<string | null> {
+  const sauber = nummer.replace(/[%_,()*\\]/g, " ").trim();
+  if (sauber.length < 4) return null;
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("stock_entries")
+    .select("created_at")
+    .ilike("note", `%${sauber}%`)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (error) {
+    console.error("[wareneingang] Rechnung schon gebucht?", error.message);
+    return null;
+  }
+  return (data?.[0]?.created_at as string | undefined) ?? null;
+}
