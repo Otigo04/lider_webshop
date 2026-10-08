@@ -101,5 +101,5 @@ in `lib/rechnung-import.ts`.
 ## Nicht Teil dieser Arbeit
 
 Speichern der PDFs, Lieferantenstamm, Einkaufsbuchhaltung, Auftragsbestätigungen
-ohne Preise, Fotos der Artikel (das macht der Barcode-Nachschlag nach dem
-Buchen weiter).
+ohne Preise, Fotos der Artikel (bleiben wie bisher: Wareneingang und
+`scripts/bilder-auffuellen.mjs`).
