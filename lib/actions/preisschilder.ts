@@ -287,6 +287,31 @@ export async function sucheSchildArtikel(
 }
 
 /**
+ * Einkaufspreis eines Artikels, nur zur Ansicht in der Werkbank.
+ *
+ * Für ein zurückgeholtes Schild: es kennt nur seine `productId`, der Preis
+ * steht in `product_costs` (RLS: nur Admin). Null heißt „nicht gepflegt".
+ * Gedruckt wird er nie.
+ */
+export async function getSchildEinkauf(
+  productId: string,
+): Promise<number | null> {
+  await requireAdmin();
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("product_costs")
+    .select("cost_price")
+    .eq("product_id", productId)
+    .maybeSingle();
+  if (error) {
+    console.error("[preisschilder] Einkaufspreis:", error.message);
+    return null;
+  }
+  const preis = Number(data?.cost_price);
+  return preis > 0 ? preis : null;
+}
+
+/**
  * Höchstzahl der Vorschläge in der Namenssuche.
  *
  * Kurz halten: die Liste schwebt über dem Formular und verdeckt, was darunter

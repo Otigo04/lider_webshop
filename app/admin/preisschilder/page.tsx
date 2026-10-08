@@ -7,6 +7,7 @@ import {
   getLabelSizes,
   getPreisschildArtikel,
 } from "@/lib/queries/preisschilder";
+import { getCompanySettings } from "@/lib/queries/settings";
 import { getEingangProductIds, getZuletztAufgenommen } from "@/lib/queries/stock";
 
 export const metadata: Metadata = { title: "Preisschilder" };
@@ -35,13 +36,14 @@ export default async function PreisschilderPage({
     Math.max(0, Math.floor(Number(typeof params.letzte === "string" ? params.letzte : 0)) || 0),
   );
 
-  const [artikel, icons, formate, labels, ausEingang, zuletzt] = await Promise.all([
+  const [artikel, icons, formate, labels, ausEingang, zuletzt, settings] = await Promise.all([
     getPreisschildArtikel(),
     getLabelIcons(),
     getLabelSizes(),
     getLabelOptionen(),
     eingang ? getEingangProductIds(eingang) : Promise.resolve([]),
     getZuletztAufgenommen(),
+    getCompanySettings(),
   ]);
   const vorauswahl = eingang ? ausEingang : zuletzt.slice(0, letzte);
 
@@ -68,6 +70,7 @@ export default async function PreisschilderPage({
         vorauswahl={vorauswahl}
         zuletzt={zuletzt}
         artikel={artikel}
+        vatRate={Number(settings.pos_vat_rate)}
         icons={icons}
         formate={formate}
         labels={labels}

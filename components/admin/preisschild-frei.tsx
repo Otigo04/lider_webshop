@@ -16,12 +16,14 @@ import {
   type BogenPlatz,
 } from "@/components/admin/preisschild-bogen-vorschau";
 import { PreisschildArtikelSuche } from "@/components/admin/preisschild-artikel-suche";
+import { PreisschildEk } from "@/components/admin/preisschild-ek";
 import { PreisschildVorschau } from "@/components/admin/preisschild-vorschau";
 import { KassenStatus, useKassenMeldung } from "@/components/pos/kassen-status";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { setzeAktionspreis, updateProductField } from "@/lib/actions/admin-products";
 import {
+  getSchildEinkauf,
   legeSchildArtikelAn,
   sucheSchildArtikel,
 } from "@/lib/actions/preisschilder";
@@ -168,7 +170,10 @@ export function PreisschildFrei({
   labels,
   kategorien,
   vorgabeKategorie,
+  vatRate,
 }: {
+  /** Steuersatz in Prozent (company_settings.pos_vat_rate), für EK brutto. */
+  vatRate: number;
   icons: LabelIcon[];
   formate: SchildFormat[];
   labels: LabelOption[];
@@ -227,6 +232,16 @@ export function PreisschildFrei({
    * Großhandelspreis.
    */
   const [einkauf, setEinkauf] = useState(0);
+
+  /**
+   * Einkaufspreis des Artikels hinter einem zurückgeholten Schild, nur zur
+   * Ansicht. Mit Kennung des Schilds, damit eine verspätete Antwort für ein
+   * schon verlassenes Schild nicht unter dem nächsten steht.
+   */
+  const [einkaufAnsicht, setEinkaufAnsicht] = useState<{
+    id: string;
+    wert: number | null;
+  } | null>(null);
 
   /**
    * Preis und Großhandelspreis, wie sie beim Treffer aus dem Stamm kamen.
@@ -760,6 +775,12 @@ export function PreisschildFrei({
       productId: eintrag.productId,
     });
     setBearbeitet(id);
+    setEinkaufAnsicht(null);
+    if (eintrag.productId) {
+      void getSchildEinkauf(eintrag.productId).then((wert) =>
+        setEinkaufAnsicht({ id, wert }),
+      );
+    }
     // Der Einkaufspreis gehört zum Anlegen eines Artikels, nicht zum
     // Korrigieren eines Zettels – ein stehen gebliebener Wert gehörte zum
     // vorigen Vorgang.
@@ -781,6 +802,7 @@ export function PreisschildFrei({
 
   function abbrechen() {
     setBearbeitet(null);
+    setEinkaufAnsicht(null);
     setEntwurf(LEER);
     setAufgeloest(null);
     setTreffer(null);
@@ -975,7 +997,7 @@ export function PreisschildFrei({
               event.preventDefault();
               uebernehmen();
             }}
-            className={`space-y-3 rounded-lg border p-4 ${
+            className={`relative space-y-3 rounded-lg border p-4 pb-5 ${
               bearbeitet ? "border-brand" : "border-border"
             }`}
           >
@@ -1002,6 +1024,14 @@ export function PreisschildFrei({
                 </div>
               ) : null}
             </div>
+
+            {/* Nur fürs Haus, ganz dezent, absolut in der Ecke: schiebt
+                nichts. Der Einkaufspreis hinter dem angeklickten Schild. */}
+            {bearbeitet &&
+            einkaufAnsicht?.id === bearbeitet &&
+            einkaufAnsicht.wert !== null ? (
+              <PreisschildEk netto={einkaufAnsicht.wert} satz={vatRate} />
+            ) : null}
 
             {/* Der Scan steht oben, weil er den Rest bestimmt: ein bekannter
                 Code füllt das Formular, ein unbekannter macht daraus einen

@@ -7,6 +7,7 @@ import {
   getLabelOptionen,
   getLabelSizes,
 } from "@/lib/queries/preisschilder";
+import { getCompanySettings } from "@/lib/queries/settings";
 import { getCategories, getLastUsedCategoryId } from "@/lib/queries/products";
 
 export const metadata: Metadata = { title: "Preisschilder frei eingeben" };
@@ -31,13 +32,14 @@ export const metadata: Metadata = { title: "Preisschilder frei eingeben" };
  * versehentliches Neuladen die Arbeit nicht verwirft.
  */
 export default async function PreisschilderFreiPage() {
-  const [icons, formate, labels, kategorien, vorgabeKategorie] =
+  const [icons, formate, labels, kategorien, vorgabeKategorie, settings] =
     await Promise.all([
       getLabelIcons(),
       getLabelSizes(),
       getLabelOptionen(),
       getCategories(),
       getLastUsedCategoryId(),
+      getCompanySettings(),
     ]);
 
   return (
@@ -74,6 +76,7 @@ export default async function PreisschilderFreiPage() {
         labels={labels}
         kategorien={kategorien}
         vorgabeKategorie={vorgabeKategorie}
+        vatRate={Number(settings.pos_vat_rate)}
       />
     </div>
   );

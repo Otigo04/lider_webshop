@@ -9,6 +9,7 @@ import { setzeAktionspreis, updateProductField } from "@/lib/actions/admin-produ
 import { PreisschildGroessen } from "@/components/admin/preisschild-groessen";
 import { PreisschildLabels } from "@/components/admin/preisschild-labels";
 import { PreisschildSymbole } from "@/components/admin/preisschild-symbole";
+import { PreisschildEk } from "@/components/admin/preisschild-ek";
 import { PreisschildVorschau } from "@/components/admin/preisschild-vorschau";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -65,6 +66,8 @@ interface Zeile {
   basisPreis: number;
   basisVorher: number;
   basisGh: number;
+  /** Einkaufspreis, nur zur Ansicht in der Liste. Nie auf dem Schild. */
+  einkauf: number | null;
   iconId: string | null;
   /** Schlüssel des Labels in der Fußzeile, null = keins */
   labelKey: string | null;
@@ -90,6 +93,7 @@ function alsZeile(a: PreisschildArtikel, icons: LabelIcon[]): Zeile {
     basisPreis: a.preis ?? 0,
     basisVorher: a.vorher ?? 0,
     basisGh: a.grosshandel ?? 0,
+    einkauf: a.einkauf,
     // Trifft der Artikelname eine vorhandene Marke in der Symbolbibliothek
     // (z. B. "LEGO"), steht ihr Logo gleich auf der neuen Zeile –
     // nachträglich in der Spalte "Symbol" änderbar.
@@ -106,7 +110,10 @@ export function PreisschildWerkbank({
   labels,
   vorauswahl = [],
   zuletzt = [],
+  vatRate,
 }: {
+  /** Steuersatz in Prozent (company_settings.pos_vat_rate), für EK brutto. */
+  vatRate: number;
   /** Zuletzt aufgenommene Artikel, der jüngste zuerst (Wareneingangsjournal) */
   zuletzt?: string[];
   /**
@@ -750,7 +757,7 @@ export function PreisschildWerkbank({
                 <li
                   key={z.productId}
                   onFocus={() => setAktiv(z.productId)}
-                  className={`rounded-lg border p-3 transition-colors ${
+                  className={`relative rounded-lg border p-3 transition-colors ${
                     z.preis <= 0
                       ? "border-destructive"
                       : aktiv === z.productId
@@ -758,6 +765,9 @@ export function PreisschildWerkbank({
                         : "border-border"
                   }`}
                 >
+                  {aktiv === z.productId && z.einkauf !== null ? (
+                    <PreisschildEk netto={z.einkauf} satz={vatRate} />
+                  ) : null}
                   <div className="flex items-start gap-2">
                     <div className="min-w-0 flex-1 space-y-1">
                       <label
