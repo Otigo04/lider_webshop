@@ -14,7 +14,7 @@ das über ein Skript je Lieferung (`scripts/lieferung-*.mjs`).
 | Frage | Entscheidung |
 |-------|--------------|
 | Ablauf | Vorschau, dann Bestätigung durch den Admin. Kein Direktbuchen. |
-| Auslesen | KI liest das PDF (AI SDK über das Vercel AI Gateway, wie `lib/actions/product-ai.ts`). Kein fester Parser je Lieferant. |
+| Auslesen | **Geändert:** fester Textleser je Lieferant (`lib/rechnung-iden.ts`, Text aus dem PDF über `unpdf`), ohne KI. Der erste Entwurf nutzte ein Modell über das AI Gateway; das sperrt auf dem kostenlosen Tarif jedes Claude-Modell, und laufende Kosten fürs Scannen waren nicht gewollt. |
 | Preise neuer Artikel mit UVP | Laden = UVP, Großhandel = UVP ÷ (1 + MwSt), Einkauf = Listenpreis × (1 − Rabatt). |
 | Preise neuer Artikel ohne UVP | Großhandel = EK × 1,30, aufgerundet auf 10 Cent. Laden = EK × 2, aufgerundet auf X,99 €. |
 | Bekannte Artikel | Nur Bestand und Einkaufspreis. Großhandels- und Ladenpreis bleiben (leeres Feld heißt „unverändert"). |

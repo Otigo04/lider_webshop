@@ -186,13 +186,29 @@ die Lieferung, die mit einer Rechnung oder Preisliste kommt.
 
 `components/admin/wareneingang-rechnung.tsx`, Route
 `app/admin/bestand/rechnung/route.ts`, Regeln in `lib/rechnung-import.ts`,
-Modellaufruf in `lib/rechnung-lesen.ts`. Vierter Weg neben Scanner,
-Namenssuche und Sammelimport – für die Lieferung, die als PDF kommt.
+Textleser in `lib/rechnung-lesen.ts` und `lib/rechnung-iden.ts`. Vierter Weg
+neben Scanner, Namenssuche und Sammelimport – für die Lieferung, die als PDF
+kommt.
 
-- **Das Modell liest ab, es rechnet nicht.** Preise, Summen und Prüfungen
-  entstehen in `lib/rechnung-import.ts` (mit `tests/rechnung-import.test.ts`).
-  Eine falsch gelesene Zahl soll an einer Rechenprobe hängen bleiben, nicht im
-  Bestand.
+- **Ohne KI, ohne Kosten.** Die PDFs der Iden-Gruppe haben eine saubere
+  Textschicht. `unpdf` liefert die Textstücke mit Position, `lib/rechnung-lesen.ts`
+  baut daraus Zeilen (gleiche Höhe = eine Zeile), `lib/rechnung-iden.ts` zerlegt
+  sie (`tests/rechnung-iden.test.ts`, Fixtures in `tests/fixtures/`). Eine
+  Position ist zwei Zeilen: Nummern, Menge, UVP, VK-Preis, Betrag – darunter
+  Bezeichnung, Rabatt, MwSt; lange Bezeichnungen laufen in weitere Zeilen, auch
+  hinter die Zahlen. Servicegebühr und Versand zählen als Nebenkosten, nicht als
+  Artikel. Zuerst mit einem KI-Modell gebaut, aber das AI Gateway sperrt auf dem
+  kostenlosen Tarif jedes Claude-Modell, und Geld nur fürs Scannen wäre es nicht
+  wert gewesen.
+- **Ein Lieferant, ein Leser.** Gelesen wird nur, was eindeutig ist; ein
+  fremdes Format wirft `RechnungsFormatFehler` und der Dialog sagt das, statt
+  zu raten. Für Alpalium (Auftragsbestätigung ohne EAN) gibt es noch keinen
+  Leser – dafür braucht es ein Beispiel-PDF. Ein neuer Lieferant heißt eine
+  neue Datei nach dem Muster von `rechnung-iden.ts` und ein Aufruf in
+  `leseRechnung()`.
+- **Gerechnet und geprüft wird in `lib/rechnung-import.ts`** (mit
+  `tests/rechnung-import.test.ts`). Eine falsch gelesene Zahl soll an einer
+  Rechenprobe hängen bleiben, nicht im Bestand.
 - **Erst Vorschau, dann Buchen.** Der Route Handler liest und gleicht ab, er
   bucht nichts. Gebucht wird vom Dialog über `recordStockEntries()` – derselbe
   Weg wie überall im Wareneingang.

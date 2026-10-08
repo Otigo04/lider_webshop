@@ -1,14 +1,15 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth";
 import { findProductsByCodes } from "@/lib/queries/pos";
-import { getCategories, getLastUsedCategoryId } from "@/lib/queries/products";
+import { getLastUsedCategoryId } from "@/lib/queries/products";
 import { getCompanySettings } from "@/lib/queries/settings";
 import { findGebuchteRechnung } from "@/lib/queries/stock";
 import { leseRechnung } from "@/lib/rechnung-lesen";
+import { RechnungsFormatFehler } from "@/lib/rechnung-iden";
 import type { RechnungAntwort } from "@/lib/rechnung-import";
 
 /**
- * Rechnung lesen – Upload, KI, Abgleich. Bucht nichts.
+ * Rechnung lesen – Upload, Textleser, Abgleich. Bucht nichts.
  *
  * Route Handler statt Server Action: eine Server Action nimmt nur 1 MB
  * Body an, ein PDF mit Logo und Kleingedrucktem ist größer. Die Grenze hier
@@ -48,15 +49,16 @@ export async function POST(request: Request) {
     return fehler("Das ist keine PDF-Datei.", 400);
   }
 
-  const kategorien = await getCategories();
-
   let rechnung;
   try {
-    rechnung = await leseRechnung(
-      bytes,
-      kategorien.map((k) => ({ id: k.id, name: k.name })),
-    );
+    rechnung = await leseRechnung(bytes);
   } catch (ursache) {
+    if (ursache instanceof RechnungsFormatFehler) {
+      return fehler(
+        "Diese Rechnung kann ich noch nicht lesen. Unterstützt sind die Rechnungen der Iden-Gruppe. Alles andere bitte über „Liste einfügen“ oder von Hand aufnehmen.",
+        422,
+      );
+    }
     console.error("[wareneingang] Rechnung lesen:", ursache);
     return fehler(
       "Die Rechnung konnte nicht gelesen werden. Bitte noch einmal versuchen oder den Wareneingang von Hand erfassen.",

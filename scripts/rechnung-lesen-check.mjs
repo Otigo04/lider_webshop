@@ -18,7 +18,7 @@ if (!pfad) {
 }
 
 const bytes = new Uint8Array(await readFile(pfad));
-const r = await leseRechnung(bytes, []);
+const r = await leseRechnung(bytes);
 
 console.log(`${r.lieferant} · Rechnung ${r.rechnungsnummer} · ${r.datum ?? "ohne Datum"}`);
 for (const p of r.positionen) {

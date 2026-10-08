@@ -236,7 +236,7 @@ export function WareneingangRechnung({
             {liest ? (
               <p className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="size-4 animate-spin" aria-hidden />
-                Rechnung wird gelesen – das dauert etwa eine halbe Minute.
+                Rechnung wird gelesen …
               </p>
             ) : null}
             {fehler ? (
