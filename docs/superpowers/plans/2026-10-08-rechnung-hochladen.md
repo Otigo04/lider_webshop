@@ -329,7 +329,7 @@ export function ekProStueck(p: RechnungPosition): number {
  * sagt 117,72, weil sie erst am Ende rundet.
  */
 export function erwarteterBetrag(p: RechnungPosition): number {
-  return p.menge * p.listenpreis * (1 - p.rabattProzent / 100);
+  return runde2(p.menge * p.listenpreis * (1 - p.rabattProzent / 100));
 }
 
 export function zeileStimmt(p: RechnungPosition): boolean {
