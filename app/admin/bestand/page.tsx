@@ -7,6 +7,7 @@ import {
   FileText,
   PackagePlus,
   Printer,
+  ScanBarcode,
   Search,
   Sparkles,
 } from "lucide-react";
@@ -62,6 +63,12 @@ export default async function BestandPage({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button asChild>
+            <Link href="/admin/bestand/info">
+              <ScanBarcode className="size-4" aria-hidden />
+              Artikelauskunft (scannen)
+            </Link>
+          </Button>
           <Button asChild variant="outline">
             <Link href="/admin/preisschilder?letzte=10">
               <Printer className="size-4" aria-hidden />

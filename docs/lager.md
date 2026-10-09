@@ -146,6 +146,15 @@ eine Liste, die beim Scannen wächst, und eine Sammelbuchung am Ende.
   unbekannt, nicht die Ware. Ein Treffer schließt den Dialog und kommt direkt
   auf den Bon, ohne Neuanlage.
 
+### Artikelauskunft
+
+`/admin/bestand/info`, `lib/actions/artikelinfo.ts`. Ein Scannerfeld mit
+dauerhaftem Fokus; der Code wird als Barcode, dann als Artikelnummer gesucht
+(UPC-A/EAN-13 mit und ohne führende Null). Angezeigt: Foto, Name, Nummern,
+frei verfügbar / Lager / reserviert, Ladenpreis, Staffeln, die letzten drei
+Wareneingänge. **Nur lesen.** Mit Einkaufspreis und Marge (Entscheidung des Betreibers, Admin-Login Pflicht). Unter „Bestand" statt als
+eigener Reiter, weil die Leiste voll ist.
+
 ### Sammelimport („Liste einfügen")
 
 `components/admin/wareneingang-import.tsx`, Regeln in
