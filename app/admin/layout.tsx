@@ -45,7 +45,11 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
   await requireAdmin();
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8">
+    // Fast volle Fensterbreite: die Tabellen (Artikel mit acht Spalten) liefen
+    // bei max-w-6xl über den Rand und mussten seitlich gescrollt werden,
+    // während links und rechts Weißraum stand. Erst ab sehr breiten Schirmen
+    // wird gedeckelt, damit Zeilen nicht endlos lang werden.
+    <div className="mx-auto max-w-[120rem] px-4 py-8 sm:px-6 lg:px-8">
       <AdminTabs tabs={ADMIN_TABS} />
       {children}
     </div>
