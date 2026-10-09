@@ -376,3 +376,27 @@ vorige Zeile der laufenden Aufnahme sie noch – innerhalb einer Lieferung ist
 die zuletzt getippte Gruppe die bessere Auskunft.
 
 ---
+
+---
+
+## 🔎 Artikelliste: Filter, Sortierung, Rücksprung
+
+`/admin/products`. Der Filterzustand steht komplett in der Adresszeile;
+`lib/admin-product-filter.ts` liest ihn (`leseArtikelFilter`) und baut ihn
+(`baueArtikelQuery`) – **eine Stelle**, kein handgebauter Link daneben.
+
+- **Gefiltert wird in der Anwendung**, nicht in der Abfrage, außer Suche, Bild,
+  Sichtbarkeit, Flags und Datumsreihenfolge (`getAdminProducts`). Grund: Die
+  Zahlen an Warengruppe und Lagerkacheln brauchen die ungefilterte Menge.
+- **UND zwischen den Filterarten, ODER innerhalb** von Warengruppe,
+  Artikelgruppe und Flags.
+- **Preisbereich** gilt für die Grundstaffel (`grundpreis()`, dieselbe Zahl wie
+  die GH-Zelle), **Bestandsbereich** für `freeStock()`. Leer = unbegrenzt.
+  Die Felder sind bewusst keine `NumericInput`: leer darf nicht 0 werden.
+- **Sortierung**: Name, Warengruppe (dann Name), Artikelnummer, Preis, Bestand,
+  Datum. Artikel ohne Preis stehen bei der Preissortierung immer hinten.
+- **Rücksprung**: `lib/artikel-ruecksprung.ts` merkt beim Klick auf „Bearbeiten"
+  Adresse, Scrollhöhe und Artikel in `sessionStorage`. „Speichern & zur Liste",
+  „Abbrechen" und „Alle Artikel" führen dorthin zurück und scrollen zur Zeile.
+  Das Menü „Artikel" startet frisch. Nur Adressen unter `/admin/products?…`
+  werden akzeptiert.

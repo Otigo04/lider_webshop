@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Layers, Pencil, Plus, ScanBarcode, Search, Trash2 } from "lucide-react";
+import { ArtikelListeMerker } from "@/components/admin/artikel-liste-merker";
 import { ConfirmAction } from "@/components/admin/confirm-action";
 import { InlineEdit } from "@/components/admin/inline-edit";
 import { ProductFlagsMenu } from "@/components/admin/product-flag-toggle";
@@ -11,21 +12,27 @@ import { deleteProduct } from "@/lib/actions/admin-products";
 import { formatPrice, formatQuantity } from "@/lib/format";
 import { freeStock, lowestUnitPrice, reduzierung } from "@/lib/pricing";
 import {
+  ALLE_AUSFUEHRUNGEN,
+  ARTIKEL_SORT,
+  ARTIKEL_SORT_LABELS,
   LAGER_FILTER,
   LAGER_FILTER_HILFE,
   LAGER_FILTER_LABELS,
+  STANDARD_FILTER,
+  abfrageSort,
+  baueArtikelQuery,
+  filtereArtikel,
   filtereNachLager,
-  istLagerFilter,
+  grundpreis,
+  leseArtikelFilter,
+  sortiereArtikel,
+  zaehleKategorien,
   zaehleLager,
+  type ArtikelFilter,
   type LagerFilter,
 } from "@/lib/admin-product-filter";
-import {
-  ADMIN_PRODUCT_SORT,
-  ADMIN_PRODUCT_SORT_LABELS,
-  getAdminProducts,
-  istAdminProductSort,
-  type AdminProductSort,
-} from "@/lib/queries/admin";
+import { getAdminProducts } from "@/lib/queries/admin";
+import { getGroupOptions } from "@/lib/queries/groups";
 import { getCategories } from "@/lib/queries/products";
 import { getProductFlags } from "@/lib/queries/product-flags";
 
@@ -75,62 +82,106 @@ export default async function AdminProductsPage({
   searchParams,
 }: PageProps<"/admin/products">) {
   const params = await searchParams;
-  const search = typeof params.q === "string" ? params.q : "";
-  const ohneBild = params.bild === "ohne";
-  const inaktiv = params.status === "inaktiv";
-  const flagIds = (Array.isArray(params.flag) ? params.flag : params.flag ? [params.flag] : []).filter(
-    (f): f is string => typeof f === "string",
-  );
-  const lagerFilter = (
-    Array.isArray(params.lager) ? params.lager : params.lager ? [params.lager] : []
-  ).filter(istLagerFilter);
-  const sort: AdminProductSort = istAdminProductSort(params.sort)
-    ? params.sort
-    : "name";
+  const filter = leseArtikelFilter(params);
+  const { q: search, ohneBild, inaktiv, lager: lagerFilter, sort } = filter;
 
-  const [alle, categories, customFlags] = await Promise.all([
-    getAdminProducts({ search, ohneBild, inaktiv, flagIds, sort }),
+  const [alle, categories, customFlags, gruppen] = await Promise.all([
+    getAdminProducts({
+      search,
+      ohneBild,
+      inaktiv,
+      flagIds: filter.flags,
+      sort: abfrageSort(sort),
+    }),
     getCategories(),
     getProductFlags(),
+    getGroupOptions(),
   ]);
 
-  // Gezählt wird vor dem Lagerfilter, gefiltert danach: die Kachel „12
-  // ausverkauft" soll ihre Zahl auch dann noch zeigen, wenn gerade nach etwas
-  // anderem gefiltert wird.
-  const zaehler = zaehleLager(alle);
-  const products = filtereNachLager(alle, lagerFilter);
+  // Die Zahl an der Warengruppe zählt vor dem Warengruppenfilter, sonst zeigte
+  // jede abgewählte Gruppe eine 0. Die Lagerkacheln zählen dagegen nach den
+  // übrigen Filtern: „12 ausverkauft" soll in der gewählten Warengruppe die
+  // Zahl dieser Warengruppe sein.
+  const kategorieZahlen = zaehleKategorien(
+    filtereArtikel(alle, { ...filter, kat: [] }),
+  );
+  const vorLager = filtereArtikel(alle, filter);
+  const zaehler = zaehleLager(vorLager);
+  const products = sortiereArtikel(filtereNachLager(vorLager, lagerFilter), sort);
 
   const kategorieOptionen = categories.map((category) => ({
     value: category.id,
     label: category.name,
   }));
 
-  /**
-   * Adresszeile einer Kachel: den eigenen Filter an- oder abschalten, alles
-   * andere stehen lassen. Als Link und nicht als Kästchen im Formular – eine
-   * Frage wie „was ist alle?" soll ein Klick beantworten, nicht ein Klick und
-   * ein zweiter auf „Filtern".
-   */
-  function href(lager: LagerFilter[]): string {
-    const suche = new URLSearchParams();
-    if (search) suche.set("q", search);
-    if (ohneBild) suche.set("bild", "ohne");
-    if (inaktiv) suche.set("status", "inaktiv");
-    if (sort !== "name") suche.set("sort", sort);
-    for (const flag of flagIds) suche.append("flag", flag);
-    for (const gesetzt of lager) suche.append("lager", gesetzt);
-
-    const query = suche.toString();
+  /** Adresse für einen geänderten Filterzustand; alles andere bleibt stehen. */
+  function hrefMit(aenderung: Partial<ArtikelFilter>): string {
+    const query = baueArtikelQuery({ ...filter, ...aenderung });
     return query ? `/admin/products?${query}` : "/admin/products";
   }
 
-  function lagerHref(filter: LagerFilter): string {
-    return href(
-      lagerFilter.includes(filter)
-        ? lagerFilter.filter((gesetzt) => gesetzt !== filter)
-        : [...lagerFilter, filter],
-    );
+  function lagerHref(eintrag: LagerFilter): string {
+    return hrefMit({
+      lager: lagerFilter.includes(eintrag)
+        ? lagerFilter.filter((gesetzt) => gesetzt !== eintrag)
+        : [...lagerFilter, eintrag],
+    });
   }
+
+  const flagNamen = new Map<string, string>([
+    ["is_new", "Neuheit"],
+    ["is_topseller", "Topseller"],
+    ...customFlags.map((flag) => [flag.id, flag.name] as [string, string]),
+  ]);
+  const kategorieNamen = new Map(categories.map((c) => [c.id, c.name]));
+  const gruppenNamen = new Map(gruppen.map((g) => [g.id, g.name]));
+
+  const bereich = (von: number | null, bis: number | null, einheit: string) =>
+    von !== null && bis !== null
+      ? `${von}–${bis}${einheit}`
+      : von !== null
+        ? `ab ${von}${einheit}`
+        : `bis ${bis}${einheit}`;
+
+  /** Ein Chip je gesetztem Filter; Klick auf das × nimmt genau diesen heraus. */
+  const chips: { label: string; href: string }[] = [
+    ...(search ? [{ label: `Suche: ${search}`, href: hrefMit({ q: "" }) }] : []),
+    ...(ohneBild ? [{ label: "Ohne Bild", href: hrefMit({ ohneBild: false }) }] : []),
+    ...(inaktiv ? [{ label: "Ausgeblendet", href: hrefMit({ inaktiv: false }) }] : []),
+    ...filter.flags.map((id) => ({
+      label: `Flag: ${flagNamen.get(id) ?? "?"}`,
+      href: hrefMit({ flags: filter.flags.filter((f) => f !== id) }),
+    })),
+    ...filter.kat.map((id) => ({
+      label: kategorieNamen.get(id) ?? "Warengruppe",
+      href: hrefMit({ kat: filter.kat.filter((k) => k !== id) }),
+    })),
+    ...filter.gruppe.map((id) => ({
+      label:
+        id === ALLE_AUSFUEHRUNGEN
+          ? "Nur Ausführungen"
+          : `Gruppe: ${gruppenNamen.get(id) ?? "?"}`,
+      href: hrefMit({ gruppe: filter.gruppe.filter((g) => g !== id) }),
+    })),
+    ...(filter.preisVon !== null || filter.preisBis !== null
+      ? [
+          {
+            label: `GH-Preis ${bereich(filter.preisVon, filter.preisBis, " €")}`,
+            href: hrefMit({ preisVon: null, preisBis: null }),
+          },
+        ]
+      : []),
+    ...(filter.bestandVon !== null || filter.bestandBis !== null
+      ? [
+          {
+            label: `Bestand ${bereich(filter.bestandVon, filter.bestandBis, "")}`,
+            href: hrefMit({ bestandVon: null, bestandBis: null }),
+          },
+        ]
+      : []),
+  ];
+  const irgendeinFilter = chips.length > 0 || lagerFilter.length > 0;
+  const alleZurueck = hrefMit({ ...STANDARD_FILTER, sort });
 
   const ohneBarcode = products.filter((product) => !product.barcode).length;
   const FESTE_FLAGS = [
@@ -145,7 +196,7 @@ export default async function AdminProductsPage({
           <h1 className="text-2xl font-semibold tracking-tight">Artikel</h1>
           <p className="mt-1 text-sm text-muted-foreground tabular">
             {products.length === 1 ? "1 Artikel" : `${products.length} Artikel`}
-            {lagerFilter.length > 0
+            {irgendeinFilter
               ? ` von ${formatQuantity(alle.length)}`
               : ohneBarcode > 0
                 ? ` · ${formatQuantity(ohneBarcode)} ohne Barcode`
@@ -199,7 +250,7 @@ export default async function AdminProductsPage({
 
             <details className="relative">
               <summary className="cursor-pointer list-none rounded-md border border-input px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted">
-                Flags{flagIds.length > 0 ? ` (${flagIds.length})` : ""}
+                Flags{filter.flags.length > 0 ? ` (${filter.flags.length})` : ""}
               </summary>
               <div className="absolute z-10 mt-1 min-w-48 rounded-md border border-border bg-popover p-2 shadow-md">
                 {FESTE_FLAGS.map((flag) => (
@@ -211,7 +262,7 @@ export default async function AdminProductsPage({
                       type="checkbox"
                       name="flag"
                       value={flag.value}
-                      defaultChecked={flagIds.includes(flag.value)}
+                      defaultChecked={filter.flags.includes(flag.value)}
                       className="size-4 rounded border-input"
                     />
                     {flag.label}
@@ -229,7 +280,7 @@ export default async function AdminProductsPage({
                           type="checkbox"
                           name="flag"
                           value={flag.id}
-                          defaultChecked={flagIds.includes(flag.id)}
+                          defaultChecked={filter.flags.includes(flag.id)}
                           className="size-4 rounded border-input"
                         />
                         <span
@@ -241,6 +292,105 @@ export default async function AdminProductsPage({
                     ))}
                   </>
                 ) : null}
+              </div>
+            </details>
+
+            <details className="relative">
+              <summary className="cursor-pointer list-none rounded-md border border-input px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted">
+                Warengruppe{filter.kat.length > 0 ? ` (${filter.kat.length})` : ""}
+              </summary>
+              <div className="absolute z-10 mt-1 max-h-80 min-w-56 overflow-y-auto rounded-md border border-border bg-popover p-2 shadow-md">
+                {categories.map((category) => (
+                  <label
+                    key={category.id}
+                    className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted"
+                  >
+                    <input
+                      type="checkbox"
+                      name="kat"
+                      value={category.id}
+                      defaultChecked={filter.kat.includes(category.id)}
+                      className="size-4 rounded border-input"
+                    />
+                    <span className="flex-1">{category.name}</span>
+                    <span className="text-xs text-muted-foreground tabular">
+                      {formatQuantity(kategorieZahlen.get(category.id) ?? 0)}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </details>
+
+            <details className="relative">
+              <summary className="cursor-pointer list-none rounded-md border border-input px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted">
+                Artikelgruppe{filter.gruppe.length > 0 ? ` (${filter.gruppe.length})` : ""}
+              </summary>
+              <div className="absolute z-10 mt-1 max-h-80 min-w-56 overflow-y-auto rounded-md border border-border bg-popover p-2 shadow-md">
+                <label className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted">
+                  <input
+                    type="checkbox"
+                    name="gruppe"
+                    value={ALLE_AUSFUEHRUNGEN}
+                    defaultChecked={filter.gruppe.includes(ALLE_AUSFUEHRUNGEN)}
+                    className="size-4 rounded border-input"
+                  />
+                  Alle Ausführungen
+                </label>
+                {gruppen.length > 0 ? (
+                  <div className="my-1.5 border-t border-border" />
+                ) : null}
+                {gruppen.map((gruppe) => (
+                  <label
+                    key={gruppe.id}
+                    className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted"
+                  >
+                    <input
+                      type="checkbox"
+                      name="gruppe"
+                      value={gruppe.id}
+                      defaultChecked={filter.gruppe.includes(gruppe.id)}
+                      className="size-4 rounded border-input"
+                    />
+                    {gruppe.name}
+                  </label>
+                ))}
+              </div>
+            </details>
+
+            {/* Leer heißt unbegrenzt – deshalb schlichte Felder und kein
+                NumericInput, der ein leeres Feld als 0 melden würde. */}
+            <details className="relative">
+              <summary className="cursor-pointer list-none rounded-md border border-input px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted">
+                Preis &amp; Bestand
+              </summary>
+              <div className="absolute z-10 mt-1 w-64 space-y-2 rounded-md border border-border bg-popover p-3 shadow-md">
+                {(
+                  [
+                    ["GH-Preis (€)", "preis", filter.preisVon, filter.preisBis],
+                    ["Freier Bestand", "bestand", filter.bestandVon, filter.bestandBis],
+                  ] as const
+                ).map(([titel, name, von, bis]) => (
+                  <div key={name}>
+                    <p className="mb-1 text-xs text-muted-foreground">{titel}</p>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        name={`${name}_von`}
+                        inputMode="decimal"
+                        defaultValue={von ?? ""}
+                        placeholder="von"
+                        aria-label={`${titel} von`}
+                      />
+                      <span className="text-muted-foreground">–</span>
+                      <Input
+                        name={`${name}_bis`}
+                        inputMode="decimal"
+                        defaultValue={bis ?? ""}
+                        placeholder="bis"
+                        aria-label={`${titel} bis`}
+                      />
+                    </div>
+                  </div>
+                ))}
               </div>
             </details>
 
@@ -256,9 +406,9 @@ export default async function AdminProductsPage({
                 defaultValue={sort}
                 className="h-9 rounded-md border border-input bg-transparent px-2 text-sm"
               >
-                {ADMIN_PRODUCT_SORT.map((wert) => (
+                {ARTIKEL_SORT.map((wert) => (
                   <option key={wert} value={wert}>
-                    {ADMIN_PRODUCT_SORT_LABELS[wert]}
+                    {ARTIKEL_SORT_LABELS[wert]}
                   </option>
                 ))}
               </select>
@@ -320,15 +470,33 @@ export default async function AdminProductsPage({
           );
         })}
 
-        {lagerFilter.length > 0 ? (
-          <Link
-            href={href([])}
-            className="flex items-center rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground"
-          >
-            Filter zurücksetzen
-          </Link>
-        ) : null}
       </nav>
+
+      {irgendeinFilter ? (
+        <div
+          className="mt-3 flex flex-wrap items-center gap-2"
+          aria-label="Aktive Filter"
+        >
+          {chips.map((chip) => (
+            <Link
+              key={chip.label}
+              href={chip.href}
+              title="Filter entfernen"
+              className="flex items-center gap-1.5 rounded-md border border-border bg-muted px-2 py-1 text-xs hover:border-brand/40"
+            >
+              {chip.label}
+              <span aria-hidden>×</span>
+              <span className="sr-only">entfernen</span>
+            </Link>
+          ))}
+          <Link
+            href={alleZurueck}
+            className="px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
+          >
+            Alle zurücksetzen
+          </Link>
+        </div>
+      ) : null}
 
       <p className="mt-4 rounded-md border border-brand/25 bg-brand-soft px-3 py-2 text-sm text-brand">
         Bezeichnung, Barcode, Warengruppe, alle vier Preise (GH = Großhandel,
@@ -339,7 +507,7 @@ export default async function AdminProductsPage({
 
       {products.length === 0 ? (
         <p className="mt-8 rounded-md border border-dashed border-border px-4 py-12 text-center text-sm text-muted-foreground">
-          {search || ohneBild || inaktiv || flagIds.length > 0
+          {irgendeinFilter
             ? "Keine Treffer für diese Suche/Filter."
             : "Noch keine Artikel angelegt."}
         </p>
@@ -377,16 +545,14 @@ export default async function AdminProductsPage({
                 // Mindestmenge) – dorthin schreibt updateProductField. Mit
                 // dem günstigsten Staffelpreis hier stand eine andere Zahl in
                 // der Zelle als die, die man beim Tippen überschrieb.
-                const grund = [...(product.variants ?? [])].sort(
-                  (x, y) => x.min_quantity - y.min_quantity,
-                )[0];
-                const grundpreis = grund ? Number(grund.unit_price) : null;
+                const grundpreisWert = grundpreis(product);
                 const staffelAnzahl = product.variants?.length ?? 0;
                 const rabatt = reduzierung(product.list_price, ab, product.retail_price);
                 return (
                   <tr
                     key={product.id}
-                    className="border-b border-border align-top last:border-0 hover:bg-muted/50"
+                    id={`artikel-${product.id}`}
+                    className="scroll-mt-24 border-b border-border align-top last:border-0 hover:bg-muted/50"
                   >
                     <td className="py-2 pr-3">
                       <InlineEdit
@@ -460,10 +626,10 @@ export default async function AdminProductsPage({
                             field="unit_price"
                             typ="decimal"
                             ausrichtung="right"
-                            value={grundpreis !== null ? String(grundpreis) : "0"}
+                            value={grundpreisWert !== null ? String(grundpreisWert) : "0"}
                             anzeige={
-                              grundpreis !== null
-                                ? `${formatPrice(grundpreis)}${staffelAnzahl > 1 ? ` · ${staffelAnzahl} Staffeln` : ""}`
+                              grundpreisWert !== null
+                                ? `${formatPrice(grundpreisWert)}${staffelAnzahl > 1 ? ` · ${staffelAnzahl} Staffeln` : ""}`
                                 : "—"
                             }
                           />
@@ -614,6 +780,8 @@ export default async function AdminProductsPage({
           </table>
         </div>
       )}
+
+      <ArtikelListeMerker />
     </div>
   );
 }
