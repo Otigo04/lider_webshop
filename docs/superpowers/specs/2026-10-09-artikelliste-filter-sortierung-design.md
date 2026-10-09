@@ -97,3 +97,38 @@ Danach `npm test`, `npm run lint`, `npm run build`.
 
 Abschnitt „Artikelliste: Filter und Sortierung" in `docs/lager.md`;
 `docs/todo.md` unberührt.
+
+## Rücksprung aus dem Artikel (Ergänzung)
+
+Wer Artikel nacheinander abarbeitet (z. B. alle Bälle), soll nach dem Speichern
+genau dort weitermachen, wo er war: gleiche Suche, gleiche Filter, gleiche
+Sortierung, gleiche Stelle in der Liste.
+
+**Wann:** nur beim Zurück vom Artikel. Ein Klick auf „Artikel" im Menü startet
+frisch, es wird nichts automatisch vorbelegt.
+
+**Wie:** `sessionStorage` (pro Tab, verschwindet mit dem Tab), kein Eingriff in
+die Adresse und keine Datenbank.
+
+- Neue Client-Komponente `ArtikelListeMerker` in der Liste. Beim Klick auf
+  einen Bearbeiten-Link speichert sie Adresse (`pathname + search`),
+  Scrollhöhe und Artikel-ID. Beim Laden der Liste prüft sie ein Flag
+  „wiederherstellen"; ist es gesetzt, scrollt sie zur Zeile der Artikel-ID
+  (`scrollIntoView`, mittig), sonst auf die gespeicherte Höhe, und löscht das
+  Flag. Die Zeilen bekommen dafür ein `id`-Attribut.
+- Neue Hilfsfunktionen in `lib/artikel-ruecksprung.ts` (reine Logik, mit
+  `try/catch` um jeden Storage-Zugriff, ohne Storage läuft alles wie bisher):
+  `merkeListe()`, `holeListe()`, `merkeWiederherstellen()`.
+- Rücksprung-Ziel ist die gemerkte Adresse, sonst `/admin/products`. Nur
+  Adressen, die mit `/admin/products` beginnen, werden akzeptiert.
+- **Drei Wege zurück**, alle setzen das Flag und gehen zur gemerkten Adresse:
+  1. neuer Knopf **„Speichern & zur Liste"** neben „Speichern" im
+     `ProductForm` (nur bei bestehendem Artikel; bei Fehlern bleibt man auf
+     der Seite),
+  2. „Abbrechen",
+  3. „Alle Artikel" oben links auf der Bearbeitungsseite.
+- Der normale „Speichern"-Knopf bleibt unverändert (bleibt im Artikel).
+
+**Test:** `tests/artikel-ruecksprung.test.ts` für die Adressprüfung
+(erlaubt nur `/admin/products…`, fällt bei Fremdem auf die Liste zurück).
+Das Scrollverhalten wird im Browser geprüft.
