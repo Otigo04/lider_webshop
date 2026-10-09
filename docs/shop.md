@@ -557,3 +557,12 @@ Konten sind bis zum Klick auf den Bestätigungslink gesperrt
   Mail-Scanner (Outlook!) rufen Links vorab per GET ab und würden das Token
   sonst verbrauchen. Token: 48 h gültig, einmalig, nur als Hash gespeichert.
 - Bestandskonten gelten als bestätigt (Backfill in 058).
+
+## 🚫 Ausverkauft bleibt sichtbar
+
+Ist der freie Bestand 0, bleibt der Artikel im Shop stehen – wer ihn kennt, soll
+sehen, dass es ihn gibt. Auf Karte (`ProductCard`) und Artikelseite
+(`ProductGallery`) liegt ein rotes Band „AUSVERKAUFT" über dem unteren
+Fotorand (`components/ausverkauft-band.tsx`), das Foto ist gedämpft. Die
+kleine Verfügbarkeitsmarke entfällt dann, der Warenkorb-Knopf bleibt gesperrt.
+Die öffentliche Startseite zeigt keine Bestände und damit auch kein Band.

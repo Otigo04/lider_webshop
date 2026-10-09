@@ -3,15 +3,19 @@
 import { useState } from "react";
 import Image from "next/image";
 import { ImageOff } from "lucide-react";
+import { AusverkauftBand, ausverkauftBild } from "@/components/ausverkauft-band";
 import { cn } from "@/lib/utils";
 
 /** Signierte URLs, Reihenfolge wie display_order. Einträge können null sein. */
 export function ProductGallery({
   urls,
   alt,
+  ausverkauft = false,
 }: {
   urls: (string | null)[];
   alt: string;
+  /** Band „Ausverkauft" auf dem großen Foto; der Artikel bleibt sichtbar. */
+  ausverkauft?: boolean;
 }) {
   const available = urls.filter((url): url is string => Boolean(url));
   const [active, setActive] = useState(0);
@@ -33,9 +37,10 @@ export function ProductGallery({
           alt={alt}
           fill
           sizes="(min-width: 768px) 50vw, 100vw"
-          className="object-contain p-6"
+          className={cn("object-contain p-6", ausverkauft && ausverkauftBild)}
           priority
         />
+        {ausverkauft ? <AusverkauftBand className="py-2 text-base" /> : null}
       </div>
 
       {available.length > 1 ? (

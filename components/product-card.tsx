@@ -9,6 +9,7 @@ import {
   priceRange,
   reduzierung,
 } from "@/lib/pricing";
+import { AusverkauftBand, ausverkauftBild } from "@/components/ausverkauft-band";
 import { MerkButton } from "@/components/merk-button";
 import { ProductFlagBadges } from "@/components/product-flag-badges";
 import { QuickAddButton } from "@/components/quick-add-button";
@@ -26,6 +27,7 @@ export function ProductCard({
   const range = priceRange(product.variants);
   const minQty = minOrderQuantity(product.variants);
   const free = freeStock(product);
+  const ausverkauft = free <= 0;
   // Bezug ist der günstigste erreichbare Stückpreis: gegen den rechnet der
   // Kunde, wenn er die Karte überfliegt.
   const rabatt = reduzierung(product.list_price, range?.from, product.retail_price);
@@ -67,7 +69,10 @@ export function ProductCard({
               alt={product.name}
               fill
               sizes="(min-width: 1024px) 320px, (min-width: 768px) 45vw, 90vw"
-              className="object-contain p-4 transition-transform duration-500 group-hover:scale-[1.04]"
+              className={cn(
+                "object-contain p-4 transition-transform duration-500 group-hover:scale-[1.04]",
+                ausverkauft && ausverkauftBild,
+              )}
             />
           ) : (
             <div className="flex h-full items-center justify-center text-muted-foreground">
@@ -75,12 +80,14 @@ export function ProductCard({
               <span className="sr-only">Kein Foto hinterlegt</span>
             </div>
           )}
+          {ausverkauft ? <AusverkauftBand /> : null}
         </div>
 
         <div className="flex flex-1 flex-col p-4">
           <div className="flex items-center justify-between gap-2">
             <p className="code text-xs text-muted-foreground">{product.sku}</p>
-            <StockBadge free={free} />
+            {/* Ausverkauft sagt schon das Band auf dem Foto. */}
+            {ausverkauft ? null : <StockBadge free={free} />}
           </div>
 
           <h3 className="mt-2 font-semibold leading-snug group-hover:underline">
