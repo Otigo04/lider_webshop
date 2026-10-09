@@ -233,6 +233,7 @@ export async function getAdminProducts(
       `*, category:categories (id, name),
        group:product_groups (id, name),
        cost:product_costs (cost_price),
+       images:product_images (id, product_id, file_path, display_order, created_at),
        variants:product_variants (id, product_id, min_quantity, max_quantity, unit_price, created_at),
        flag_links:product_flag_links (flag:product_flags (id, name, color, created_at))`,
     );

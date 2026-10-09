@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Layers, Pencil, Plus, ScanBarcode, Search, Trash2 } from "lucide-react";
+import { ArtikelBildZelle } from "@/components/admin/artikel-bild-zelle";
 import { ArtikelListeMerker } from "@/components/admin/artikel-liste-merker";
 import { ConfirmAction } from "@/components/admin/confirm-action";
 import { InlineEdit } from "@/components/admin/inline-edit";
@@ -31,7 +32,9 @@ import {
   type ArtikelFilter,
   type LagerFilter,
 } from "@/lib/admin-product-filter";
+import { ersterBildPfad } from "@/lib/artikel-bilder";
 import { getAdminProducts } from "@/lib/queries/admin";
+import { getImageUrls } from "@/lib/storage";
 import { getGroupOptions } from "@/lib/queries/groups";
 import { getCategories } from "@/lib/queries/products";
 import { getProductFlags } from "@/lib/queries/product-flags";
@@ -108,6 +111,12 @@ export default async function AdminProductsPage({
   const vorLager = filtereArtikel(alle, filter);
   const zaehler = zaehleLager(vorLager);
   const products = sortiereArtikel(filtereNachLager(vorLager, lagerFilter), sort);
+
+  // Nur das erste Foto je Zeile, in einem Rutsch signiert (mit Zwischenspeicher
+  // in lib/storage.ts) – kein Aufruf je Zeile.
+  const vorschauUrls = await getImageUrls(
+    products.map((product) => ersterBildPfad(product.images)),
+  );
 
   const kategorieOptionen = categories.map((category) => ({
     value: category.id,
@@ -529,6 +538,7 @@ export default async function AdminProductsPage({
           <table className="w-full min-w-3xl border-collapse text-sm">
             <thead>
               <tr className="border-b-2 border-border text-left text-muted-foreground">
+                <th className="w-16 py-2 pr-3 font-medium">Bild</th>
                 <th className="py-2 pr-3 font-medium">Artikel</th>
                 <th className="py-2 pr-3 font-medium">Barcode</th>
                 <th className="py-2 pr-3 font-medium">Warengruppe</th>
@@ -539,7 +549,7 @@ export default async function AdminProductsPage({
               </tr>
             </thead>
             <tbody>
-              {products.map((product) => {
+              {products.map((product, index) => {
                 const ab = lowestUnitPrice(product.variants ?? []);
                 // GH-Zelle zeigt und ändert die Grundstaffel (kleinste
                 // Mindestmenge) – dorthin schreibt updateProductField. Mit
@@ -554,6 +564,15 @@ export default async function AdminProductsPage({
                     id={`artikel-${product.id}`}
                     className="scroll-mt-24 border-b border-border align-top last:border-0 hover:bg-muted/50"
                   >
+                    <td className="py-2 pr-3">
+                      <ArtikelBildZelle
+                        productId={product.id}
+                        name={product.name}
+                        url={vorschauUrls[index] ?? null}
+                        anzahl={product.images?.length ?? 0}
+                      />
+                    </td>
+
                     <td className="py-2 pr-3">
                       <InlineEdit
                         id={product.id}

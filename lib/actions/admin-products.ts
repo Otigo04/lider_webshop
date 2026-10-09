@@ -5,6 +5,7 @@ import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { PRODUCT_BUCKET } from "@/lib/constants";
+import { naechsteReihenfolge, pruefeBildpfade } from "@/lib/artikel-bilder";
 import { reduzierung } from "@/lib/pricing";
 import type { AdminFormState } from "@/lib/actions/admin-categories";
 
@@ -556,4 +557,59 @@ export async function updateProductField(input: {
   revalidatePath("/shop");
   revalidatePath(`/shop/product/${input.id}`);
   return { success: "Gespeichert." };
+}
+
+/**
+ * Fotos aus der Artikelliste anhängen.
+ *
+ * Der Browser hat die Dateien schon in den Bucket geladen und meldet nur die
+ * Pfade. Hier werden sie hinter die vorhandenen Fotos gehängt – anders als
+ * saveProduct ersetzt das nichts. has_image zieht der Trigger nach
+ * (Migration 020), der Artikel erscheint damit von selbst im Shop.
+ */
+export async function addProductImages(
+  productId: string,
+  pfade: string[],
+): Promise<AdminFormState> {
+  await requireAdmin();
+
+  if (!z.string().uuid().safeParse(productId).success) {
+    return { error: "Kein Artikel ausgewählt." };
+  }
+  if (pfade.length > 20 || !pruefeBildpfade(productId, pfade)) {
+    return { error: "Die Fotos konnten nicht zugeordnet werden." };
+  }
+
+  const supabase = await createClient();
+  const { data: vorhanden, error: leseFehler } = await supabase
+    .from("product_images")
+    .select("display_order")
+    .eq("product_id", productId);
+  if (leseFehler) {
+    console.error("[admin] Fotos lesen:", leseFehler.message);
+    return { error: "Die Fotos konnten nicht gespeichert werden." };
+  }
+
+  const reihenfolge = naechsteReihenfolge(
+    (vorhanden ?? []).map((zeile) => Number(zeile.display_order)),
+    pfade.length,
+  );
+  const { error } = await supabase.from("product_images").insert(
+    pfade.map((file_path, i) => ({
+      product_id: productId,
+      file_path,
+      display_order: reihenfolge[i],
+    })),
+  );
+  if (error) {
+    console.error("[admin] Fotos speichern:", error.message);
+    return { error: "Die Fotos konnten nicht gespeichert werden." };
+  }
+
+  revalidatePath("/admin/products");
+  revalidatePath("/shop");
+  revalidatePath(`/shop/product/${productId}`);
+  return {
+    success: pfade.length === 1 ? "Foto hinzugefügt." : "Fotos hinzugefügt.",
+  };
 }

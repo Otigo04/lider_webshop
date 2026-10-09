@@ -400,3 +400,9 @@ die zuletzt getippte Gruppe die bessere Auskunft.
   „Abbrechen" und „Alle Artikel" führen dorthin zurück und scrollen zur Zeile.
   Das Menü „Artikel" startet frisch. Nur Adressen unter `/admin/products?…`
   werden akzeptiert.
+- **Fotos direkt in der Liste**: Die Spalte „Bild" (`ArtikelBildZelle`) zeigt das
+  erste Foto, bei mehreren die Anzahl, ohne Foto „Kein Foto" in Signalrot. Klick
+  oder Ablegen lädt aus dem Browser in den Bucket; `addProductImages()` hängt die
+  Pfade **hinter** die vorhandenen (ersetzt nichts, anders als `saveProduct`) und
+  prüft, dass jeder Pfad unter `<artikel-id>/` liegt. Löschen und Umsortieren
+  bleiben im Artikel. Regeln in `lib/artikel-bilder.ts`.
