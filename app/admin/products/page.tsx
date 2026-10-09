@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Layers, Pencil, Plus, ScanBarcode, Search, Trash2 } from "lucide-react";
+import { Layers, Pencil, Plus, ScanBarcode, Search, Trash2, Undo2 } from "lucide-react";
 import { ArtikelBildZelle } from "@/components/admin/artikel-bild-zelle";
 import { ArtikelListeMerker } from "@/components/admin/artikel-liste-merker";
 import { ConfirmAction } from "@/components/admin/confirm-action";
@@ -9,7 +9,7 @@ import { ProductFlagsMenu } from "@/components/admin/product-flag-toggle";
 import { StockBadge } from "@/components/stock-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { deleteProduct } from "@/lib/actions/admin-products";
+import { deleteProduct, restoreProduct } from "@/lib/actions/admin-products";
 import { formatPrice, formatQuantity } from "@/lib/format";
 import { freeStock, lowestUnitPrice, reduzierung } from "@/lib/pricing";
 import {
@@ -34,6 +34,7 @@ import {
 } from "@/lib/admin-product-filter";
 import { ersterBildPfad } from "@/lib/artikel-bilder";
 import { getAdminProducts } from "@/lib/queries/admin";
+import { countDeletedProducts } from "@/lib/queries/papierkorb";
 import { getImageUrls } from "@/lib/storage";
 import { getGroupOptions } from "@/lib/queries/groups";
 import { getCategories } from "@/lib/queries/products";
@@ -88,7 +89,7 @@ export default async function AdminProductsPage({
   const filter = leseArtikelFilter(params);
   const { q: search, ohneBild, inaktiv, lager: lagerFilter, sort } = filter;
 
-  const [alle, categories, customFlags, gruppen] = await Promise.all([
+  const [alle, categories, customFlags, gruppen, imPapierkorb] = await Promise.all([
     getAdminProducts({
       search,
       ohneBild,
@@ -99,6 +100,7 @@ export default async function AdminProductsPage({
     getCategories(),
     getProductFlags(),
     getGroupOptions(),
+    countDeletedProducts(),
   ]);
 
   // Die Zahl an der Warengruppe zählt vor dem Warengruppenfilter, sonst zeigte
@@ -435,6 +437,14 @@ export default async function AdminProductsPage({
               <ScanBarcode className="size-4" /> Wareneingang
             </Link>
           </Button>
+
+          {imPapierkorb > 0 ? (
+            <Button asChild variant="outline">
+              <Link href="/admin/products/papierkorb">
+                <Undo2 className="size-4" /> Papierkorb ({imPapierkorb})
+              </Link>
+            </Button>
+          ) : null}
 
           <Button asChild>
             <Link href="/admin/products/new">
@@ -773,8 +783,9 @@ export default async function AdminProductsPage({
                           action={deleteProduct}
                           fields={{ id: product.id }}
                           title={`„${product.name}“ löschen?`}
-                          description="Artikel, Preisstaffeln und hochgeladene Fotos werden entfernt. Bereits erfasste Bestellungen bleiben unverändert."
+                          description="Der Artikel kommt in den Papierkorb und lässt sich von dort mit Preisen, Merkmalen und Fotos zurückholen. Bereits erfasste Bestellungen bleiben unverändert."
                           confirmLabel="Löschen"
+                          undo={restoreProduct}
                           destructive
                           trigger={
                             <Button

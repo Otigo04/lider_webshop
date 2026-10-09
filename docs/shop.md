@@ -566,3 +566,25 @@ sehen, dass es ihn gibt. Auf Karte (`ProductCard`) und Artikelseite
 Fotorand (`components/ausverkauft-band.tsx`), das Foto ist gedämpft. Die
 kleine Verfügbarkeitsmarke entfällt dann, der Warenkorb-Knopf bleibt gesperrt.
 Die öffentliche Startseite zeigt keine Bestände und damit auch kein Band.
+
+
+---
+
+## 🗑️ Papierkorb für Artikel
+
+Migration 061, `/admin/products/papierkorb`. Löschen ist rückholbar:
+`delete_product_with_undo()` zieht vorher einen Schnappschuss (Zeile, Staffeln,
+Fotoverweise, Flags, Merkmale, Einkaufspreis, Katalogauswahl) nach
+`deleted_products`; `restore_deleted_product()` schreibt ihn zurück.
+
+- **Kein `deleted_at` an `products`**: der Stamm wird an über vierzig Stellen
+  gelesen; eine vergessene zeigte gelöschte Ware weiter oder ließe sie an der
+  Kasse scannen. So ist gelöscht überall wirklich weg.
+- **Rückgängig**: nach dem Löschen zehn Sekunden Knopf in der Meldung
+  (`ConfirmAction`, Prop `undo`), danach im Papierkorb.
+- **Fotodateien bleiben liegen**, bis „Endgültig löschen“ (`purgeDeletedProduct`).
+- **Zurückholen scheitert mit Klartext**, wenn Artikelnummer oder Barcode
+  inzwischen vergeben sind oder die Warengruppe fehlt. Ein gelöschtes Angebot
+  (Gruppe) wird übergangen, der Artikel kommt ohne Gruppe zurück.
+- **Nicht zurück**: Verknüpfungen in Wareneingangsjournal, Bons und
+  Bestellungen (die DB setzt sie beim Löschen auf NULL; dort steht der Name).

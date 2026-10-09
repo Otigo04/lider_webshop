@@ -9,6 +9,8 @@ import { createClient } from "@/lib/supabase/server";
 export interface AdminFormState {
   error?: string;
   success?: string;
+  /** Kennung im Papierkorb – die Oberfläche bietet damit „Rückgängig“ an */
+  undoId?: string;
 }
 
 const categorySchema = z.object({

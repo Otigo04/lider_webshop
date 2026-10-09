@@ -291,6 +291,14 @@ export async function toggleProductFlag(
   return { success: "Gespeichert." };
 }
 
+/**
+ * Artikel löschen – in den Papierkorb (Migration 061).
+ *
+ * delete_product_with_undo() zieht erst den Schnappschuss (Zeile, Staffeln,
+ * Merkmale, Flags, Einkaufspreis, Katalogauswahl, Fotoverweise) und löscht
+ * dann. Die Fotodateien bleiben im Speicher, bis der Papierkorb endgültig
+ * geleert wird – sonst käme ein zurückgeholter Artikel ohne Bilder.
+ */
 export async function deleteProduct(
   _prevState: AdminFormState,
   formData: FormData,
@@ -301,32 +309,88 @@ export async function deleteProduct(
   if (!id) return { error: "Kein Artikel ausgewählt." };
 
   const supabase = await createClient();
-
-  // Erst die Dateien, dann die Zeile: product_images hängt per CASCADE am
-  // Artikel, danach wären die Pfade nicht mehr ermittelbar.
-  const { data: images } = await supabase
-    .from("product_images")
-    .select("file_path")
-    .eq("product_id", id);
-
-  if (images && images.length > 0) {
-    const { error: storageError } = await supabase.storage
-      .from(PRODUCT_BUCKET)
-      .remove(images.map((image) => image.file_path as string));
-    if (storageError) {
-      console.error("[admin] Bilder löschen:", storageError.message);
-    }
-  }
-
-  const { error } = await supabase.from("products").delete().eq("id", id);
+  const { data, error } = await supabase.rpc("delete_product_with_undo", {
+    p_product_id: id,
+  });
   if (error) {
     console.error("[admin] Artikel löschen:", error.message);
     return { error: "Der Artikel konnte nicht gelöscht werden." };
   }
 
   revalidatePath("/admin/products");
+  revalidatePath("/admin/kataloge");
   revalidatePath("/shop");
-  return { success: "Artikel gelöscht." };
+  return {
+    success: "Artikel gelöscht – liegt im Papierkorb.",
+    undoId: typeof data === "string" ? data : undefined,
+  };
+}
+
+/** Artikel aus dem Papierkorb zurückholen, mit Staffeln, Merkmalen und Fotos. */
+export async function restoreProduct(trashId: string): Promise<AdminFormState> {
+  await requireAdmin();
+  if (!z.string().uuid().safeParse(trashId).success) {
+    return { error: "Kein Artikel ausgewählt." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("restore_deleted_product", {
+    p_trash_id: trashId,
+  });
+  if (error) {
+    console.error("[admin] Artikel zurückholen:", error.message);
+    // Die Meldungen der Funktion sind für Menschen geschrieben („Die
+    // Artikelnummer … ist inzwischen vergeben.“) – durchreichen.
+    return { error: error.message || "Der Artikel konnte nicht zurückgeholt werden." };
+  }
+
+  revalidatePath("/admin/products");
+  revalidatePath("/admin/products/papierkorb");
+  revalidatePath("/admin/kataloge");
+  revalidatePath("/shop");
+  return { success: "Artikel wiederhergestellt." };
+}
+
+/** Für ConfirmAction: endgültig löschen, samt Fotodateien. Nicht rückholbar. */
+export async function purgeDeletedProduct(
+  _prevState: AdminFormState,
+  formData: FormData,
+): Promise<AdminFormState> {
+  await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  if (!z.string().uuid().safeParse(id).success) {
+    return { error: "Kein Artikel ausgewählt." };
+  }
+
+  const supabase = await createClient();
+  const { data: zeile } = await supabase
+    .from("deleted_products")
+    .select("snapshot")
+    .eq("id", id)
+    .maybeSingle();
+
+  const pfade = (
+    ((zeile?.snapshot as { images?: { file_path?: string }[] } | null)?.images ??
+      []) as { file_path?: string }[]
+  )
+    .map((bild) => bild.file_path)
+    .filter((pfad): pfad is string => Boolean(pfad));
+
+  if (pfade.length > 0) {
+    const { error: speicher } = await supabase.storage
+      .from(PRODUCT_BUCKET)
+      .remove(pfade);
+    if (speicher) console.error("[admin] Bilder löschen:", speicher.message);
+  }
+
+  const { error } = await supabase.from("deleted_products").delete().eq("id", id);
+  if (error) {
+    console.error("[admin] Papierkorb leeren:", error.message);
+    return { error: "Der Artikel konnte nicht endgültig gelöscht werden." };
+  }
+
+  revalidatePath("/admin/products/papierkorb");
+  return { success: "Endgültig gelöscht." };
 }
 
 // --- Inline-Bearbeitung in der Artikelliste ---------------------------------

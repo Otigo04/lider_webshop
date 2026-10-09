@@ -28,6 +28,11 @@ interface ConfirmActionProps {
   description: string;
   confirmLabel: string;
   destructive?: boolean;
+  /**
+   * Macht die Aktion rückgängig. Liefert sie eine `undoId`, steht in der
+   * Meldung ein Knopf „Rückgängig“ – zehn Sekunden lang, ohne Rückfrage.
+   */
+  undo?: (id: string) => Promise<AdminFormState>;
 }
 
 /**
@@ -47,6 +52,7 @@ export function ConfirmAction({
   description,
   confirmLabel,
   destructive,
+  undo,
 }: ConfirmActionProps) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -64,7 +70,22 @@ export function ConfirmAction({
         toast.error(result.error);
         return;
       }
-      if (result.success) toast.success(result.success);
+      const undoId = result.undoId;
+      if (result.success && undo && undoId) {
+        toast.success(result.success, {
+          duration: 10_000,
+          action: {
+            label: "Rückgängig",
+            onClick: () => {
+              void undo(undoId).then((rueck) => {
+                if (rueck.error) toast.error(rueck.error);
+                else toast.success(rueck.success ?? "Wiederhergestellt.");
+                router.refresh();
+              });
+            },
+          },
+        });
+      } else if (result.success) toast.success(result.success);
       setOpen(false);
       router.refresh();
     });
