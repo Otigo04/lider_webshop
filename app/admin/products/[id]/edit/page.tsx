@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
+import { ZurueckZurListe } from "@/components/admin/zurueck-zur-liste";
 import { ProductForm } from "@/components/forms/product-form";
 import {
   getProductAttributeValueIds,
@@ -39,13 +39,10 @@ export default async function EditProductPage({
 
   return (
     <div>
-      <Link
-        href="/admin/products"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-      >
+      <ZurueckZurListe className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
         <ChevronLeft className="size-4" aria-hidden />
         Alle Artikel
-      </Link>
+      </ZurueckZurListe>
 
       <h1 className="mt-4 text-2xl font-semibold tracking-tight">
         {product.name}

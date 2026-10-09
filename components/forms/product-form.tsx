@@ -2,7 +2,6 @@
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useFormStatus } from "react-dom";
 import { Plus, Trash2, Upload, X } from "lucide-react";
@@ -18,6 +17,8 @@ import { formatPrice } from "@/lib/format";
 import { reduzierung } from "@/lib/pricing";
 import { createClient } from "@/lib/supabase/client";
 import { MerkmalAuswahl } from "@/components/admin/merkmal-auswahl";
+import { ZurueckZurListe } from "@/components/admin/zurueck-zur-liste";
+import { listenZiel, merkeWiederherstellen } from "@/lib/artikel-ruecksprung";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -77,11 +78,26 @@ interface ProductFormProps {
   imageUrls?: (string | null)[];
 }
 
-function SubmitButton() {
+function SubmitButton({ onClick }: { onClick?: () => void }) {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" size="lg" disabled={pending}>
+    <Button type="submit" size="lg" disabled={pending} onClick={onClick}>
       {pending ? "Wird gespeichert …" : "Artikel speichern"}
+    </Button>
+  );
+}
+
+function ListeButton({ onClick }: { onClick: () => void }) {
+  const { pending } = useFormStatus();
+  return (
+    <Button
+      type="submit"
+      size="lg"
+      variant="secondary"
+      disabled={pending}
+      onClick={onClick}
+    >
+      Speichern &amp; zur Liste
     </Button>
   );
 }
@@ -165,18 +181,31 @@ export function ProductForm({
   );
   const [uploading, setUploading] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
+  // Gesetzt, wenn der Speichern-Knopf „& zur Liste" war; der Effekt unten
+  // wertet es nach dem Speichern aus. Ein Ref statt State: kein Neurendern nötig.
+  const zurListe = useRef(false);
 
   const [state, formAction] = useActionState<AdminFormState, FormData>(
     saveProduct,
     {},
   );
 
+  // Abhängig vom ganzen `state`: zweimal speichern liefert denselben Text,
+  // aber ein neues Objekt – mit `state.success` feuerte der Effekt nicht mehr.
   useEffect(() => {
+    if (state.error) zurListe.current = false;
     if (!state.success) return;
     toast.success(state.success);
-    if (isNew) router.push(`/admin/products/${productId}/edit`);
-    else router.refresh();
-  }, [state.success, isNew, productId, router]);
+    if (isNew) {
+      router.push(`/admin/products/${productId}/edit`);
+    } else if (zurListe.current) {
+      zurListe.current = false;
+      merkeWiederherstellen();
+      router.push(listenZiel());
+    } else {
+      router.refresh();
+    }
+  }, [state, isNew, productId, router]);
 
   async function handleUpload(files: FileList | null) {
     if (!files || files.length === 0) return;
@@ -706,10 +735,13 @@ export function ProductForm({
         </p>
       ) : null}
 
-      <div className="flex gap-3">
-        <SubmitButton />
+      <div className="flex flex-wrap gap-3">
+        <SubmitButton onClick={() => (zurListe.current = false)} />
+        {isNew ? null : (
+          <ListeButton onClick={() => (zurListe.current = true)} />
+        )}
         <Button asChild variant="ghost">
-          <Link href="/admin/products">Abbrechen</Link>
+          <ZurueckZurListe>Abbrechen</ZurueckZurListe>
         </Button>
       </div>
     </form>
