@@ -61,8 +61,35 @@ export default async function DatenschutzPage() {
             Wir verschicken ausschließlich Mails, die zur Nutzung des Portals
             gehören: Bestätigung der Adresse, Zurücksetzen des Passworts,
             Bestellbestätigung, Statusänderungen und Rechnungen. Dafür übergeben
-            wir Empfängeradresse und Mailinhalt an Resend. Werbe-Mails
-            verschicken wir nicht.
+            wir Empfängeradresse und Mailinhalt an Resend. Werbliche Mails
+            verschicken wir nur im Rahmen des Newsletters (siehe unten).
+          </p>
+        </section>
+
+        <section>
+          <h2 className="font-medium">Newsletter</h2>
+          <p className="mt-2 text-muted-foreground">
+            Wenn Sie den Newsletter abonnieren – bei der Registrierung oder
+            später in Ihrem Kundenkonto –, schicken wir Ihnen per E-Mail
+            Neuheiten, reduzierte Ware und Angebote. Dafür verarbeiten wir Ihre
+            E-Mail-Adresse, Ihren Namen bzw. Firmennamen sowie den Zeitpunkt Ihrer
+            Einwilligung. Rechtsgrundlage ist Ihre Einwilligung nach Art. 6 Abs. 1
+            lit. a DSGVO in Verbindung mit § 7 Abs. 2 Nr. 3 UWG. Sie ist
+            freiwillig; ohne sie können Sie das Portal uneingeschränkt nutzen.
+          </p>
+          <p className="mt-2 text-muted-foreground">
+            Sie können den Newsletter jederzeit mit Wirkung für die Zukunft
+            abbestellen: in Ihrem Kundenkonto unter „Newsletter“ oder über den
+            Abmeldelink in jeder Newsletter-Mail. Danach erhalten Sie keine
+            Newsletter mehr; den Zeitpunkt der Einwilligung und der Abmeldung
+            bewahren wir als Nachweis auf. Der Versand erfolgt über Resend (siehe
+            „Auftragsverarbeiter“). Wir werten nicht aus, ob und wann Sie
+            Newsletter öffnen oder welche Links Sie anklicken.
+          </p>
+          <p className="mt-2 text-muted-foreground">
+            Unabhängig davon können wir Ihnen einzelne persönliche Nachrichten zu
+            Ihrer Geschäftsbeziehung oder auf Ihre Anfrage schicken (Art. 6 Abs. 1
+            lit. b bzw. f DSGVO).
           </p>
         </section>
 
@@ -112,7 +139,8 @@ export default async function DatenschutzPage() {
           <p className="mt-2 text-muted-foreground">
             Bestelldaten bewahren wir im Rahmen der handels- und steuerrechtlichen
             Fristen auf. Zugangsdaten löschen wir auf Wunsch, sofern keine
-            Aufbewahrungspflicht entgegensteht.
+            Aufbewahrungspflicht entgegensteht. Ihre Newsletter-Einwilligung
+            gilt bis zum Widerruf.
           </p>
         </section>
 
