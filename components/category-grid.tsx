@@ -39,7 +39,7 @@ function Kachel({ category }: { category: LandingCategory }) {
     <Link
       href={`/shop/${category.slug}`}
       className={cn(
-        "card-hover group relative flex h-full min-h-[13rem] flex-col overflow-hidden rounded-xl p-4 shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand sm:min-h-[17rem] sm:p-6 lg:min-h-[19rem]",
+        "card-hover group relative flex h-full min-h-[14rem] flex-col overflow-hidden rounded-xl p-4 shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand sm:min-h-[18rem] sm:p-6 lg:min-h-[22rem]",
         `tag-${farbe}`,
       )}
     >
@@ -67,27 +67,27 @@ function Kachel({ category }: { category: LandingCategory }) {
         </span>
 
         {category.imageUrl ? (
-          <span className="relative block size-24 overflow-hidden rounded-lg bg-white shadow-md sm:size-36 lg:size-44">
+          <span className="relative block size-28 overflow-hidden rounded-lg bg-white shadow-md sm:size-40 md:size-48 lg:size-60">
             <Image
               src={category.imageUrl}
               alt=""
               fill
-              sizes="(min-width: 1024px) 176px, (min-width: 640px) 144px, 96px"
+              sizes="(min-width: 1024px) 240px, (min-width: 768px) 192px, (min-width: 640px) 160px, 112px"
               className="object-cover transition-transform duration-500 group-hover:scale-110"
             />
           </span>
         ) : category.vorschau.length > 0 ? (
-          <span className="fan relative flex h-20 items-end sm:h-32 lg:h-36">
+          <span className="fan relative flex h-[4.5rem] items-end sm:h-28 md:h-32 lg:h-36">
             {category.vorschau.map((url, index) => (
               <span
                 key={url}
                 className={cn(
-                  "relative block size-14 overflow-hidden rounded-md border-2 border-white bg-white shadow-md sm:size-24 lg:size-28",
-                  index > 0 && "-ml-5 sm:-ml-8",
+                  "relative block size-16 overflow-hidden rounded-md border-2 border-white bg-white shadow-md sm:size-24 md:size-28 lg:size-32",
+                  index > 0 && "-ml-7 sm:-ml-8 md:-ml-12 lg:-ml-16",
                   index === 1 && "z-10 -translate-y-1.5",
                 )}
               >
-                <Image src={url} alt="" fill sizes="(min-width: 640px) 112px, 56px" className="object-contain p-1" />
+                <Image src={url} alt="" fill sizes="(min-width: 1024px) 128px, (min-width: 768px) 112px, (min-width: 640px) 96px, 64px" className="object-contain p-1" />
               </span>
             ))}
           </span>

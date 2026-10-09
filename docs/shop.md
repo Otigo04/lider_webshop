@@ -122,8 +122,8 @@ Grundlage: `supabase/migrations/029_bestellablauf.sql`.
   hineinpasste, und bei Gruppen ohne Bild eine leere Fläche.
 - **Alle Warengruppen**, auch leere („Noch keine Artikel"). Schnellleiste,
   Sortiment-Reiter und Kennzahl bleiben bei den gefüllten.
-- **Höchstens drei Spalten**, große Kacheln (Name bis 1,7 rem, Bild bis
-  176 px): der Einstieg ins Sortiment soll auffallen.
+- **Höchstens drei Spalten**, große Kacheln (Name bis 1,7 rem, Kachelbild bis
+  240 px, Vorschaufotos bis 128 px): der Einstieg ins Sortiment soll auffallen.
 - Darunter drei **Schnellwege** zu Reduziert, Neuheiten, Topseller.
 
 ---
