@@ -8,12 +8,14 @@ import { KatalogZusammenstellung } from "@/components/admin/katalog-zusammenstel
 import {
   addKatalogArtikel,
   removeKatalogArtikel,
+  setKatalogBald,
   setKatalogReihenfolge,
   updateKatalogFeld,
   type KatalogFeld,
 } from "@/lib/actions/kataloge";
 import type { AdminFormState } from "@/lib/actions/admin-categories";
 import {
+  baldZuordnen,
   katalogAufbau,
   type KatalogArtikel,
   type KatalogEinstellungen,
@@ -36,27 +38,43 @@ export function KatalogWerkbank({
   id,
   einstellungen,
   productIds,
+  baldIds,
   artikel,
 }: {
   id: string;
   einstellungen: KatalogEinstellungen;
   productIds: string[];
+  baldIds: string[];
   artikel: KatalogArtikel[];
 }) {
   const [e, setE] = useState(einstellungen);
   const [ids, setIds] = useState(productIds);
+  const [bald, setBald] = useState(() => new Set(baldIds));
 
-  const nachId = useMemo(
+  const roh = useMemo(
     () => new Map(artikel.map((a) => [a.id, a])),
     [artikel],
   );
   // Ein inzwischen gelöschter Artikel steht noch in `ids`, aber nicht mehr im
   // Stamm – er fällt hier still heraus, wie auf dem Bogen.
-  const gewaehlt = useMemo(
-    () => ids.flatMap((artikelId) => nachId.get(artikelId) ?? []),
-    [ids, nachId],
+  const gewaehltRoh = useMemo(
+    () => ids.flatMap((artikelId) => roh.get(artikelId) ?? []),
+    [ids, roh],
   );
-  const aufbau = useMemo(() => katalogAufbau(gewaehlt, e), [gewaehlt, e]);
+  // Artikel im Abschnitt „Bald im Sortiment" tragen dessen Warengruppe –
+  // so gliedert die Zusammenstellung sie, wie sie gedruckt werden.
+  const gewaehlt = useMemo(
+    () => baldZuordnen(gewaehltRoh, bald),
+    [gewaehltRoh, bald],
+  );
+  const nachId = useMemo(
+    () => new Map(gewaehlt.map((a) => [a.id, a])),
+    [gewaehlt],
+  );
+  const aufbau = useMemo(
+    () => katalogAufbau(gewaehltRoh, e, bald),
+    [gewaehltRoh, e, bald],
+  );
   const enthalten = useMemo(() => new Set(ids), [ids]);
 
   /**
@@ -115,6 +133,22 @@ export function KatalogWerkbank({
     aendereAuswahl(neu, () => setKatalogReihenfolge(id, neu));
   }
 
+  /** Artikel in den Abschnitt „Bald im Sortiment" stellen oder zurückholen. */
+  function aendereBald(artikelIds: string[], an: boolean) {
+    const vorher = bald;
+    const neu = new Set(bald);
+    for (const artikelId of artikelIds) {
+      if (an) neu.add(artikelId);
+      else neu.delete(artikelId);
+    }
+    setBald(neu);
+    void setKatalogBald(id, artikelIds, an).then((ergebnis) => {
+      if (!ergebnis.error) return;
+      toast.error(ergebnis.error);
+      setBald((aktuell) => (aktuell === neu ? vorher : aktuell));
+    });
+  }
+
   function aendereFeld<F extends KatalogFeld & keyof KatalogEinstellungen>(
     feld: F,
     wert: KatalogEinstellungen[F],
@@ -148,6 +182,7 @@ export function KatalogWerkbank({
         onHinzufuegen={hinzufuegen}
         onEntfernen={entfernen}
         onVerschieben={verschieben}
+        onBald={aendereBald}
       />
       <KatalogEinstellungenFeld
         id={id}

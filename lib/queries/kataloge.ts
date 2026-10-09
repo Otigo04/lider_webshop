@@ -49,6 +49,7 @@ interface KatalogRow {
   stil: KatalogStil;
   preisart: KatalogPreisart;
   zeige_barcode: boolean;
+  zeige_bestand: boolean | null;
   zeige_beschreibung: boolean;
   zeige_merkmale: boolean;
   zeige_kennzeichen: boolean;
@@ -106,6 +107,8 @@ export interface Katalog {
   einstellungen: KatalogEinstellungen;
   /** Artikel in der Reihenfolge der Zusammenstellung */
   productIds: string[];
+  /** Davon die, die im Abschnitt „Bald im Sortiment" stehen */
+  baldIds: string[];
 }
 
 /** Ein Katalog samt Auswahl. null, wenn es ihn nicht gibt. */
@@ -128,21 +131,38 @@ export async function getKatalog(id: string): Promise<Katalog | null> {
   const row = data as KatalogRow;
 
   const productIds: string[] = [];
+  const baldIds: string[] = [];
+  // Ohne Migration 060 gibt es die Spalte `bald` nicht – dann ohne sie lesen,
+  // statt die ganze Auswahl zu verlieren.
+  let mitBald = true;
   for (let von = 0; ; von += SEITENGROESSE) {
     const { data: zeilen, error: fehler } = await supabase
       .from("catalog_items")
-      .select("product_id")
+      .select(mitBald ? "product_id, bald" : "product_id")
       .eq("catalog_id", id)
       .order("position")
       .order("product_id")
       .range(von, von + SEITENGROESSE - 1);
 
     if (fehler) {
+      if (mitBald && fehler.code === "42703") {
+        console.warn("[kataloge] Spalte bald fehlt – Migration 060 einspielen.");
+        mitBald = false;
+        von -= SEITENGROESSE;
+        continue;
+      }
       console.error("[kataloge] Auswahl:", fehler.message);
       break;
     }
-    productIds.push(...(zeilen ?? []).map((z) => z.product_id as string));
-    if ((zeilen ?? []).length < SEITENGROESSE) break;
+    const gelesen = (zeilen ?? []) as unknown as {
+      product_id: string;
+      bald?: boolean;
+    }[];
+    for (const z of gelesen) {
+      productIds.push(z.product_id);
+      if (z.bald) baldIds.push(z.product_id);
+    }
+    if (gelesen.length < SEITENGROESSE) break;
   }
 
   return {
@@ -155,6 +175,8 @@ export async function getKatalog(id: string): Promise<Katalog | null> {
       stil: row.stil,
       preisart: row.preisart,
       zeigeBarcode: row.zeige_barcode,
+      // null: Migration 060 fehlt noch – dann wie die Vorgabe
+      zeigeBestand: row.zeige_bestand ?? true,
       zeigeBeschreibung: row.zeige_beschreibung,
       zeigeMerkmale: row.zeige_merkmale,
       zeigeKennzeichen: row.zeige_kennzeichen,
@@ -168,6 +190,7 @@ export async function getKatalog(id: string): Promise<Katalog | null> {
       rueckseiteText: row.rueckseite_text,
     },
     productIds,
+    baldIds,
   };
 }
 

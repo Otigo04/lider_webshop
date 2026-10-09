@@ -17,8 +17,8 @@ export type KatalogPreisart = "grosshandel" | "laden" | "ohne";
 
 export const LAYOUT_NAMEN: Record<KatalogLayout, string> = {
   liste: "Liste",
-  kacheln: "Kacheln 3 × 4",
-  gross: "Groß 2 × 3",
+  kacheln: "Kacheln 3 × 3",
+  gross: "Groß 2 × 2",
 };
 
 export const STIL_NAMEN: Record<KatalogStil, string> = {
@@ -40,6 +40,8 @@ export interface KatalogEinstellungen {
   stil: KatalogStil;
   preisart: KatalogPreisart;
   zeigeBarcode: boolean;
+  /** Frei verfügbare Menge beim Artikel */
+  zeigeBestand: boolean;
   zeigeBeschreibung: boolean;
   zeigeMerkmale: boolean;
   zeigeKennzeichen: boolean;
@@ -62,6 +64,7 @@ export const KATALOG_VORGABE: KatalogEinstellungen = {
   stil: "sachlich",
   preisart: "grosshandel",
   zeigeBarcode: true,
+  zeigeBestand: true,
   zeigeBeschreibung: false,
   zeigeMerkmale: true,
   zeigeKennzeichen: true,
@@ -239,8 +242,10 @@ export interface Raster {
 export const RASTER: Record<KatalogLayout, Raster> = {
   // 41 = 40 Einheiten für Artikel (20 je Seite wie bisher) + 1 für die Spaltenköpfe.
   liste: { spalten: 1, einheiten: 41, kopf: 1, artikel: 2, ueberschrift: 2 },
-  kacheln: { spalten: 3, einheiten: 24, kopf: 0, artikel: 6, ueberschrift: 1 },
-  gross: { spalten: 2, einheiten: 24, kopf: 0, artikel: 8, ueberschrift: 1 },
+  // Das Foto ist quadratisch und füllt die Zellbreite; deshalb drei Reihen
+  // (Kacheln) bzw. zwei (Groß) – mehr Reihen ließen dem Foto keine Höhe.
+  kacheln: { spalten: 3, einheiten: 24, kopf: 0, artikel: 8, ueberschrift: 1 },
+  gross: { spalten: 2, einheiten: 24, kopf: 0, artikel: 12, ueberschrift: 1 },
 };
 
 /** Höhe einer Einheit in Millimetern. */
@@ -262,8 +267,11 @@ export function ausfuehrungMm(mitBarcode: boolean): number {
 /** Innenabstand eines Angebots oben und unten zusammen, in mm. */
 export const ANGEBOT_RAND_MM = 3;
 
+/** Kantenlänge des quadratischen Angebotsfotos in Kacheln und Groß, in mm. */
+export const ANGEBOT_FOTO_MM = 50;
+
 /** Ein Angebot ist nie flacher als das – sonst hätte das Foto keinen Platz. */
-const ANGEBOT_MIN_MM = 38;
+const ANGEBOT_MIN_MM = ANGEBOT_FOTO_MM + ANGEBOT_RAND_MM;
 
 /**
  * Höhe eines Angebots mit `n` Ausführungen, in Einheiten.
@@ -520,8 +528,13 @@ function verteile(
     spalte = 0;
   };
 
+  let vorher = null as Abschnitt | null;
   for (const abschnitt of abschnitte) {
     const frei = () => raster.einheiten - zeile;
+    // Hinter „Reduziert" beginnt der Katalog gleich darunter, nicht auf einer
+    // neuen Seite – sonst stünde die Aktionsware allein auf einem Blatt.
+    const trennen = e.mitTrennseiten && vorher?.kategorieSlug !== REDUZIERT_SLUG;
+    vorher = abschnitt;
 
     const setzeAngebot = (angebot: Extract<Eintrag, { art: "angebot" }>) => {
       let rest = angebot.ausfuehrungen;
@@ -586,7 +599,7 @@ function verteile(
           )
         : raster.artikel;
 
-    if (seite === null || e.mitTrennseiten) {
+    if (seite === null || trennen) {
       neueSeite(abschnitt);
     } else if (raster.ueberschrift + ersteHoehe > frei()) {
       // Eine Überschrift, unter der nichts mehr steht, gehört auf die
@@ -649,13 +662,45 @@ function reduziertVorn(
 ): KatalogArtikel[] {
   if (!e.reduziertZuerst || e.preisart === "ohne") return artikel;
   return artikel.map((a) =>
-    katalogPreis(a, e.preisart)?.reduziert
+    a.kategorieSlug !== BALD_SLUG && katalogPreis(a, e.preisart)?.reduziert
       ? {
           ...a,
           kategorieId: "__reduziert",
           kategorie: "Reduziert",
           kategorieSlug: REDUZIERT_SLUG,
           kategorieRang: -1,
+        }
+      : a,
+  );
+}
+
+/** Kennung und Titel des Abschnitts für kommende Ware – steht hinter allen Warengruppen. */
+export const BALD_SLUG = "bald";
+export const BALD_TITEL = "Bald im Sortiment – jetzt vorbestellen";
+
+/**
+ * Stellt Artikel, die der Katalog als „bald" führt, in den Abschnitt für
+ * kommende Ware – über die Warengruppe wie bei „Reduziert", damit Faltung,
+ * Trennseiten, Inhaltsverzeichnis und Seitenzahlen ohne Ausnahme laufen.
+ *
+ * Rang weit hinten: der Abschnitt steht nach allen Warengruppen. Eine
+ * Reduzierung gilt hier nicht – kommende Ware wird nicht beworben, als wäre
+ * sie herabgesetzt. Werkbank und Bogen rufen dieselbe Funktion.
+ */
+export function baldZuordnen(
+  artikel: KatalogArtikel[],
+  bald: ReadonlySet<string>,
+): KatalogArtikel[] {
+  if (bald.size === 0) return artikel;
+  return artikel.map((a) =>
+    bald.has(a.id)
+      ? {
+          ...a,
+          kategorieId: "__bald",
+          kategorie: BALD_TITEL,
+          kategorieSlug: BALD_SLUG,
+          kategorieRang: 1_000_000,
+          vorher: null,
         }
       : a,
   );
@@ -669,9 +714,10 @@ function reduziertVorn(
 export function katalogAufbau(
   artikel: KatalogArtikel[],
   e: KatalogEinstellungen,
+  bald: ReadonlySet<string> = new Set(),
 ): KatalogAufbau {
   const { abschnitte, ohneFoto, ohnePreis } = baueAbschnitte(
-    reduziertVorn(artikel, e),
+    reduziertVorn(baldZuordnen(artikel, bald), e),
     e,
   );
   const { seiten, beginn } = verteile(abschnitte, e);
@@ -722,4 +768,18 @@ export function katalogAufbau(
 export function ausfuehrungName(artikel: KatalogArtikel): string {
   const werte = artikel.merkmale.map((m) => m.wert);
   return werte.length > 0 ? werte.join(" · ") : artikel.name;
+}
+
+/**
+ * Verfügbare Menge als Text für den Druck. Leer, wenn der Katalog sie nicht
+ * zeigt oder der Artikel erst kommt – kommende Ware hat noch keinen Bestand,
+ * und „0 verfügbar" unter „jetzt vorbestellen" widerspräche sich.
+ */
+export function bestandText(
+  artikel: KatalogArtikel,
+  e: KatalogEinstellungen,
+): string {
+  if (!e.zeigeBestand || artikel.kategorieSlug === BALD_SLUG) return "";
+  if (artikel.bestand <= 0) return "ausverkauft";
+  return `${new Intl.NumberFormat("de-DE").format(artikel.bestand)} Stk. verfügbar`;
 }

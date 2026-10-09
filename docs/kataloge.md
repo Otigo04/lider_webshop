@@ -28,8 +28,10 @@ A4-Dokument drucken oder über den Druckdialog als PDF sichern.
   `?druck=0` ist die Vorschau. pdf-lib wurde verworfen: drei Raster mal zwei
   Stile wären sechs handgesetzte Layouts, und WebP-Fotos gingen nicht.
 - **Umbruch in Einheiten, feste Höhen, geklemmter Text.** Eine Seite hat 24
-  Einheiten (Liste 40), eine Kachel 6, eine große Zelle 8, eine Listenzeile 2
-  (`RASTER`). Nur weil nichts mit seinem Inhalt wächst, ist der Umbruch
+  Einheiten (Liste 40), eine Kachel 8 (3 × 3), eine große Zelle 12 (2 × 2),
+  eine Listenzeile 2 (`RASTER`). Das Foto ist in Kachel, Groß und Angebot
+  quadratisch (1:1) und füllt die Zellbreite; darunter stehen Name, Nummer und
+  Preis ohne Lücke. Die Beschreibung hat dort keinen Platz (nur Liste/Angebot). Nur weil nichts mit seinem Inhalt wächst, ist der Umbruch
   rechenbar, bevor ein Browser gesetzt hat – und nur dann stimmen die
   Seitenzahlen im Inhaltsverzeichnis. Der Bogen setzt jeden Block mit
   `grid-row`/`grid-column` genau dorthin, wo `katalogAufbau()` ihn hingelegt
@@ -47,7 +49,10 @@ A4-Dokument drucken oder über den Druckdialog als PDF sichern.
   Preisart steht ein Artikel nicht im Katalog; die Werkbank zählt beides in
   einer anklickbaren Leiste und markiert die Zeile. Ausverkauft und im Shop
   ausgeblendet sind nur Hinweise – der Katalog gilt Wochen, der Lagerstand
-  Stunden, und der Bestand wird nicht gedruckt.
+  Stunden. Die frei verfügbare Menge steht seit Migration 060 beim Artikel
+  (Schalter „Verfügbare Menge“, Standard an): Schild auf dem Foto, in der Liste
+  hinter der Artikelnummer, im Angebot als Spalte. Es ist der Stand der
+  Ausgabe, der in der Fußzeile steht. Ausverkauft steht als „ausverkauft“.
 - **Ausführungen falten zu einem Angebot** über die volle Breite (Foto links,
   Tabelle rechts) – aber nur die Mitglieder, die im Katalog stehen. Beim Foto
   gilt die Gruppe: eine Ausführung ohne eigenes Bild bleibt, solange eine
@@ -62,6 +67,21 @@ A4-Dokument drucken oder über den Druckdialog als PDF sichern.
   nur in Farbe und Gewicht. Bekäme der Katalog beim Umschalten eine andere
   Seitenzahl, wäre er nicht mehr dasselbe Dokument. Für beide gilt: keine
   Verläufe, Schatten, Rundungen, Symbole; Maße in mm und pt.
+- **„Reduziert“ hat keine eigene Seite.** Der Abschnitt steht vorn; die
+  erste Warengruppe dahinter beginnt direkt darunter (Überschrift, dann
+  Artikel), auch bei Trennseiten. Passt Überschrift plus erste Zelle nicht mehr
+  auf die Seite (bei Groß meist), beginnt sie auf der nächsten.
+- **„Bald im Sortiment – jetzt vorbestellen“** (Migration 060,
+  `catalog_items.bald`): kommende Ware. Die Markierung gehört zur
+  Zusammenstellung, nicht zum Artikel – im nächsten Heft steht derselbe Artikel
+  normal. Werkbank: „Bald“ je Zeile oder „Alle als Bald“ je Gruppe.
+  `baldZuordnen()` stellt die Artikel in eine eigene Warengruppe (Rang ganz
+  hinten, Farbe Gold), sonst läuft alles wie bei „Reduziert“. Dort: kein
+  Reduziert-Schild, keine Mengenangabe, Kennzeichen „Vorbestellen“, auf der
+  Rückseite eine Zeile „Vorbestellung“. Foto und Preis müssen im Artikelstamm
+  stehen; der Artikel darf im Shop ausgeblendet sein.
+- **Kopfzeile trägt das Logo** (Wappen + Schriftzug aus `lib/logo.ts`), nicht
+  das Wort „LIDER“ als Text.
 - **Inhaltsverzeichnis erst ab acht Seiten** (`INHALT_AB_SEITEN`), sonst wäre
   es eine Seite Papier für drei Zeilen.
 - **Fotos über den Bildoptimierer** (`/_next/image`, Breite je Raster), nicht

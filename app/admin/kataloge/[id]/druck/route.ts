@@ -5,7 +5,7 @@ import {
   buildKatalogHinweisHtml,
   buildKatalogHtml,
 } from "@/lib/katalog-bogen";
-import { getLogoMarkPath, getLogoPath } from "@/lib/logo";
+import { getLogoMarkPath, getLogoPath, getLogoWordmarkPath } from "@/lib/logo";
 import { getKatalog, getKatalogArtikel } from "@/lib/queries/kataloge";
 import { getCompanySettings } from "@/lib/queries/settings";
 
@@ -40,7 +40,7 @@ export async function GET(
   ]);
 
   const e = katalog.einstellungen;
-  const aufbau = katalogAufbau(artikel, e);
+  const aufbau = katalogAufbau(artikel, e, new Set(katalog.baldIds));
   const kopf = {
     "Content-Type": "text/html; charset=utf-8",
     // Preise und Fotoadressen gelten für diesen Aufruf – nie aus dem Cache.
@@ -79,6 +79,7 @@ export async function GET(
     {
       logo: getLogoPath(),
       wappen: getLogoMarkPath(),
+      wortmarke: getLogoWordmarkPath(),
       stand: new Date(),
       autoPrint: new URL(request.url).searchParams.get("druck") !== "0",
     },

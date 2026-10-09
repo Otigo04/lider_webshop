@@ -6,6 +6,7 @@ import { Vorschaubild } from "@/components/admin/katalog-artikel-suche";
 import { Button } from "@/components/ui/button";
 import { formatPrice } from "@/lib/format";
 import {
+  BALD_SLUG,
   katalogPreis,
   sortiere,
   type KatalogArtikel,
@@ -34,6 +35,7 @@ export function KatalogZusammenstellung({
   onHinzufuegen,
   onEntfernen,
   onVerschieben,
+  onBald,
 }: {
   artikel: KatalogArtikel[];
   gewaehlt: KatalogArtikel[];
@@ -43,6 +45,7 @@ export function KatalogZusammenstellung({
   onHinzufuegen: (ids: string[]) => void;
   onEntfernen: (ids: string[]) => void;
   onVerschieben: (id: string, richtung: -1 | 1) => void;
+  onBald: (ids: string[], an: boolean) => void;
 }) {
   const [filter, setFilter] = useState<Filter | null>(null);
 
@@ -50,7 +53,9 @@ export function KatalogZusammenstellung({
     () => ({ foto: new Set(ohneFoto), preis: new Set(ohnePreis) }),
     [ohneFoto, ohnePreis],
   );
-  const ausverkauft = gewaehlt.filter((a) => a.bestand <= 0).length;
+  // Kommende Ware hat noch keinen Bestand – das ist keine Auskunft wert.
+  const istBald = (a: KatalogArtikel) => a.kategorieSlug === BALD_SLUG;
+  const ausverkauft = gewaehlt.filter((a) => !istBald(a) && a.bestand <= 0).length;
   const ausgeblendet = gewaehlt.filter((a) => !a.aktiv).length;
 
   const trifft = (a: KatalogArtikel, f: Filter) =>
@@ -59,7 +64,7 @@ export function KatalogZusammenstellung({
       : f === "preis"
         ? fehlt.preis.has(a.id)
         : f === "ausverkauft"
-          ? a.bestand <= 0
+          ? !istBald(a) && a.bestand <= 0
           : !a.aktiv;
 
   // Ein Filter, dessen Fälle gerade behoben wurden, zeigte eine leere Liste
@@ -171,6 +176,21 @@ export function KatalogZusammenstellung({
                 type="button"
                 variant="ghost"
                 size="xs"
+                onClick={() =>
+                  onBald(
+                    abschnitt.artikel.map((a) => a.id),
+                    !istBald(abschnitt.artikel[0]),
+                  )
+                }
+              >
+                {istBald(abschnitt.artikel[0])
+                  ? "Alle ins Sortiment"
+                  : "Alle als „Bald“"}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="xs"
                 onClick={() => onEntfernen(abschnitt.artikel.map((a) => a.id))}
               >
                 Gruppe entfernen
@@ -184,7 +204,7 @@ export function KatalogZusammenstellung({
                 const marken = [
                   fehlt.foto.has(a.id) ? { text: "kein Foto", ernst: true } : null,
                   fehlt.preis.has(a.id) ? { text: "kein Preis", ernst: true } : null,
-                  a.bestand <= 0 ? { text: "ausverkauft", ernst: false } : null,
+                  !istBald(a) && a.bestand <= 0 ? { text: "ausverkauft", ernst: false } : null,
                   !a.aktiv ? { text: "ausgeblendet", ernst: false } : null,
                 ].filter((m) => m !== null);
                 const fehltImKatalog = marken.some((m) => m.ernst);
@@ -242,7 +262,20 @@ export function KatalogZusammenstellung({
                       </span>
                     ) : null}
 
-                    <div className="flex shrink-0">
+                    <div className="flex shrink-0 items-center">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="xs"
+                        onClick={() => onBald([a.id], !istBald(a))}
+                        aria-label={
+                          istBald(a)
+                            ? `${a.name} ins Sortiment holen`
+                            : `${a.name} als „Bald im Sortiment“ führen`
+                        }
+                      >
+                        {istBald(a) ? "Ins Sortiment" : "Bald"}
+                      </Button>
                       <Button
                         type="button"
                         variant="ghost"

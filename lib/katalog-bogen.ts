@@ -2,8 +2,10 @@ import { accentIndex } from "@/lib/accent-colors";
 import { barcode as strichcode, MODUL_MIN, MODUL_NENN } from "@/lib/barcode";
 import { formatDate, formatPrice } from "@/lib/format";
 import {
+  ANGEBOT_FOTO_MM,
   ANGEBOT_KOPF_MM,
   ANGEBOT_RAND_MM,
+  BALD_SLUG,
   FUSS,
   KOPF,
   REDUZIERT_SLUG,
@@ -13,6 +15,7 @@ import {
   SEITE,
   ausfuehrungMm,
   ausfuehrungName,
+  bestandText,
   einheitMm,
   katalogPreis,
   listenStaffeln,
@@ -64,6 +67,8 @@ export interface KatalogBogenOptions {
   logo: string | null;
   /** Wappen allein für die Kopfzeile */
   wappen: string | null;
+  /** Schriftzug „LIDER" quer, neben dem Wappen in der Kopfzeile */
+  wortmarke: string | null;
   /** Datum der Ausgabe – steht in jeder Fußzeile */
   stand: Date;
   /** Druckdialog selbst öffnen, sobald alle Fotos da sind */
@@ -86,6 +91,7 @@ const AKZENT = ["#283f78", "#0f5f57", "#9a4310", "#9c1f47", "#4c2f96", "#1c6b34"
 
 function akzent(slug: string): string {
   if (slug === REDUZIERT_SLUG) return ROT;
+  if (slug === BALD_SLUG) return GOLD;
   return AKZENT[accentIndex(slug) - 1] ?? BLAU;
 }
 
@@ -167,12 +173,15 @@ interface Kontext {
 function kennzeichen(artikel: KatalogArtikel, k: Kontext): string {
   if (!k.e.zeigeKennzeichen) return "";
   const teile: string[] = [];
+  if (artikel.kategorieSlug === BALD_SLUG) {
+    teile.push(`<span class="kz bald">Vorbestellen</span>`);
+  }
   if (artikel.neu) teile.push(`<span class="kz neu">Neu</span>`);
   if (artikel.topseller) teile.push(`<span class="kz top">Topseller</span>`);
   const reduziert = katalogPreis(artikel, k.e.preisart)?.reduziert;
-  if (reduziert) {
-    const prozent = k.e.layout === "liste" ? ` −${reduziert.prozent} %` : "";
-    teile.push(`<span class="kz akt">Reduziert${prozent}</span>`);
+  // In Kacheln und Groß sagt das rote Prozentfeld auf dem Foto dasselbe.
+  if (reduziert && k.e.layout === "liste") {
+    teile.push(`<span class="kz akt">Reduziert −${reduziert.prozent} %</span>`);
   }
   return teile.join("");
 }
@@ -225,7 +234,7 @@ function kachel(block: ArtikelBlock, k: Kontext): string {
   const a = block.artikel;
   const preis = katalogPreis(a, k.e.preisart);
   const gross = k.e.layout === "gross";
-  const innen = NUTZ.breite / RASTER[k.e.layout].spalten - 5;
+  const innen = NUTZ.breite / RASTER[k.e.layout].spalten - 4;
 
   // Im großen Raster steht die volle Staffeltabelle, in der Kachel die
   // Nebenzeile – dort ist für eine Tabelle kein Platz.
@@ -233,26 +242,38 @@ function kachel(block: ArtikelBlock, k: Kontext): string {
     k.e.preisart !== "grosshandel"
       ? ""
       : gross
-        ? `<table class="staffeln">${(preis?.staffeln.length ?? 0) > 1 ? kuerze(preis!.staffeln, 4).map((s) => `<tr><td>${esc(mengenangabe(s.ab))}</td><td>${esc(formatPrice(s.preis))}</td></tr>`).join("") : ""}</table>`
+        ? `<table class="staffeln">${(preis?.staffeln.length ?? 0) > 1 ? kuerze(preis!.staffeln, 3).map((s) => `<tr><td>${esc(mengenangabe(s.ab))}</td><td>${esc(formatPrice(s.preis))}</td></tr>`).join("") : ""}</table>`
         : `<div class="staffel">${staffelzeile(preis)}</div>`;
 
-  const letzte = block.spalte === RASTER[k.e.layout].spalten - 1;
-
   const aktion = k.e.zeigeKennzeichen && preis?.reduziert ? " aktion" : "";
+  const nr = [
+    `Art.-Nr. ${esc(a.sku)}`,
+    k.e.zeigeMerkmale && a.merkmale.length > 0 ? esc(merkmalText(a)) : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
-  return `<div class="zelle kachel${letzte ? " letzte" : ""}${aktion}" style="${platz(block)}--ak:${akzent(a.kategorieSlug)};">
-    <div class="foto">${foto(a.bildUrl, gross ? 828 : 640)}<div class="marken">${kennzeichen(a, k)}</div>${prozentfeld(preis, k)}</div>
+  // Reihenfolge von oben nach unten: Foto, Name, Nummer, Preis – der Preis
+  // steht unmittelbar unter dem Artikel, nicht am Fuß einer hohen Zelle.
+  // Eine Beschreibung hat hier keinen Platz; sie steht in der Liste und im
+  // Angebot.
+  return `<div class="zelle kachel${aktion}" style="${platz(block)}--ak:${akzent(a.kategorieSlug)};">
+    <div class="foto">${foto(a.bildUrl, gross ? 828 : 640)}<div class="marken">${kennzeichen(a, k)}</div>${prozentfeld(preis, k)}${bestandschild(a, k)}</div>
     <div class="name">${esc(a.name)}</div>
-    <div class="nr">Art.-Nr. ${esc(a.sku)}</div>
-    ${k.e.zeigeMerkmale ? `<div class="merk">${esc(merkmalText(a))}</div>` : ""}
-    ${k.e.zeigeBeschreibung ? `<div class="text">${esc(a.beschreibung ?? "")}</div>` : ""}
-    ${gross ? staffeln : ""}
-    <div class="unten">
-      <div class="code">${k.e.zeigeBarcode ? strichbild(a.barcode, innen * (gross ? 0.5 : 0.56), gross ? 8 : 6) : ""}</div>
+    <div class="nr">${nr}</div>
+    <div class="kaufen">
       ${preisblock(preis, k)}
+      <div class="code">${k.e.zeigeBarcode ? strichbild(a.barcode, innen * (gross ? 0.5 : 0.57), gross ? 8 : 6) : ""}</div>
     </div>
-    ${gross ? "" : staffeln}
+    ${staffeln}
   </div>`;
+}
+
+/** Verfügbare Menge als Schild unten links auf dem Foto. */
+function bestandschild(artikel: KatalogArtikel, k: Kontext): string {
+  const text = bestandText(artikel, k.e);
+  if (!text) return "";
+  return `<span class="bestand${artikel.bestand <= 0 ? " aus" : ""}">${esc(text)}</span>`;
 }
 
 /** Erste Staffeln und die letzte – wenn mehr gepflegt sind, als Zeilen da sind. */
@@ -293,6 +314,7 @@ function listenzeile(block: ArtikelBlock, k: Kontext): string {
   const zusatz = [
     `Art.-Nr. ${esc(a.sku)}`,
     k.e.zeigeMerkmale && a.merkmale.length > 0 ? esc(merkmalText(a)) : "",
+    esc(bestandText(a, k.e)),
   ]
     .filter(Boolean)
     .join(" · ");
@@ -339,10 +361,15 @@ function angebot(block: AngebotBlock, k: Kontext): string {
       (s) => s.length === stufen.length && s.every((x, i) => x.ab === stufen[i]),
     );
 
+  // Eine Spalte „Verfügbar" – in der Liste steht die Menge in der Zeile.
+  const mitBestand =
+    !liste &&
+    block.ausfuehrungen.some((a) => bestandText(a, k.e) !== "");
+
   const kopfzeile = liste
     ? ""
     : `<tr class="th" style="height:${mm(zeilenhoehe)}">
-        <th>Ausführung</th><th>Art.-Nr.</th>${k.e.zeigeBarcode ? "<th>EAN</th>" : ""}${Array.from(
+        <th>Ausführung</th><th>Art.-Nr.</th>${k.e.zeigeBarcode ? "<th>EAN</th>" : ""}${mitBestand ? "<th>Verfügbar</th>" : ""}${Array.from(
           { length: spalten },
           (_, i) =>
             `<th class="r">${k.e.preisart === "laden" ? "Preis" : einheitlich ? esc(mengenangabe(stufen[i])) : i === 0 ? "Preis" : ""}</th>`,
@@ -366,7 +393,8 @@ function angebot(block: AngebotBlock, k: Kontext): string {
       return `<tr style="height:${mm(zeilenhoehe)}">
         <td class="aus">${esc(ausfuehrungName(a))}</td>
         <td class="nr">${esc(a.sku)}</td>
-        ${k.e.zeigeBarcode ? `<td class="code">${strichbild(a.barcode, 31, zeilenhoehe - 4)}</td>` : ""}
+        ${k.e.zeigeBarcode ? `<td class="code">${strichbild(a.barcode, 30, zeilenhoehe - 4)}</td>` : ""}
+        ${mitBestand ? `<td class="bst">${esc(new Intl.NumberFormat("de-DE").format(Math.max(0, a.bestand)))}</td>` : ""}
         ${zellen}
       </tr>`;
     })
@@ -379,6 +407,10 @@ function angebot(block: AngebotBlock, k: Kontext): string {
 
   return `<div class="zelle angebot${liste ? " in-liste" : ""}${hoechste > 0 ? " aktion" : ""}" style="${platz(block)}--ak:${akzent(block.ausfuehrungen[0]?.kategorieSlug ?? "")};">
     <div class="foto${block.bildUrl ? "" : " leer"}">${foto(block.bildUrl, liste ? 256 : 640)}${
+      block.ausfuehrungen[0]?.kategorieSlug === BALD_SLUG && !liste
+        ? `<span class="marken"><span class="kz bald">Vorbestellen</span></span>`
+        : ""
+    }${
       hoechste > 0 && !liste
         ? `<span class="prozent">${bis ? "<u>bis</u>" : ""}<b>−${hoechste}</b><i>%</i></span>`
         : ""
@@ -422,9 +454,15 @@ function kopfzeile(
   k: Kontext,
   opt: KatalogBogenOptions,
 ): string {
-  return `<header class="kopf" style="${k.prospekt ? `background:${farbe};` : ""}">
+  // Das Logo statt des Wortes: Wappen und Schriftzug als Bild. Fehlt eine
+  // der Dateien, steht der Name als Text – nie eine leere Ecke.
+  const marke =
+    opt.wappen || opt.wortmarke
+      ? `${opt.wappen ? `<img class="wappen" src="${esc(opt.wappen)}" alt="">` : ""}${opt.wortmarke ? `<img class="wort" src="${esc(opt.wortmarke)}" alt="LIDER">` : ""}`
+      : `<b>LIDER</b>`;
+  return `<header class="kopf" style="--kf:${farbe};">
     <span class="gruppe">${esc(links)}</span>
-    <span class="marke">${opt.wappen && !k.prospekt ? `<img src="${esc(opt.wappen)}" alt="">` : ""}<span><b>LIDER</b><i>Groß- und Einzelhandel</i></span></span>
+    <span class="marke">${marke}</span>
   </header>`;
 }
 
@@ -609,6 +647,7 @@ function inhaltsseite(
 }
 
 function rueckseite(
+  aufbau: KatalogAufbau,
   k: Kontext,
   firma: KatalogFirma,
   opt: KatalogBogenOptions,
@@ -622,6 +661,12 @@ function rueckseite(
   }
   if (firma.telefon) wege.push(["Telefon", firma.telefon]);
   if (firma.email) wege.push(["E-Mail", firma.email]);
+  if (aufbau.seiten.some((x) => x.kategorieSlug === BALD_SLUG)) {
+    wege.push([
+      "Vorbestellung",
+      "Artikel aus „Bald im Sortiment“ nehmen wir ab sofort entgegen. Geliefert wird, sobald die Ware bei uns eingetroffen ist.",
+    ]);
+  }
   if (firma.strasse || firma.plzOrt) {
     wege.push([
       "Abholung",
@@ -688,7 +733,7 @@ export function buildKatalogHtml(
   for (const seite of aufbau.seiten) {
     seiten.push(artikelseite(seite, k, firma, opt));
   }
-  if (e.mitRueckseite) seiten.push(rueckseite(k, firma, opt));
+  if (e.mitRueckseite) seiten.push(rueckseite(aufbau, k, firma, opt));
 
   // Zeilenhöhen der geklemmten Texte, in mm – daraus folgen die festen Höhen
   // der Felder, die auch leer ihren Platz behalten.
@@ -751,19 +796,17 @@ export function buildKatalogHtml(
     display: flex; align-items: center; justify-content: space-between;
     position: relative;
     height: ${mm(KOPF.hoehe)}; margin-bottom: ${mm(KOPF.abstand)};
-    border-bottom: 2.2pt solid ${BLAU};
+    border-bottom: 1.6pt solid ${BLAU};
   }
-  .kopf > * { position: relative; }
   .kopf .gruppe {
     font-size: 17pt; font-weight: 800; color: ${NAVY};
     letter-spacing: -0.01em;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  .kopf .marke { display: flex; align-items: center; gap: 2mm; color: ${BLAU}; }
-  .kopf .marke img { height: 8mm; width: 8mm; object-fit: contain; }
-  .kopf .marke span { display: flex; flex-direction: column; line-height: 1.1; }
-  .kopf .marke b { font-size: 11pt; font-weight: 700; letter-spacing: 0.12em; }
-  .kopf .marke i { font-style: normal; font-size: 5.6pt; color: ${GRAU}; letter-spacing: 0.02em; }
+  .kopf .marke { display: flex; align-items: center; gap: 2.2mm; flex: none; padding-bottom: 1.2mm; }
+  .kopf .marke .wappen { height: 8.2mm; width: auto; }
+  .kopf .marke .wort { height: 5.6mm; width: auto; }
+  .kopf .marke b { font-size: 12pt; font-weight: 800; letter-spacing: 0.1em; color: ${ROT}; }
 
   .fuss {
     display: flex; align-items: flex-end; justify-content: space-between; gap: 6mm;
@@ -785,8 +828,6 @@ export function buildKatalogHtml(
   .kachel .foto { padding: 1.8mm; }
   .angebot > .foto, .zeile .foto { padding: 1mm; }
   .foto img { mix-blend-mode: multiply; }
-  /* Reduziert: roter Rahmen um die Fläche, nicht nur ein Preis in Rot. */
-  .aktion .foto { outline: 0.7mm solid ${ROT}; outline-offset: -0.7mm; }
 
   .name { font-weight: 700; color: ${NAVY}; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
   .nr, .merk, .text, .staffel { font-size: 6.5pt; line-height: ${mm(zl.klein)}; color: ${GRAU}; overflow: hidden; }
@@ -802,6 +843,7 @@ export function buildKatalogHtml(
   }
   .kz.top { background: ${GOLD}; }
   .kz.akt { background: ${ROT}; }
+  .kz.bald { background: ${GOLD}; }
   .prozent {
     position: absolute; top: 0; right: 0;
     display: flex; align-items: baseline;
@@ -811,6 +853,14 @@ export function buildKatalogHtml(
   .prozent b { font-size: 16pt; font-weight: 800; letter-spacing: -0.02em; }
   .prozent i { font-style: normal; font-size: 10pt; font-weight: 700; margin-left: 0.3mm; }
   .prozent u { text-decoration: none; font-size: 6.5pt; font-weight: 600; margin-right: 1mm; }
+
+  .bestand {
+    position: absolute; left: 0; bottom: 0;
+    padding: 0 1.6mm; background: #fff; color: ${NAVY};
+    font-size: 6.5pt; font-weight: 700; line-height: 3.6mm; white-space: nowrap;
+  }
+  .bestand.aus { background: ${GRAU}; color: #fff; }
+  .aust td.bst { font-size: 7.5pt; color: ${GRAU}; text-align: right; }
 
   .bc { display: inline-flex; flex-direction: column; align-items: center; background: #fff; }
   .bc svg { display: block; }
@@ -824,27 +874,29 @@ export function buildKatalogHtml(
   .red .pb, .red > b, td.red b { color: ${ROT}; }
 
   /* --- Kacheln und Groß ----------------------------------------------- */
-  .kachel {
-    display: flex; flex-direction: column;
-    padding: 1.4mm 1.6mm 1.8mm;
-  }
-  .kachel .foto { flex: 1 1 0; margin-bottom: 1.4mm; }
+  /* Quadratisches Foto über die ganze Zellbreite, darunter alles, was zum
+     Artikel gehört, ohne Lücke. Feste Höhen: der Umbruch ist gerechnet. */
+  .kachel { display: flex; flex-direction: column; padding: 0 2mm; }
+  .kachel .foto { flex: none; width: 100%; aspect-ratio: 1 / 1; margin-bottom: 1.2mm; padding: 1.5mm; }
+  .marken { position: absolute; top: 0; left: 0; }
   .kachel .marken { position: absolute; top: 0; left: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 0.6mm; }
-  .kachel .name { font-size: 8.5pt; line-height: ${mm(zl.name)}; height: ${mm(zl.name * 2)}; flex: none; }
-  .kachel .nr, .kachel .merk { height: ${mm(zl.klein)}; flex: none; }
-  .kachel .text { -webkit-line-clamp: 2; height: ${mm(zl.klein * 2)}; flex: none; margin-top: 0.4mm; }
-  .kachel .unten { display: flex; align-items: flex-end; justify-content: space-between; gap: 2mm; height: 9.5mm; flex: none; margin-top: 0.8mm; }
-  .kachel .staffel { height: ${mm(zl.klein)}; flex: none; margin-top: 0.6mm; text-align: right; }
+  .kachel .name { flex: none; font-size: 8.5pt; line-height: ${mm(zl.name - 0.2)}; height: ${mm((zl.name - 0.2) * 2)}; }
+  .kachel .nr { flex: none; height: ${mm(zl.klein)}; }
+  .kachel .kaufen { flex: none; display: flex; align-items: flex-end; justify-content: space-between; gap: 2mm; height: 9.2mm; margin-top: 0.6mm; }
+  .kachel .preis { text-align: left; }
+  .kachel .code { flex: none; display: flex; justify-content: flex-end; }
+  .kachel .staffel { flex: none; height: ${mm(zl.klein)}; margin-top: 0.2mm; white-space: nowrap; }
 
-  .l-gross .kachel { padding: 2mm 2.4mm 2.4mm; }
-  .l-gross .kachel .name { font-size: 10.5pt; line-height: ${mm(zl.nameGross)}; height: ${mm(zl.nameGross * 2)}; }
-  .l-gross .kachel .text { -webkit-line-clamp: 4; height: ${mm(zl.klein * 4)}; }
-  .l-gross .kachel .unten { height: 12mm; }
-  .l-gross .preis .pb { font-size: 18pt; }
-  .staffeln { flex: none; height: ${mm(3.2 * 4)}; margin: 1mm 0 0 auto; border-collapse: collapse; font-size: 7.5pt; display: block; }
-  .staffeln td { padding: 0 0 0 4mm; line-height: 3.2mm; text-align: right; white-space: nowrap; }
-  .staffeln td:first-child { color: ${GRAU}; padding-left: 0; }
-  .staffeln td:last-child { font-weight: 600; }
+  .l-gross .kachel { padding: 0 2.5mm; }
+  .l-gross .kachel .foto { margin-bottom: 1.8mm; padding: 2.5mm; }
+  .l-gross .kachel .name { font-size: 11pt; line-height: ${mm(zl.nameGross)}; height: ${mm(zl.nameGross * 2)}; }
+  .l-gross .kachel .nr { font-size: 7.5pt; }
+  .l-gross .kachel .kaufen { height: 12mm; margin-top: 1mm; }
+  .l-gross .preis .pb { font-size: 20pt; }
+  .staffeln { flex: none; height: ${mm(3.2 * 3)}; margin: 1mm 0 0; border-collapse: collapse; font-size: 7.5pt; display: block; }
+  .staffeln td { padding: 0 4mm 0 0; line-height: 3.2mm; white-space: nowrap; }
+  .staffeln td:first-child { color: ${GRAU}; }
+  .staffeln td:last-child { font-weight: 700; color: ${NAVY}; padding-right: 0; }
 
   /* --- Liste ---------------------------------------------------------- */
   .zeile {
@@ -887,7 +939,7 @@ export function buildKatalogHtml(
     padding: ${mm(ANGEBOT_RAND_MM / 2)} 0;
     border-bottom: 0.25pt solid ${LINIE};
   }
-  .angebot > .foto { flex: none; width: 40mm; align-self: flex-start; height: 100%; max-height: 40mm; }
+  .angebot > .foto { flex: none; width: ${mm(ANGEBOT_FOTO_MM)}; height: ${mm(ANGEBOT_FOTO_MM)}; align-self: flex-start; }
   .angebot.in-liste { gap: 3mm; padding: 0; }
   .angebot.in-liste > .foto { width: 11mm; height: ${mm(u * 2 - 1.4)}; margin-top: 0.7mm; }
   .angebot .rechts { flex: 1 1 0; min-width: 0; }
@@ -897,7 +949,7 @@ export function buildKatalogHtml(
   .angebot .text { -webkit-line-clamp: 1; }
   .forts { font-size: 6.5pt; font-weight: 400; color: ${GRAU}; }
   .aust { width: 100%; border-collapse: collapse; table-layout: auto; }
-  .aust th, .aust td { padding: 0 0 0 3mm; text-align: left; vertical-align: middle; white-space: nowrap; border-top: 0.25pt solid ${LINIE}; }
+  .aust th, .aust td { padding: 0 0 0 2mm; text-align: left; vertical-align: middle; white-space: nowrap; border-top: 0.25pt solid ${LINIE}; }
   .aust th:first-child, .aust td:first-child { padding-left: 0; }
   .aust th { font-size: 6.5pt; font-weight: 700; color: #fff; background: ${BLAU}; padding: 0 2mm; }
   .aust td { font-size: 8pt; }
@@ -972,29 +1024,17 @@ export function buildKatalogHtml(
   .s-prospekt .rueck th, .s-prospekt .rueck td { border-bottom-color: #3a4a70; }
   .s-prospekt .rueck .unten { border-top-color: #3a4a70; color: #aab4cc; }
   .s-prospekt .rueck .oben { background: #fff; margin: -22mm -24mm 0; padding: 22mm 24mm 12mm; }
-  /* Der Kopf läuft im Prospekt bis an den Papierrand. */
-  .s-prospekt .artikel .kopf { border-bottom: 0; padding: 0; }
-  .s-prospekt .artikel .kopf::before { content: ""; position: absolute; z-index: 0; top: ${mm(-RAND)}; left: ${mm(-RAND)}; right: ${mm(-RAND)}; bottom: 0; background: inherit; border-bottom: 1.2mm solid ${GOLD}; }
-  .s-prospekt .artikel .kopf > * { z-index: 1; }
-  .s-prospekt .artikel .kopf .gruppe { color: #fff; font-size: 24pt; font-weight: 800; letter-spacing: -0.02em; }
-  .s-prospekt .artikel .kopf .marke { color: #fff; }
-  .s-prospekt .artikel .kopf .marke i { color: #fff; opacity: 0.85; }
   .s-prospekt .kz { background: ${NAVY}; }
   .s-prospekt .kz.top { background: ${GOLD}; }
   .s-prospekt .kz.akt { background: ${ROT}; }
-  /* Preis als Schild: Navy, bei Reduzierung rot. */
-  /* Preisleiste über die ganze Breite der Fotofläche, in der Farbe der
-     Warengruppe; reduzierte Artikel tragen sie in Rot. Strichcode darin auf
-     Weiß, wie überall (.bc). */
-  .s-prospekt .kachel .unten { background: var(--ak); padding: 0 1.6mm; align-items: center; margin-top: 1mm; }
-  .s-prospekt .kachel.aktion .unten { background: ${ROT}; }
-  .s-prospekt .kachel .bc { padding: 0.4mm 0.8mm; }
-  .s-prospekt .kachel .preis .pz { color: #e8ecf5; }
-  .s-prospekt .kachel .preis .pz s { color: #e8ecf5; }
-  .s-prospekt .kachel .preis .pb { display: inline-flex; align-items: flex-start; font-size: 17pt; line-height: 1.05; color: #fff; }
-  .s-prospekt .l-gross .kachel .preis .pb { font-size: 22pt; }
-  .s-prospekt .kachel .foto { background: color-mix(in srgb, var(--ak) 11%, #fff); }
-  .s-prospekt .angebot > .foto { background: color-mix(in srgb, var(--ak) 11%, #fff); }
+  /* Prospekt: der Preis als Farbfeld direkt unter dem Artikel, in der Farbe
+     der Warengruppe; reduziert in Rot. Das Foto liegt auf einem Hauch Farbe. */
+  .s-prospekt .kachel .preis .pb { display: inline-flex; align-items: flex-start; padding: 0.3mm 2mm 0.5mm; background: var(--ak); color: #fff; font-size: 16pt; line-height: 1.05; }
+  .s-prospekt .kachel.aktion .preis .pb { background: ${ROT}; }
+  .s-prospekt .l-gross .kachel .preis .pb { font-size: 21pt; }
+  .s-prospekt .kachel .foto, .s-prospekt .angebot > .foto { background: color-mix(in srgb, var(--ak) 9%, #fff); }
+  .s-prospekt .artikel .kopf { border-bottom: 1.2mm solid var(--kf); }
+  .s-prospekt .artikel .kopf .gruppe { color: var(--kf); font-size: 22pt; font-weight: 800; }
   .s-prospekt .fuss span:last-child { background: var(--ak); color: #fff; padding: 0.9mm 2.4mm; }
   .s-prospekt .kachel .cent { font-size: 0.52em; margin-left: 0.06em; }
   .s-prospekt .kachel .waehrung { font-size: 0.52em; margin-left: 0.12em; }

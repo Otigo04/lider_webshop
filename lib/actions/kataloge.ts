@@ -41,6 +41,7 @@ const FELDER = {
   stil: { spalte: "stil", schema: z.enum(["sachlich", "prospekt"]) },
   preisart: { spalte: "preisart", schema: z.enum(["grosshandel", "laden", "ohne"]) },
   zeigeBarcode: { spalte: "zeige_barcode", schema: z.boolean() },
+  zeigeBestand: { spalte: "zeige_bestand", schema: z.boolean() },
   zeigeBeschreibung: { spalte: "zeige_beschreibung", schema: z.boolean() },
   zeigeMerkmale: { spalte: "zeige_merkmale", schema: z.boolean() },
   zeigeKennzeichen: { spalte: "zeige_kennzeichen", schema: z.boolean() },
@@ -125,7 +126,7 @@ export async function duplicateKatalog(id: string): Promise<AdminFormState> {
   for (let von = 0; ; von += BLOCK) {
     const { data: zeilen } = await supabase
       .from("catalog_items")
-      .select("product_id, position")
+      .select("product_id, position, bald")
       .eq("catalog_id", id)
       .order("position")
       .order("product_id")
@@ -137,6 +138,7 @@ export async function duplicateKatalog(id: string): Promise<AdminFormState> {
         catalog_id: kopie.id,
         product_id: z.product_id,
         position: z.position,
+        bald: z.bald,
       })),
     );
     if (einfuegen) {
@@ -268,6 +270,43 @@ export async function removeKatalogArtikel(
     if (error) {
       console.error("[kataloge] Artikel entfernen:", error.message);
       return { error: "Die Artikel konnten nicht entfernt werden." };
+    }
+  }
+
+  await beruehre(supabase, id);
+  revalidatePath("/admin/kataloge");
+  return {};
+}
+
+/**
+ * Artikel in den Abschnitt „Bald im Sortiment" stellen oder zurück ins
+ * Sortiment holen. Ein Merkmal dieser Zusammenstellung, nicht des Artikels.
+ */
+export async function setKatalogBald(
+  id: string,
+  productIds: string[],
+  bald: boolean,
+): Promise<AdminFormState> {
+  await requireAdmin();
+  if (!idSchema.safeParse(id).success) return { error: "Kein Katalog ausgewählt." };
+  const parsed = idsSchema.safeParse(productIds);
+  if (!parsed.success) return { error: "Keine Artikel ausgewählt." };
+
+  const supabase = await createClient();
+  for (let i = 0; i < parsed.data.length; i += 150) {
+    const { error } = await supabase
+      .from("catalog_items")
+      .update({ bald })
+      .eq("catalog_id", id)
+      .in("product_id", parsed.data.slice(i, i + 150));
+    if (error) {
+      console.error("[kataloge] Bald setzen:", error.message);
+      return {
+        error:
+          error.code === "42703"
+            ? "Dafür fehlt noch die Datenbankänderung 060."
+            : "Die Änderung konnte nicht gespeichert werden.",
+      };
     }
   }
 

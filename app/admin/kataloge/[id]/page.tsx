@@ -38,6 +38,7 @@ export default async function KatalogPage({
         id={katalog.id}
         einstellungen={katalog.einstellungen}
         productIds={katalog.productIds}
+        baldIds={katalog.baldIds}
         artikel={artikel}
       />
     </div>

@@ -60,8 +60,8 @@ const e = (mehr = {}) => ({ ...k.KATALOG_VORGABE, ...mehr });
 const pruefungen = [];
 const pruefe = (name, fn) => pruefungen.push([name, fn]);
 
-pruefe("Artikel je Seite: Liste 20, Kacheln 12, Groß 6", () => {
-  for (const [layout, jeSeite] of [["liste", 20], ["kacheln", 12], ["gross", 6]]) {
+pruefe("Artikel je Seite: Liste 20, Kacheln 9, Groß 4", () => {
+  for (const [layout, jeSeite] of [["liste", 20], ["kacheln", 9], ["gross", 4]]) {
     const voll = k.katalogAufbau(viele(jeSeite), e({ layout }));
     assert.equal(voll.seiten.length, 1, `${layout}: eine volle Seite`);
     const mehr = k.katalogAufbau(viele(jeSeite + 1), e({ layout }));
@@ -262,7 +262,7 @@ pruefe("Listenstaffeln: höchstens drei, erste zwei und die letzte", () => {
 });
 
 pruefe("Inhaltsverzeichnis erst ab acht Seiten, Seitenzahlen stimmen", () => {
-  const kurz = k.katalogAufbau(viele(12), e());
+  const kurz = k.katalogAufbau(viele(9), e());
   assert.equal(kurz.inhalt, null);
   assert.equal(kurz.gesamtSeiten, 3); // Titel, eine Seite, Rückseite
   assert.equal(kurz.seiten[0].nummer, 2);
@@ -274,14 +274,14 @@ pruefe("Inhaltsverzeichnis erst ab acht Seiten, Seitenzahlen stimmen", () => {
     ],
     e(),
   );
-  // Titel + Inhalt + 3 + 2 + Rückseite
-  assert.equal(lang.gesamtSeiten, 8);
+  // Titel + Inhalt + 4 + 3 + Rückseite
+  assert.equal(lang.gesamtSeiten, 10);
   assert.deepEqual(lang.inhalt, [
     { kategorie: "Haushalt", seite: 3 },
-    { kategorie: "Spielwaren", seite: 6 },
+    { kategorie: "Spielwaren", seite: 7 },
   ]);
-  assert.equal(lang.seiten[3].nummer, 6);
-  assert.equal(lang.seiten[3].kategorie, "Spielwaren");
+  assert.equal(lang.seiten[4].nummer, 7);
+  assert.equal(lang.seiten[4].kategorie, "Spielwaren");
 
   const abgeschaltet = k.katalogAufbau(viele(120), e({ mitInhalt: false }));
   assert.equal(abgeschaltet.inhalt, null);
@@ -301,7 +301,13 @@ pruefe("Reduzierte Ware steht vorn als eigener Abschnitt, auf Wunsch nicht", () 
   const vorn = k.katalogAufbau(alle, e({ preisart: "laden", mitTrennseiten: true }));
   assert.equal(vorn.seiten[0].kategorie, "Reduziert", "erste Seite ist Reduziert");
   assert.equal(vorn.seiten[0].kategorieSlug, k.REDUZIERT_SLUG);
-  assert.equal(vorn.seiten[0].bloecke.length, 2, "beide reduzierten Artikel dort");
+  // Zwei reduzierte Artikel, dann – ohne neue Seite – Überschrift und der Rest.
+  assert.equal(vorn.seiten.length, 1, "Reduziert hat keine eigene Seite");
+  assert.deepEqual(
+    vorn.seiten[0].bloecke.map((b) => b.art),
+    ["artikel", "artikel", "ueberschrift", "artikel", "artikel", "artikel"],
+  );
+  assert.equal(vorn.inhalt, null);
   assert.equal(vorn.gedruckt, 5, "nichts doppelt, nichts verloren");
 
   const aus = k.katalogAufbau(alle, e({ preisart: "laden", reduziertZuerst: false }));
@@ -309,6 +315,32 @@ pruefe("Reduzierte Ware steht vorn als eigener Abschnitt, auf Wunsch nicht", () 
 
   const ohne = k.katalogAufbau(alle, e({ preisart: "ohne" }));
   assert.ok(ohne.seiten.every((x) => x.kategorie !== "Reduziert"), "ohne Preise keine Reduzierung");
+});
+
+pruefe("Bald im Sortiment: eigener Abschnitt ganz hinten, ohne Reduzierung", () => {
+  const normal = viele(3);
+  const kommend = viele(2, { kategorieId: "k2", kategorie: "Spielwaren", kategorieSlug: "spielwaren", kategorieRang: 2, vorher: 9.99, laden: 5.99 });
+  const aufbau = k.katalogAufbau(
+    [...kommend, ...normal],
+    e({ preisart: "laden" }),
+    new Set(kommend.map((a) => a.id)),
+  );
+  const letzte = aufbau.seiten[aufbau.seiten.length - 1];
+  assert.equal(letzte.kategorie, k.BALD_TITEL);
+  assert.equal(letzte.kategorieSlug, k.BALD_SLUG);
+  assert.equal(letzte.bloecke.length, 2);
+  assert.ok(aufbau.seiten.every((x) => x.kategorieSlug !== k.REDUZIERT_SLUG), "kommende Ware ist nie reduziert");
+  assert.equal(aufbau.gedruckt, 5);
+  assert.equal(k.katalogAufbau([...kommend, ...normal], e({ preisart: "laden" })).seiten.some((x) => x.kategorieSlug === k.BALD_SLUG), false, "ohne Markierung kein Abschnitt");
+});
+
+pruefe("Verfügbare Menge: Schalter, ausverkauft, kommende Ware ohne Bestand", () => {
+  const a = artikel({ bestand: 1200 });
+  assert.equal(k.bestandText(a, e()), "1.200 Stk. verfügbar");
+  assert.equal(k.bestandText(a, e({ zeigeBestand: false })), "");
+  assert.equal(k.bestandText(artikel({ bestand: 0 }), e()), "ausverkauft");
+  const [bald] = k.baldZuordnen([a], new Set([a.id]));
+  assert.equal(k.bestandText(bald, e()), "");
 });
 
 let fehler = 0;

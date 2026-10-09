@@ -21,6 +21,7 @@ type Aendern = <F extends KatalogFeld & keyof KatalogEinstellungen>(
 
 const SCHALTER_ARTIKEL = [
   ["zeigeBarcode", "Strichcode (EAN)"],
+  ["zeigeBestand", "Verfügbare Menge"],
   ["zeigeKennzeichen", "Neu, Topseller, Reduzierung"],
   ["zeigeMerkmale", "Merkmale"],
   ["zeigeBeschreibung", "Beschreibung"],
