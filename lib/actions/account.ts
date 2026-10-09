@@ -265,3 +265,38 @@ export async function profilSpaeter(formData: FormData): Promise<void> {
 
   redirect(innererPfad(formData.get("weiter"), "/shop"));
 }
+
+
+export interface NewsletterState {
+  error?: string;
+  success?: string;
+}
+
+/**
+ * Newsletter an- oder abbestellen. Die Einwilligung kommt nur vom Kunden
+ * selbst und wird mit Zeitpunkt festgehalten (Migration 065).
+ */
+export async function setNewsletter(
+  _prevState: NewsletterState,
+  formData: FormData,
+): Promise<NewsletterState> {
+  const user = await requireUser("/account");
+  const an = formData.get("newsletter") === "on";
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("users")
+    .update(
+      an
+        ? { newsletter_abo: true, newsletter_abo_at: new Date().toISOString() }
+        : { newsletter_abo: false, newsletter_abgemeldet_at: new Date().toISOString() },
+    )
+    .eq("id", user.id);
+  if (error) {
+    console.error("[konto] Newsletter:", error.message);
+    return { error: "Die Einstellung konnte nicht gespeichert werden." };
+  }
+
+  revalidatePath("/account");
+  return { success: an ? "Sie erhalten jetzt unseren Newsletter." : "Newsletter abbestellt." };
+}

@@ -57,6 +57,8 @@ const MAINTENANCE_EXEMPT_PREFIXES = [
   "/faq",
   "/kontakt",
   "/versand",
+  // Abmeldelink und Bilder des Newsletters müssen in jeder Mail funktionieren.
+  "/newsletter",
 ];
 
 export async function proxy(request: NextRequest) {

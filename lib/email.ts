@@ -10,6 +10,11 @@ import { Resend } from "resend";
 
 let client: Resend | null = null;
 
+/** Für den Newsletter-Versand (Batch-Aufruf mit eigenen Kopfzeilen). */
+export function getResendClient(): Resend | null {
+  return getClient();
+}
+
 function getClient(): Resend | null {
   if (!process.env.RESEND_API_KEY) return null;
   if (!client) client = new Resend(process.env.RESEND_API_KEY);

@@ -612,3 +612,52 @@ Migration 062. Gilt für Konten, die der Admin anlegt.
   - vor jeder Bestellung zwingend: `/checkout` leitet dorthin, und
     `createOrder()` weist ohne diese Angaben ab (serverseitig).
   - Admins sind ausgenommen. Die Kundenakte zeigt „Angaben unvollständig“.
+
+---
+
+## 📰 Newsletter
+
+Migration 065, `/admin/newsletter`. Kunden abonnieren selbst; der Admin baut
+den Newsletter aus Bausteinen und schickt ihn über Resend an alle Abonnenten.
+
+- **Abo**: `users.newsletter_abo` (+ Zeitpunkt der Einwilligung und der
+  Abmeldung). Häkchen bei der Registrierung (freiwillig, nie vorangekreuzt) und
+  im Konto unter „Newsletter“. **Der Admin trägt niemanden ein** – die
+  Einwilligung muss vom Kunden kommen. Empfänger: aktive Kundenkonten mit Abo.
+- **Abmelden** ohne Login: signierter Link in jeder Mail
+  (`lib/newsletter-token.ts`, HMAC, läuft nie ab). Der Link zeigt nur eine Seite
+  mit Knopf (`/newsletter/abmelden`) – Mail-Scanner rufen Links vorab ab und
+  dürfen nichts auslösen. Zusätzlich `List-Unsubscribe` + `-Post` (Ein-Klick,
+  `/newsletter/abmelden/eintrag`, nur POST). `/newsletter` ist auch im
+  Wartungsmodus erreichbar.
+- **Dokument** (`lib/newsletter.ts`): Betreff, Vorschautext, Bausteine –
+  Überschrift, Text (`**fett**`, `[Text](Link)`), Bild (Upload nach
+  `newsletter/` im Bucket products), ausgewählte Artikel, **Artikel automatisch**
+  (Neuheiten / Reduziert / Topseller, beim Senden gezogen: aktiv, lieferbar, mit
+  Foto), Knopf, Hinweiskasten, Trennlinie. Das Layout ist fest
+  (`lib/newsletter-mail.ts`): Bausteine füllen es nur. Links sind auf Shop-Pfade,
+  https, mailto, tel beschränkt.
+- **Editor**: Autospeichern, Vorschau ist dasselbe HTML wie der Versand (Route
+  `/admin/newsletter/[id]/vorschau`, im iframe als `srcDoc`, Desktop/Handy).
+  Testmail an die eigene Adresse. Nach dem Senden ist der Newsletter gesperrt;
+  `sent_html` hält den Stand fest.
+- **Bilder in Mails**: `/newsletter/bild?produkt=<id>` bzw. `?p=newsletter/…`
+  leitet auf eine frisch signierte Adresse weiter – eine signierte Adresse in
+  der Mail wäre nach Stunden tot.
+- **Versand** (`lib/newsletter-senden.ts`): atomar draft → sending, Empfänger
+  als Zeilen in `newsletter_deliveries`, Päckchen zu 50 per `resend.batch.send`,
+  pro Empfänger eigener Abmeldelink. **Fortsetzbar**: nach einem Abbruch
+  (Zeitbudget 240 s) „Versand fortsetzen“; keiner bekommt die Mail zweimal.
+  „Fehlgeschlagene wiederholen“ versucht gescheiterte Zustellungen neu.
+  „Verschickt“ erst, wenn mindestens eine Mail rausging.
+- **Voraussetzung**: `RESEND_API_KEY` und `EMAIL_FROM` mit verifizierter Domain.
+  Mit der Standardadresse `onboarding@resend.dev` nimmt Resend nur die eigene
+  Adresse an.
+- **Einzelversand** („An Einzelne senden“, `versendeEinzeln()`): an ausgewählte
+  Kunden und/oder freie Adressen, unabhängig vom Abo, ohne den Status des
+  Newsletters zu ändern (auch bei schon verschickten). Kunden bekommen ihren
+  Abmeldelink, Adressen ohne Konto die Fußzeile „persönlich zugeschickt“.
+  Höchstens 200 je Versand. Wer den Newsletter schon erhalten hat, wird
+  übersprungen – auch später beim Versand an alle (gleiche Zeile in
+  `newsletter_deliveries`). Die Oberfläche warnt bei Nicht-Abonnenten: Werbung
+  braucht Einwilligung oder einen persönlichen Anlass.

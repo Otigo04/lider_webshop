@@ -136,6 +136,14 @@ export function RegisterForm() {
         </Label>
       </div>
 
+      <div className="flex items-start gap-3">
+        <Checkbox id="newsletter" name="newsletter" className="mt-0.5" />
+        <Label htmlFor="newsletter" className="font-normal leading-relaxed">
+          Newsletter mit Neuheiten und Angeboten per E-Mail erhalten (freiwillig,
+          jederzeit abbestellbar).
+        </Label>
+      </div>
+
       {state.error ? (
         <p
           role="alert"

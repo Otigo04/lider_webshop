@@ -1,20 +1,29 @@
 import type { Metadata } from "next";
-import { KeyRound, MapPin, User } from "lucide-react";
+import { KeyRound, MapPin, Newspaper, User } from "lucide-react";
 import {
   AddressForm,
   PasswordForm,
   ProfileForm,
 } from "@/components/forms/account-forms";
+import { NewsletterForm } from "@/components/forms/newsletter-form";
 import { Button } from "@/components/ui/button";
 import { accentIndex } from "@/lib/accent-colors";
 import { signOut } from "@/lib/actions/auth";
 import { requireUser } from "@/lib/auth";
 import { formatDate } from "@/lib/format";
+import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Konto" };
 
 export default async function AccountPage() {
   const user = await requireUser("/account");
+
+  // Fehlt die Spalte noch (Migration 065), erscheint der Abschnitt nicht.
+  const { data: newsletter } = await (await createClient())
+    .from("users")
+    .select("newsletter_abo")
+    .eq("id", user.id)
+    .maybeSingle();
 
   const name = user.company_name || user.full_name || user.email;
   const initialen = name
@@ -85,6 +94,20 @@ export default async function AccountPage() {
           <AddressForm user={user} />
         </div>
       </section>
+
+      {newsletter ? (
+        <section className="mt-6 rounded-md border border-border p-6">
+          <div className="flex items-center gap-3">
+            <span className="tag-2 flex size-8 items-center justify-center rounded-md">
+              <Newspaper className="size-4" aria-hidden />
+            </span>
+            <h2 className="font-medium">Newsletter</h2>
+          </div>
+          <div className="mt-4">
+            <NewsletterForm abonniert={Boolean(newsletter.newsletter_abo)} />
+          </div>
+        </section>
+      ) : null}
 
       <section className="mt-6 rounded-md border border-border p-6">
         <div className="flex items-center gap-3">

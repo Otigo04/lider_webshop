@@ -261,6 +261,16 @@ export async function signUp(
   await createVerification(data.user.id, "selbst");
   await sendVerification(data.user.id);
 
+  // Newsletter: freiwillig, Einwilligung mit Zeitpunkt (Migration 065). Fehlt
+  // die Spalte noch, scheitert nur dieses Update – die Registrierung gilt.
+  if (formData.get("newsletter") === "on") {
+    const { error: nlFehler } = await admin
+      .from("users")
+      .update({ newsletter_abo: true, newsletter_abo_at: new Date().toISOString() })
+      .eq("id", data.user.id);
+    if (nlFehler) console.error("[auth] Newsletter-Häkchen:", nlFehler.message);
+  }
+
   return {
     success:
       "Konto angelegt. Bitte bestätigen Sie Ihre E-Mail-Adresse über den Link, den wir Ihnen geschickt haben.",

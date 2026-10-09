@@ -13,6 +13,10 @@ register(
       if (spec.startsWith("@/")) {
         return next(${JSON.stringify(wurzel)} + spec.slice(2) + ".ts", ctx);
       }
+      // „server-only" wirft außerhalb von Next – für Tests ein leeres Modul.
+      if (spec === "server-only") {
+        return { url: "data:text/javascript,export {}", shortCircuit: true };
+      }
       return next(spec, ctx);
     }
   `)}`,
