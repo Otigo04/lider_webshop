@@ -131,9 +131,9 @@ Grundlage: `supabase/migrations/029_bestellablauf.sql`.
 ## 🏠 Aufbau der Startseite
 
 `app/page.tsx`, Daten aus `getLandingData()`. Reihenfolge:
-Schnellleiste → Kopfbereich (Auslage) → Katalogband → Warengruppen → **Reduziert** →
-Sortiment mit Reitern je Warengruppe → Neu und gefragt (Neuheiten und
-Topseller nebeneinander) → Portalvorteile → **Häufige Fragen** → Über uns →
+Schnellleiste → Kopfbereich (Auslage) → Katalogband → **Neuheiten** →
+Warengruppen → **Reduziert** → Sortiment mit Reitern je Warengruppe →
+Gefragt (Topseller) → Portalvorteile → **Häufige Fragen** → Über uns →
 Kontakt.
 
 - **Jeder Abschnitt eine eigene Fläche** (Navy, Blau getönt, Rot getönt,
@@ -145,9 +145,14 @@ Kontakt.
   `reduzierung()` übrig lässt.
 - **Sortiment-Reiter** (`components/sortiment-tabs.tsx`): Karten rendert der
   Server, der Client schaltet nur um. Keine Artikeldaten als JSON im Browser.
-- **Neuheiten und Topseller als Listenzeilen** (`components/catalog-row.tsx`)
-  nebeneinander – zwei kurze Listen füllen eine Zeile, zwei Bahnen wären
-  zweimal Leerraum.
+- **Neuheiten** stehen über den Warengruppen: bis zu sechs `CatalogCard`-Kacheln
+  (3 × 2, auf dem Handy 2 × 3), neueste zuerst. Ohne Neuheiten entfällt der
+  Abschnitt. „Neu" entscheidet allein `istNeu()` (Flag oder frisch aufgenommen).
+- **Neues steht im Sortiment zuerst** (`lib/startseite.ts`): im Reiter „Alle"
+  erst alle Neuheiten, danach reihum die Warengruppen; in den Gruppenreitern
+  Neues vor dem Rest. Ein Artikel steht nie doppelt.
+- **Topseller als Listenzeilen** (`components/catalog-row.tsx`) im Abschnitt
+  „Gefragt". Die Neuheiten stehen nicht noch einmal dort.
 - **Angemeldete Kunden** sehen statt Registrierungsaufrufen „Meine
   Bestellungen" und „Zum Warenkorb".
 - **Häufige Fragen** stehen vor „Über uns": die wichtigsten acht offen, der

@@ -6,6 +6,7 @@ import { getImageUrls } from "@/lib/storage";
 import { NEU_TAGE, istNeu } from "@/lib/product-flags";
 import { reduzierung } from "@/lib/pricing";
 import { gruppiere } from "@/lib/product-groups";
+import { neuZuerst, querschnitt } from "@/lib/startseite";
 import { sucheWortweise } from "@/lib/search";
 import type {
   Category,
@@ -584,9 +585,12 @@ export async function getLandingData(perSection = 8): Promise<LandingData> {
   // "Neu" ist nicht nur das Flag, sondern auch das Aufnahmedatum – siehe
   // lib/product-flags.ts. Deshalb hier über istNeu() filtern, nicht über
   // row.is_new.
-  const hervorgehoben = rows
-    .filter((row) => istNeu(row) || row.is_topseller)
-    .slice(0, perSection * 2);
+  // Eigene Listen für Neuheiten und Topseller (rows ist nach Aufnahmedatum
+  // absteigend sortiert, die neuesten stehen also vorn). Gemeinsame Obergrenze
+  // statt eines Topfs: sonst verdrängten viele Topseller die Neuheiten.
+  const neuZeilen = rows.filter((row) => istNeu(row)).slice(0, perSection);
+  const topZeilen = rows.filter((row) => row.is_topseller).slice(0, perSection);
+  const hervorgehoben = [...new Map([...neuZeilen, ...topZeilen].map((row) => [row.id, row])).values()];
   const bandZeilen = rows.slice(0, 10);
 
   /*
@@ -614,9 +618,8 @@ export async function getLandingData(perSection = 8): Promise<LandingData> {
     ...mische(rows.filter((row) => !beworben(row))),
   ].slice(0, 16);
 
-  // Querschnitt: reihum eine Warengruppe nach der anderen, damit das
-  // Schaufenster die Breite des Sortiments zeigt und nicht nur die Gruppe,
-  // in der zuletzt eingepflegt wurde.
+  // Reihum eine Warengruppe nach der anderen, damit das Schaufenster die
+  // Breite des Sortiments zeigt – aber Neues steht immer zuerst.
   const nachGruppe = new Map<string, typeof rows>();
   for (const row of rows) {
     const gruppe = row.category_id;
@@ -624,21 +627,15 @@ export async function getLandingData(perSection = 8): Promise<LandingData> {
     liste.push(row);
     nachGruppe.set(gruppe, liste);
   }
-  const sortimentZeilen: typeof rows = [];
-  for (let runde = 0; sortimentZeilen.length < 12; runde += 1) {
-    let nachgelegt = false;
-    for (const liste of nachGruppe.values()) {
-      if (liste.length <= runde) continue;
-      sortimentZeilen.push(liste[runde]);
-      nachgelegt = true;
-      if (sortimentZeilen.length >= 12) break;
-    }
-    if (!nachgelegt) break;
-  }
+  const sortimentZeilen = querschnitt(rows, (row) => istNeu(row), 12);
 
   // Reiter je Warengruppe: die ersten acht jeder Gruppe (rows ist nach
   // Aufnahmedatum absteigend sortiert).
   const JE_GRUPPE = 8;
+  // Je Gruppe steht Neues vor dem Rest.
+  for (const [gruppe, liste] of nachGruppe) {
+    nachGruppe.set(gruppe, neuZuerst(liste, (row) => istNeu(row)));
+  }
   const gruppenZeilen = [...nachGruppe.values()].flatMap((liste) =>
     liste.slice(0, JE_GRUPPE),
   );
@@ -696,7 +693,6 @@ export async function getLandingData(perSection = 8): Promise<LandingData> {
     };
   };
 
-  const items = hervorgehoben.map(zuArtikel);
 
   /*
    * Ohne Foto taugt ein Artikel nicht fürs Schaufenster. Danach in zwei Töpfe:
@@ -745,8 +741,8 @@ export async function getLandingData(perSection = 8): Promise<LandingData> {
     .map((eintrag) => eintrag.product);
 
   return {
-    neuheiten: items.filter((p) => istNeu(p)).slice(0, perSection),
-    topseller: items.filter((p) => p.is_topseller).slice(0, perSection),
+    neuheiten: neuZeilen.map(zuArtikel),
+    topseller: topZeilen.map(zuArtikel),
     categories: categories.map((category, index) => ({
       ...category,
       productCount: proKategorie.get(category.id) ?? 0,

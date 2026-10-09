@@ -42,8 +42,8 @@ import { cn } from "@/lib/utils";
  * Startseite.
  *
  * Aufbau folgt dem Weg des Einkäufers: Kopfbereich mit Auslage, dann die
- * Warengruppen als Einstieg, danach was gerade reduziert ist, der Querschnitt
- * des Sortiments nach Warengruppe, Neuheiten und Topseller. Erklärung zum
+ * Neuheiten, die Warengruppen als Einstieg, danach was gerade reduziert ist,
+ * der Querschnitt des Sortiments (Neues zuerst) und die Topseller. Erklärung zum
  * Portal, Betrieb und Kontakt stehen am Ende – wer einkaufen will, sieht Ware,
  * bevor er Fließtext sieht.
  *
@@ -384,6 +384,35 @@ export default async function HomePage() {
       {/* ------------------------------------------------------- Katalogband */}
       <CatalogTicker items={ticker} />
 
+      {/* --------------------------------------------------------- Neuheiten */}
+      {/* Vor den Warengruppen: was hereingekommen ist, ist der erste Grund,
+          die Seite aufzurufen. Sechs Kacheln – drei mal zwei, auf dem Handy
+          zwei mal drei – mit Foto und Neu-Badge. */}
+      {neuheiten.length > 0 ? (
+        <section className="border-b border-border bg-background">
+          <div className="mx-auto max-w-6xl px-4 py-16">
+            <Reveal>
+              <Kopf
+                eyebrow="Frisch im Sortiment"
+                titel="Neuheiten"
+                link={{ href: "/shop/neuheiten", label: "Alle Neuheiten" }}
+              />
+            </Reveal>
+            <Reveal delay={80} className="mt-8">
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                {neuheiten.slice(0, 6).map((product) => (
+                  <CatalogCard
+                    key={product.id}
+                    product={product}
+                    className="w-full"
+                  />
+                ))}
+              </div>
+            </Reveal>
+          </div>
+        </section>
+      ) : null}
+
       {/* ------------------------------------------------------ Warengruppen */}
       {categories.length > 0 ? (
         <section className="dot-grid-dark border-b border-border bg-brand-soft">
@@ -523,60 +552,31 @@ export default async function HomePage() {
         </section>
       ) : null}
 
-      {/* ----------------------------------------------- Neuheiten & Topseller */}
-      {neuheiten.length > 0 || topseller.length > 0 ? (
+      {/* ------------------------------------------------------------ Topseller */}
+      {/* Neuheiten haben ihren eigenen Abschnitt über den Warengruppen. */}
+      {topseller.length > 0 ? (
         <section className="bg-gradient-to-b from-gold-soft to-[#fbe7c6]">
           <div className="mx-auto max-w-6xl px-4 py-16">
             <Reveal>
-              <Kopf eyebrow="Was sich bewegt" titel="Neu und gefragt" />
+              <Kopf eyebrow="Was sich bewegt" titel="Gefragt" />
             </Reveal>
 
-            {/* Nebeneinander statt untereinander: zwei kurze Listen füllen eine
-                Zeile, zwei lange Bahnen hießen zweimal scrollen. */}
-            <div
-              className={cn(
-                "mt-8 grid gap-5",
-                neuheiten.length > 0 && topseller.length > 0 && "lg:grid-cols-2",
-              )}
-            >
-              {neuheiten.length > 0 ? (
-                <Reveal delay={60} className="flex min-w-0">
-                  <ListenPanel
-                    icon={Sparkles}
-                    titel="Neuheiten"
-                    text="Zuletzt ins Sortiment aufgenommen."
-                    href="/shop/neuheiten"
-                    linkText="Alle Neuheiten"
-                    kopfKlasse="bg-gold-bright text-surface-dark"
-                  >
-                    {neuheiten.slice(0, 5).map((product) => (
-                      <li key={product.id}>
-                        <CatalogRow product={product} />
-                      </li>
-                    ))}
-                  </ListenPanel>
-                </Reveal>
-              ) : null}
-
-              {topseller.length > 0 ? (
-                <Reveal delay={120} className="flex min-w-0">
-                  <ListenPanel
-                    icon={TrendingUp}
-                    titel="Topseller"
-                    text="Regelmäßig nachbestellt – Bestände bewusst hoch."
-                    href="/shop/topseller"
-                    linkText="Alle Topseller"
-                    kopfKlasse="bg-surface-dark text-surface-dark-foreground"
-                  >
-                    {topseller.slice(0, 5).map((product, index) => (
-                      <li key={product.id}>
-                        <CatalogRow product={product} rang={index + 1} />
-                      </li>
-                    ))}
-                  </ListenPanel>
-                </Reveal>
-              ) : null}
-            </div>
+            <Reveal delay={60} className="mt-8 flex min-w-0">
+              <ListenPanel
+                icon={TrendingUp}
+                titel="Topseller"
+                text="Regelmäßig nachbestellt – Bestände bewusst hoch."
+                href="/shop/topseller"
+                linkText="Alle Topseller"
+                kopfKlasse="bg-surface-dark text-surface-dark-foreground"
+              >
+                {topseller.slice(0, 5).map((product, index) => (
+                  <li key={product.id}>
+                    <CatalogRow product={product} rang={index + 1} />
+                  </li>
+                ))}
+              </ListenPanel>
+            </Reveal>
           </div>
         </section>
       ) : null}
