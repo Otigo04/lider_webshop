@@ -158,6 +158,17 @@ export async function updateInvoiceStatus(
   }
 
   const supabase = await createClient();
+
+  // Eine Stornierung ist endgültig: die Stornorechnung ist ausgestellt.
+  const { data: aktuell } = await supabase
+    .from("invoices")
+    .select("status")
+    .eq("id", parsed.data.id)
+    .maybeSingle();
+  if (aktuell?.status === "cancelled") {
+    return { error: "Die Rechnung ist storniert und lässt sich nicht mehr ändern." };
+  }
+
   const { error } = await supabase
     .from("invoices")
     .update({

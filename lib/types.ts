@@ -11,7 +11,8 @@ export type OrderStatus =
   | "confirmed"
   | "ready"
   | "shipped"
-  | "delivered";
+  | "delivered"
+  | "cancelled";
 
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   draft: "Entwurf",
@@ -20,6 +21,7 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   ready: "Abholbereit",
   shipped: "Versandt",
   delivered: "Geliefert",
+  cancelled: "Storniert",
 };
 
 export type DeliveryMethod = "pickup" | "shipping";
@@ -309,12 +311,13 @@ export const ACCESS_REQUEST_STATUS_LABELS: Record<AccessRequestStatus, string> =
   done: "Erledigt",
 };
 
-export type InvoiceStatus = "open" | "paid" | "overdue";
+export type InvoiceStatus = "open" | "paid" | "overdue" | "cancelled";
 
 export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
   open: "Offen",
   paid: "Bezahlt",
   overdue: "Überfällig",
+  cancelled: "Storniert",
 };
 
 export type InvoiceType = "order" | "manual" | "pos";
@@ -340,6 +343,11 @@ export interface Invoice {
   issued_at: string;
   paid_at: string | null;
   created_at: string;
+  /** Stornorechnung (Migration 064): Nummer, Zeitpunkt, Grund, PDF – nur bei status "cancelled" */
+  storno_number: string | null;
+  cancelled_at: string | null;
+  storno_reason: string | null;
+  storno_file_path: string | null;
   /** Nur befüllt, wenn per Join mitgeladen (freie Rechnungen) */
   items?: InvoiceItem[];
   customer?: AppUser;

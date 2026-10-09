@@ -588,3 +588,27 @@ Fotoverweise, Flags, Merkmale, Einkaufspreis, Katalogauswahl) nach
   (Gruppe) wird übergangen, der Artikel kommt ohne Gruppe zurück.
 - **Nicht zurück**: Verknüpfungen in Wareneingangsjournal, Bons und
   Bestellungen (die DB setzt sie beim Löschen auf NULL; dort steht der Name).
+
+---
+
+## 🔑 Startpasswort und Profil-Vervollständigung
+
+Migration 062. Gilt für Konten, die der Admin anlegt.
+
+- **Startpasswort bleibt sichtbar**, bis der Kunde sein eigenes vergibt:
+  `customer_start_passwords` (AES-256-GCM, `lib/start-password.ts`, Schlüssel
+  aus `SUPABASE_SERVICE_KEY`), gelesen nur serverseitig nach `requireAdmin()`.
+  Die Kundenakte zeigt es in der `StartPasswordBox` samt Text zum Weitergeben
+  und ein Kennzeichen „Passwort noch nicht geändert“. Gelöscht wird es zentral
+  in `clearMustChangePassword()`. Konten von vor der Migration haben keins
+  gespeichert – dort „Passwort“ in der Kundenakte neu erzeugen.
+- **Passwortzwang** wie bisher: `app_metadata.must_change_password` →
+  `proxy.ts` leitet auf `/passwort-aendern`.
+- **Pflichtangaben** (`lib/profil.ts`, `profilLuecken()`): Ansprechpartner,
+  Firma, Straße, PLZ, Ort – dieselben wie bei der Registrierung. Fehlen welche:
+  - nach dem ersten Login einmal `/account/vervollstaendigen` (`zielNachLogin()`
+    in `lib/profil-ziel.ts`, Merker `users.profil_erinnert_at`); „Später
+    ausfüllen“ ist möglich;
+  - vor jeder Bestellung zwingend: `/checkout` leitet dorthin, und
+    `createOrder()` weist ohne diese Angaben ab (serverseitig).
+  - Admins sind ausgenommen. Die Kundenakte zeigt „Angaben unvollständig“.

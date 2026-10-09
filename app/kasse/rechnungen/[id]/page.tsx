@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
+import { StornoBereich } from "@/components/admin/storno-bereich";
 import { InvoiceStatusSelect } from "@/components/admin/invoice-status-select";
 import { formatDate, formatPrice, formatQuantity } from "@/lib/format";
 import { getAdminInvoiceDetail } from "@/lib/queries/admin";
@@ -40,8 +41,17 @@ export default async function AdminInvoiceDetailPage({
         <h1 className="text-2xl font-semibold tracking-tight tabular">
           {invoice.invoice_number}
         </h1>
-        <InvoiceStatusSelect invoiceId={invoice.id} status={invoice.status} />
+        <div className="flex flex-wrap items-center gap-2">
+          <InvoiceStatusSelect invoiceId={invoice.id} status={invoice.status} />
+          {invoice.status === "cancelled" ? null : <StornoBereich invoice={invoice} />}
+        </div>
       </div>
+
+      {invoice.status === "cancelled" ? (
+        <div className="mt-4 max-w-xl">
+          <StornoBereich invoice={invoice} />
+        </div>
+      ) : null}
 
       <dl className="mt-6 grid gap-4 text-sm sm:grid-cols-3 lg:grid-cols-4">
         <div>

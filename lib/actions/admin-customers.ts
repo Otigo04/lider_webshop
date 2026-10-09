@@ -6,6 +6,7 @@ import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { saveStartPassword } from "@/lib/start-password";
 import {
   createVerification,
   markUnverified,
@@ -157,6 +158,8 @@ export async function createCustomer(
     console.error("[admin] Kundenprofil:", profileError.message);
   }
 
+  await saveStartPassword(data.user.id, password);
+
   // Konto bleibt gesperrt, bis der Kunde den Link klickt. Die Mail geht erst
   // auf Knopfdruck in der Kundenakte raus; das Startpasswort liegt bis dahin
   // verschlüsselt in email_verifications und geht nach dem Klick per Mail raus.
@@ -274,6 +277,8 @@ export async function resetCustomerPassword(
     console.error("[admin] Passwort zurücksetzen:", error.message);
     return { error: "Das Passwort konnte nicht zurückgesetzt werden." };
   }
+
+  await saveStartPassword(id, password);
 
   // Noch unbestätigtes Konto: die spätere Zugangsmail soll das neue Passwort nennen.
   await updatePendingPassword(id, password);

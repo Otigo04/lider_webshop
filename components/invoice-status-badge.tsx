@@ -9,6 +9,7 @@ export const INVOICE_STATUS_STYLES: Record<InvoiceStatus, string> = {
   open: "border-brand/40 bg-brand/10 text-brand",
   paid: "border-success/40 bg-success/10 text-success",
   overdue: "border-signal/40 bg-signal-soft text-signal",
+  cancelled: "border-border bg-muted text-muted-foreground line-through",
 };
 
 export function InvoiceStatusBadge({

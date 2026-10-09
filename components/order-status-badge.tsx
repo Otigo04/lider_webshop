@@ -14,6 +14,7 @@ export const ORDER_STATUS_STYLES: Record<OrderStatus, string> = {
   ready: "border-success/40 bg-success/10 text-success",
   shipped: "border-warning/40 bg-warning/10 text-warning",
   delivered: "border-success/40 bg-success/10 text-success",
+  cancelled: "border-signal/40 bg-signal-soft text-signal",
 };
 
 const STATUS_STYLES = ORDER_STATUS_STYLES;
@@ -27,6 +28,7 @@ export function orderStatusAccent(status: OrderStatus): string {
     ready: "border-l-success",
     shipped: "border-l-warning",
     delivered: "border-l-success",
+    cancelled: "border-l-signal",
   };
   return accents[status];
 }

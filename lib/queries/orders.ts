@@ -1,4 +1,6 @@
 import "server-only";
+import { INVOICE_BUCKET } from "@/lib/constants";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { freeStock, minOrderQuantity } from "@/lib/pricing";
 import { firstImagePath } from "@/lib/queries/products";
@@ -218,4 +220,30 @@ export async function getInvoiceForOrder(orderId: string): Promise<Invoice | nul
     return null;
   }
   return (data as Invoice) ?? null;
+}
+
+/**
+ * Kassenbeleg-PDF zu einer nachträglich zugeordneten Bestellung (Migration
+ * 063). Der Aufrufer hat die Bestellung vorher über getOrder() geladen – das
+ * ist die Prüfung, dass sie dem angemeldeten Kunden gehört; fremde
+ * Bestellungen liefert RLS gar nicht erst aus. Erst danach wird mit dem
+ * Service-Key signiert, weil Kunden den Ordner pos/ im Speicher nicht lesen
+ * dürfen. null, wenn die Bestellung nicht aus einem Kassenverkauf stammt.
+ */
+export async function getBelegUrlFuerBestellung(
+  verifizierteBestellungId: string,
+): Promise<{ nummer: string; url: string } | null> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("pos_sales")
+    .select("receipt_number, file_path")
+    .eq("order_id", verifizierteBestellungId)
+    .maybeSingle();
+  // Spalte order_id fehlt (Migration 063 offen) oder kein Beleg: nichts zeigen.
+  if (error || !data?.file_path) return null;
+
+  const { data: signiert } = await admin.storage
+    .from(INVOICE_BUCKET)
+    .createSignedUrl(data.file_path as string, 60 * 60);
+  return signiert ? { nummer: data.receipt_number as string, url: signiert.signedUrl } : null;
 }

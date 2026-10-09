@@ -1,4 +1,5 @@
 import "server-only";
+import { deleteStartPassword } from "@/lib/start-password";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
@@ -14,5 +15,8 @@ export async function clearMustChangePassword(userId: string) {
   });
   if (error) {
     console.error("[auth] Passwortzwang zurücknehmen:", error.message);
+    return;
   }
+  // Das Startpasswort gilt nicht mehr – es soll auch nirgends mehr lesbar sein.
+  await deleteStartPassword(userId);
 }

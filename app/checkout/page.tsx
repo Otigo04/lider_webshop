@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { CheckoutForm } from "@/components/forms/checkout-form";
 import { requireUser } from "@/lib/auth";
+import { profilLuecken } from "@/lib/profil";
 import { getCompanySettings } from "@/lib/queries/settings";
 import { getMeineKondition } from "@/lib/queries/vouchers";
 
@@ -13,6 +15,10 @@ export const metadata: Metadata = { title: "Bestellung aufgeben" };
 
 export default async function CheckoutPage() {
   const user = await requireUser("/checkout");
+  // Ohne Firma und Anschrift keine Bestellung: beides steht auf der Rechnung.
+  if (user.role === "customer" && profilLuecken(user).length > 0) {
+    redirect("/account/vervollstaendigen?weiter=/checkout");
+  }
   // Nur für die Anzeige der Bruttosumme. Verbindlich rechnet create_order()
   // mit dem Satz, den es selbst aus den Firmendaten festschreibt.
   const [company, kondition] = await Promise.all([

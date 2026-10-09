@@ -1,5 +1,6 @@
 "use client";
 
+import { OrderStatusBadge } from "@/components/order-status-badge";
 import { StatusSelect } from "@/components/admin/status-select";
 import { ORDER_STATUS_STYLES } from "@/components/order-status-badge";
 import { updateOrderStatus } from "@/lib/actions/admin-orders";
@@ -17,11 +18,20 @@ export function OrderStatusSelect({
   orderId: string;
   status: OrderStatus;
 }) {
+  // „Storniert“ entsteht nur über die Stornierung der Rechnung und lässt sich
+  // weder hier setzen noch zurücknehmen.
+  if (status === "cancelled") return <OrderStatusBadge status={status} />;
+
+  const { cancelled: _weg, ...wahl } = ORDER_STATUS_LABELS;
+  const { cancelled: _weg2, ...farben } = ORDER_STATUS_STYLES;
+  void _weg;
+  void _weg2;
+
   return (
     <StatusSelect
       value={status}
-      labels={ORDER_STATUS_LABELS}
-      styles={ORDER_STATUS_STYLES}
+      labels={wahl}
+      styles={farben}
       action={updateOrderStatus}
       fields={{ id: orderId }}
       ariaLabel="Bestellstatus"

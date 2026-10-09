@@ -277,3 +277,57 @@ Namenssuche.
   fehlt. Die Datenbank setzt in `pos_sale_items.product_sku` den Strich.
 
 ---
+
+---
+
+## 🔗 Altrechnungen und Kassenverkäufe einem Kunden zuordnen
+
+Migration 063, in der Kundenakte unter „Alte Rechnungen und Kassenverkäufe
+zuordnen“ (`components/admin/zuordnung-liste.tsx`, Actions in
+`lib/actions/zuordnung.ts`). Für Belege aus der Zeit vor dem Bestellablauf: der
+Kunde sieht nur Bestellungen, also entsteht zu jedem Beleg eine.
+
+- **Freie Rechnung** (`assign_invoice_to_order`): Bestellung mit den Positionen
+  der Rechnung, Status „geliefert“, Datum der Rechnung; `invoices.order_id`
+  zeigt darauf. **Rechnungsnummer und PDF bleiben unangetastet.** Lautet die
+  Rechnung auf einen anderen Kunden, wird sie umgehängt – das PDF zeigt dann
+  weiter den alten Empfänger (der Dialog warnt). Gebrochene Mengen (2,5)
+  werden eine Position mit dem Zeilenbetrag.
+- **Kassenverkauf** (`assign_pos_sale_to_order`): Bestellung mit den Positionen,
+  Zahlart bar/Karte, Abholung; `pos_sales.order_id` zeigt darauf. Bestellungen
+  führen netto – waren die Preise brutto erfasst (Laufkunde), werden sie
+  herausgerechnet. **`pos_sales.customer_id` bleibt unverändert**: der Beleg
+  wurde als Laufkunde-Brutto gedruckt, und ein nachträgliches Konto ließe ihn
+  beim Neuzeichnen anders lesen. Der Kunde lädt den **Beleg** (nicht eine
+  Rechnung) auf der Bestellseite herunter (`getBelegUrlFuerBestellung`).
+- **Es wird nichts gebucht**: kein Bestand, keine Kasse, keine Mail. Die
+  Bestellung bekommt eine neue Bestellnummer; Rechnungs- und Belegnummern
+  bleiben.
+- Eine zugeordnete Bestellung hängt am Kunden: Umsatz und Bestellzahl in der
+  Kundenliste zählen sie mit.
+
+---
+
+## ↩️ Rechnung stornieren
+
+Migration 064, Knopf „Stornieren“ auf `/kasse/rechnungen/[id]` und in der
+Rechnungszeile von `/admin/orders/[id]` (`components/admin/storno-button.tsx`).
+
+- **Die Rechnung bleibt.** Sie wird nie gelöscht oder umgeschrieben; sie
+  bekommt den Status `cancelled`. Dazu entsteht eine **Stornorechnung** mit
+  eigener, lückenloser Nummer `LS0000001` (`storno_number_seq`), negativen
+  Beträgen und dem Bezug auf das Original (`lib/storno.ts`, abgeleitet aus
+  derselben `InvoicePdfData` wie die Rechnung – nichts wird neu gerechnet).
+- **`cancel_invoice()`** vergibt Nummer und Zeitpunkt und setzt – falls die
+  Rechnung an einer Bestellung hängt – auch die Bestellung auf `cancelled`,
+  in einer Transaktion. Danach erzeugt `lib/storno-erzeugen.ts` das PDF
+  (Bucket `invoices`, `<Rechnungs-Id>/<LS-Nummer>.pdf`, wo die Leserechte des
+  Kunden greifen) und schickt es auf Wunsch per Mail. Scheitert das PDF, bleibt
+  die Stornierung; „PDF erzeugen“ in der Rechnung holt es nach.
+- **Nicht rückgängig zu machen.** Ein Irrtum wird mit einer neuen Rechnung
+  korrigiert. Status und Bestellstatus lassen sich danach nicht mehr ändern.
+- **Nicht angefasst:** Bestand/Reservierung und die Erstattung. Beides macht der
+  Admin von Hand; der Dialog sagt das.
+- Stornierte Rechnungen zählen nicht mehr als offene Forderung, stornierte
+  Bestellungen nicht mehr im Kundenumsatz. Der Kunde sieht „Storniert“ und die
+  Stornorechnung auf der Bestellseite.

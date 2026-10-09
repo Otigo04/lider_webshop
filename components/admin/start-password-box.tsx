@@ -12,10 +12,13 @@ export function StartPasswordBox({
   title,
   password,
   email,
+  dauerhaft,
 }: {
   title: string;
   password: string;
   email?: string;
+  /** Passwort liegt gespeichert vor und bleibt sichtbar, bis der Kunde seins vergibt */
+  dauerhaft?: boolean;
 }) {
   const [copied, setCopied] = useState<"passwort" | "text" | null>(null);
 
@@ -57,8 +60,10 @@ export function StartPasswordBox({
         </Button>
       </div>
       <p className="mt-2 text-muted-foreground">
-        Wird nur jetzt angezeigt. Der Kunde muss beim ersten Login ein eigenes
-        Passwort vergeben.
+        {dauerhaft
+          ? "Der Kunde hat noch kein eigenes Passwort vergeben. Sobald er es tut, verschwindet das Startpasswort hier."
+          : "Wird nur jetzt angezeigt – danach steht es in der Kundenakte, bis der Kunde sein eigenes Passwort vergeben hat."}
+        {" "}Beim ersten Login muss der Kunde ein eigenes Passwort vergeben.
       </p>
     </div>
   );

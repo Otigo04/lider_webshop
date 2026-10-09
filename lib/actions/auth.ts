@@ -6,6 +6,7 @@ import { z } from "zod";
 import { sendEmail } from "@/lib/email";
 import { passwordResetEmail } from "@/lib/emails/password-reset";
 import { clearMustChangePassword } from "@/lib/password-flag";
+import { zielNachLogin } from "@/lib/profil-ziel";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { createVerification, markUnverified, sendVerification } from "@/lib/verification";
@@ -90,7 +91,9 @@ export async function signIn(
   revalidatePath("/", "layout");
 
   const fallback = profile.role === "admin" ? "/admin" : "/shop";
-  redirect(safeRedirect(redirectTo, fallback));
+  redirect(
+    await zielNachLogin(supabase, data.user.id, safeRedirect(redirectTo, fallback)),
+  );
 }
 
 export interface SignUpState {
@@ -427,5 +430,6 @@ export async function setFirstPassword(
 
   await clearMustChangePassword(user.id);
   revalidatePath("/", "layout");
-  redirect("/shop");
+  // Erster Login eines vom Admin angelegten Kontos: erst fehlende Angaben.
+  redirect(await zielNachLogin(supabase, user.id, "/shop"));
 }

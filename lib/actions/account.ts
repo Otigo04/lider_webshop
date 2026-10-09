@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth";
 import { clearMustChangePassword } from "@/lib/password-flag";
@@ -166,4 +167,101 @@ export async function changePassword(
   await clearMustChangePassword(user.id);
 
   return { success: "Passwort geändert." };
+}
+
+
+/** Nur interne Pfade – ein präparierter Link darf nicht nach außen weiterleiten. */
+function innererPfad(ziel: FormDataEntryValue | null, fallback: string): string {
+  const pfad = typeof ziel === "string" ? ziel : "";
+  return pfad.startsWith("/") && !pfad.startsWith("//") ? pfad : fallback;
+}
+
+const vervollstaendigenSchema = z.object({
+  full_name: z.string().trim().min(1, "Der Ansprechpartner fehlt").max(120),
+  company_name: z.string().trim().min(1, "Die Firma fehlt").max(120),
+  vat_id: z.string().trim().max(40).optional(),
+  billing_street: z.string().trim().min(1, "Straße und Hausnummer fehlen").max(200),
+  billing_zip: z.string().trim().min(1, "Die PLZ fehlt").max(20),
+  billing_city: z.string().trim().min(1, "Der Ort fehlt").max(120),
+  billing_country: z.string().trim().min(1).max(80),
+  // Netto-Preise gelten nur gegenüber Gewerbetreibenden – wie bei der
+  // Registrierung wird das ausdrücklich bestätigt.
+  gewerbe: z.literal(true, {
+    message: "Bitte bestätigen Sie, dass Sie als Gewerbetreibender bestellen",
+  }),
+});
+
+/**
+ * Fehlende Profilangaben nachtragen (von der Kundenakte des Admins angelegte
+ * Konten). Dieselben Pflichtfelder wie die Registrierung (lib/profil.ts). Die
+ * Lieferadresse wird mit der Rechnungsadresse gefüllt, wenn noch keine
+ * gepflegt ist – eine abweichende ändert der Kunde im Konto.
+ */
+export async function vervollstaendigeProfil(
+  _prevState: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const user = await requireUser("/account/vervollstaendigen");
+
+  const parsed = vervollstaendigenSchema.safeParse({
+    full_name: formData.get("full_name"),
+    company_name: formData.get("company_name"),
+    vat_id: formData.get("vat_id") || undefined,
+    billing_street: formData.get("billing_street"),
+    billing_zip: formData.get("billing_zip"),
+    billing_city: formData.get("billing_city"),
+    billing_country: formData.get("billing_country") || "Deutschland",
+    gewerbe: formData.get("gewerbe") === "on",
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0].message };
+  }
+  const d = parsed.data;
+
+  const hatVersand = Boolean(user.shipping_street && user.shipping_zip && user.shipping_city);
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("users")
+    .update({
+      full_name: d.full_name,
+      company_name: d.company_name,
+      vat_id: d.vat_id || null,
+      billing_street: d.billing_street,
+      billing_zip: d.billing_zip,
+      billing_city: d.billing_city,
+      billing_country: d.billing_country,
+      ...(hatVersand
+        ? {}
+        : {
+            shipping_street: d.billing_street,
+            shipping_zip: d.billing_zip,
+            shipping_city: d.billing_city,
+            shipping_country: d.billing_country,
+          }),
+    })
+    .eq("id", user.id);
+
+  if (error) {
+    console.error("[konto] Vervollständigen:", error.message);
+    return { error: "Die Angaben konnten nicht gespeichert werden." };
+  }
+
+  revalidatePath("/", "layout");
+  redirect(innererPfad(formData.get("weiter"), "/shop"));
+}
+
+/**
+ * „Später ausfüllen“: die Erinnerung nach dem ersten Login entfällt. Vor der
+ * ersten Bestellung kommt sie trotzdem (Checkout und createOrder).
+ */
+export async function profilSpaeter(formData: FormData): Promise<void> {
+  const user = await requireUser("/shop");
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("users")
+    .update({ profil_erinnert_at: new Date().toISOString() })
+    .eq("id", user.id);
+  if (error) console.error("[konto] Erinnerung merken:", error.message);
+
+  redirect(innererPfad(formData.get("weiter"), "/shop"));
 }

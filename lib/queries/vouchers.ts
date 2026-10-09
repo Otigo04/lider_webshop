@@ -156,7 +156,9 @@ export async function getUmsatzJeKunde(): Promise<Map<string, KundenUmsatz>> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("orders")
-    .select("customer_id, total_amount, created_at");
+    .select("customer_id, total_amount, created_at")
+    // Stornierte Bestellungen sind kein Umsatz.
+    .neq("status", "cancelled");
 
   const map = new Map<string, KundenUmsatz>();
   if (error) {

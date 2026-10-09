@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft, Mail, Plus, Ticket } from "lucide-react";
+import { ZuordnungListe } from "@/components/admin/zuordnung-liste";
+import { StartPasswordBox } from "@/components/admin/start-password-box";
 import { ConfirmAction } from "@/components/admin/confirm-action";
 import { ResetPasswordButton } from "@/components/admin/reset-password-button";
 import { SendVerificationButton } from "@/components/admin/send-verification-button";
@@ -11,6 +13,10 @@ import { OrderStatusBadge } from "@/components/order-status-badge";
 import { Button } from "@/components/ui/button";
 import { toggleCustomerActive } from "@/lib/actions/admin-customers";
 import { requireAdmin } from "@/lib/auth";
+import { profilLuecken } from "@/lib/profil";
+import { getZuordenbares } from "@/lib/queries/zuordnung";
+import { readStartPassword } from "@/lib/start-password";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { formatDate, formatPrice } from "@/lib/format";
 import { getKundenDetail, voucherStatus } from "@/lib/queries/vouchers";
 import { gutscheinWert, satzText } from "@/lib/rabatt";
@@ -32,13 +38,23 @@ export default async function AdminCustomerPage({
 
   const { kunde, kondition, bestellungen, gutscheine } = detail;
   const name = kunde.company_name || kunde.full_name || kunde.email;
-  const umsatz = bestellungen.reduce((s, b) => s + (Number(b.total_amount) || 0), 0);
+  const umsatz = bestellungen
+    .filter((b) => b.status !== "cancelled")
+    .reduce((s, b) => s + (Number(b.total_amount) || 0), 0);
   const rabattGesamt = bestellungen.reduce(
     (s, b) =>
       s + (Number(b.customer_discount_amount) || 0) + (Number(b.voucher_discount_amount) || 0),
     0,
   );
   const satz = Number(kondition?.discount_percent ?? 0);
+
+  // Hat der Kunde sein Startpasswort noch nicht ersetzt? Das Flag steht in
+  // app_metadata des Auth-Kontos, nicht im Profil.
+  const { data: authKonto } = await createAdminClient().auth.admin.getUserById(kunde.id);
+  const startpasswortOffen = authKonto?.user?.app_metadata?.must_change_password === true;
+  const startpasswort = startpasswortOffen ? await readStartPassword(kunde.id) : null;
+  const zuordenbar = await getZuordenbares();
+  const luecken = kunde.role === "customer" ? profilLuecken(kunde) : [];
 
   return (
     <div>
@@ -67,6 +83,16 @@ export default async function AdminCustomerPage({
                 deaktiviert
               </span>
             )}
+            {startpasswortOffen ? (
+              <span className="rounded-md border border-warning/40 bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning">
+                Passwort noch nicht geändert
+              </span>
+            ) : null}
+            {luecken.length > 0 ? (
+              <span className="rounded-md border border-border bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                Angaben unvollständig
+              </span>
+            ) : null}
             {satz > 0 ? (
               <span className="rounded-md border border-gold/40 bg-gold-soft px-2 py-0.5 text-xs font-semibold text-[#7a4a10]">
                 Sonderkondition −{satzText(satz)}
@@ -114,6 +140,35 @@ export default async function AdminCustomerPage({
           )}
         </div>
       </div>
+
+      {startpasswortOffen ? (
+        <div className="mt-6 max-w-xl">
+          {startpasswort ? (
+            <StartPasswordBox
+              title="Startpasswort – der Kunde hat noch kein eigenes vergeben"
+              password={startpasswort}
+              email={kunde.email}
+              dauerhaft
+            />
+          ) : (
+            <p className="rounded-md border border-warning/40 bg-warning/10 px-3 py-3 text-sm">
+              <span className="font-medium text-warning">
+                Der Kunde hat noch kein eigenes Passwort vergeben.
+              </span>{" "}
+              Das Startpasswort ist nicht gespeichert (das Konto stammt aus der
+              Zeit davor). Über „Passwort“ oben erzeugst du ein neues – es bleibt
+              danach hier sichtbar.
+            </p>
+          )}
+        </div>
+      ) : null}
+
+      {luecken.length > 0 ? (
+        <p className="mt-4 max-w-xl text-sm text-muted-foreground">
+          Es fehlen noch: {luecken.join(", ")}. Der Kunde ergänzt sie nach dem
+          ersten Login und muss es vor der ersten Bestellung getan haben.
+        </p>
+      ) : null}
 
       <dl className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
@@ -241,6 +296,30 @@ export default async function AdminCustomerPage({
               </div>
             )}
           </section>
+
+          {kunde.role === "customer" &&
+          (zuordenbar.rechnungen.length > 0 || zuordenbar.verkaeufe.length > 0) ? (
+            <details className="rounded-md border border-border p-5">
+              <summary className="cursor-pointer font-medium">
+                Alte Rechnungen und Kassenverkäufe zuordnen
+                <span className="ml-2 text-sm font-normal text-muted-foreground tabular">
+                  {zuordenbar.rechnungen.length + zuordenbar.verkaeufe.length} offen
+                </span>
+              </summary>
+              <p className="mt-3 text-sm text-muted-foreground">
+                Belege aus der Zeit vor dem Bestellablauf. Wer sie hier einem Kunden
+                zuordnet, bekommt dafür eine Bestellung (Status „geliefert“, Datum
+                des Belegs) und sieht sie in seinem Konto.
+              </p>
+              <div className="mt-4">
+                <ZuordnungListe
+                  kundeId={kunde.id}
+                  kundeName={name}
+                  daten={zuordenbar}
+                />
+              </div>
+            </details>
+          ) : null}
         </div>
 
         <aside className="h-fit rounded-md border border-border p-5">

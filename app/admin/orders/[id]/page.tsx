@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { CreateInvoiceButton } from "@/components/admin/create-invoice-button";
 import { NotifyReadyButton } from "@/components/admin/notify-ready-button";
 import { OrderStatusSelect } from "@/components/admin/order-status-select";
+import { StornoBereich } from "@/components/admin/storno-bereich";
 import { InvoiceStatusSelect } from "@/components/admin/invoice-status-select";
 import {
   formatDate,
@@ -264,6 +265,12 @@ export default async function AdminOrderDetailPage({
           reist mit der Ware.
         </p>
 
+        {invoice?.status === "cancelled" ? (
+          <div className="mt-4 border-t border-border pt-3">
+            <StornoBereich invoice={invoice} />
+          </div>
+        ) : null}
+
         {invoice ? (
           <div className="mt-4 flex flex-wrap items-center gap-4 border-t border-border pt-3 text-sm">
             <span className="tabular">{invoice.invoice_number}</span>
@@ -277,6 +284,7 @@ export default async function AdminOrderDetailPage({
               orderId={order.id}
               status={invoice.status}
             />
+            {invoice.status === "cancelled" ? null : <StornoBereich invoice={invoice} />}
           </div>
         ) : (
           <div className="mt-4 space-y-3 border-t border-border pt-3">

@@ -6,6 +6,7 @@ import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { generateAndSendOrderInvoice } from "@/lib/actions/invoicing";
 import { composeAddress } from "@/lib/address";
+import { profilLuecken } from "@/lib/profil";
 import { normalisiereCode } from "@/lib/rabatt";
 
 export interface CheckoutState {
@@ -66,6 +67,15 @@ export async function createOrder(
   formData: FormData,
 ): Promise<CheckoutState> {
   const user = await requireUser("/checkout");
+
+  // Serverseitig, nicht nur im Seitenaufbau: ein Formular lässt sich auch
+  // ohne die Seite abschicken.
+  if (user.role === "customer" && profilLuecken(user).length > 0) {
+    return {
+      error:
+        "Bitte ergänzen Sie zuerst Ihre Firmen- und Anschriftsdaten (Konto → Angaben vervollständigen).",
+    };
+  }
 
   let rawItems: unknown;
   try {

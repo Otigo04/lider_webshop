@@ -94,7 +94,10 @@ export default async function KassePage() {
     .filter((sale) => sale.payment_method === "card")
     .reduce((summe, sale) => summe + Number(sale.total_amount), 0);
 
-  const offen = rechnungen.filter((rechnung) => rechnung.status !== "paid");
+  // Storniert ist keine Forderung mehr.
+  const offen = rechnungen.filter(
+    (rechnung) => rechnung.status === "open" || rechnung.status === "overdue",
+  );
   const offenerBetrag = offen.reduce(
     (summe, rechnung) =>
       summe +

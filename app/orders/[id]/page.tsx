@@ -13,7 +13,12 @@ import {
 import { OrderStatusBadge } from "@/components/order-status-badge";
 import { requireUser } from "@/lib/auth";
 import { formatDate, formatDateTime, formatPrice, formatQuantity } from "@/lib/format";
-import { getInvoiceForOrder, getNachbestellung, getOrder } from "@/lib/queries/orders";
+import {
+  getBelegUrlFuerBestellung,
+  getInvoiceForOrder,
+  getNachbestellung,
+  getOrder,
+} from "@/lib/queries/orders";
 import { ReorderButton } from "@/components/reorder-button";
 import { getCompanySettings } from "@/lib/queries/settings";
 import { getInvoiceUrl } from "@/lib/storage";
@@ -60,10 +65,11 @@ export default async function OrderDetailPage({
   if (!order) notFound();
 
   const items = order.items ?? [];
-  const [invoice, company, nachbestellung] = await Promise.all([
+  const [invoice, company, nachbestellung, beleg] = await Promise.all([
     getInvoiceForOrder(id),
     getCompanySettings(),
     getNachbestellung(items),
+    getBelegUrlFuerBestellung(id),
   ]);
   const invoiceUrl = await getInvoiceUrl(invoice?.file_path);
 
@@ -72,6 +78,8 @@ export default async function OrderDetailPage({
   const frischBestellt = query.neu !== undefined;
   const abholung = order.delivery_method === "pickup";
   const ueberweisung = order.payment_method === "transfer";
+  const storniert = invoice?.status === "cancelled" || order.status === "cancelled";
+  const stornoUrl = await getInvoiceUrl(invoice?.storno_file_path);
   const offen = invoice?.status !== "paid";
 
   return (
@@ -303,7 +311,12 @@ export default async function OrderDetailPage({
               {PAYMENT_METHOD_LABELS[order.payment_method]}
             </h2>
 
-            {ueberweisung ? (
+            {storniert ? (
+              <p className="mt-3 rounded-md border border-border bg-muted px-3 py-2 text-sm text-muted-foreground">
+                Diese Bestellung wurde storniert. Es ist nichts zu zahlen;
+                bereits gezahlte Beträge erstatten wir.
+              </p>
+            ) : ueberweisung ? (
               offen ? (
                 <>
                   <p className="mt-3 text-sm text-muted-foreground">
@@ -366,9 +379,12 @@ export default async function OrderDetailPage({
               )
             ) : (
               <p className="mt-3 text-sm text-muted-foreground">
-                Sie zahlen{" "}
+                {order.status === "delivered"
+                  ? "Bezahlt "
+                  : "Sie zahlen "}
                 {order.payment_method === "card" ? "mit Karte" : "bar"} bei der
-                Abholung. Vorab ist nichts zu tun.
+                Abholung.
+                {order.status === "delivered" ? "" : " Vorab ist nichts zu tun."}
               </p>
             )}
           </div>
@@ -383,6 +399,12 @@ export default async function OrderDetailPage({
                 />
                 <Zeile label="Status" value={INVOICE_STATUS_LABELS[invoice.status]} />
               </dl>
+              {invoice.status === "cancelled" && invoice.storno_number ? (
+                <Zeile
+                  label="Stornorechnung"
+                  value={<span className="code">{invoice.storno_number}</span>}
+                />
+              ) : null}
               {invoiceUrl ? (
                 <a
                   href={invoiceUrl}
@@ -397,6 +419,36 @@ export default async function OrderDetailPage({
                   PDF wird noch erzeugt …
                 </p>
               )}
+              {stornoUrl ? (
+                <a
+                  href={stornoUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-2 block text-sm text-foreground underline underline-offset-2 hover:no-underline"
+                >
+                  Stornorechnung herunterladen (PDF)
+                </a>
+              ) : null}
+            </div>
+          ) : null}
+
+          {beleg ? (
+            <div className="rounded-md border border-border p-5">
+              <h2 className="font-medium">Beleg</h2>
+              <dl className="mt-3">
+                <Zeile
+                  label="Nummer"
+                  value={<span className="code">{beleg.nummer}</span>}
+                />
+              </dl>
+              <a
+                href={beleg.url}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-3 inline-block text-sm text-foreground underline underline-offset-2 hover:no-underline"
+              >
+                Beleg herunterladen (PDF)
+              </a>
             </div>
           ) : null}
         </aside>
