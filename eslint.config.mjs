@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Fremdbibliothek, minifiziert (siehe docs/kataloge.md)
+    "public/vendor/**",
   ]),
 ]);
 

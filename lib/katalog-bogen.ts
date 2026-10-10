@@ -774,10 +774,13 @@ export function buildKatalogHtml(
   .leiste button { white-space: nowrap; }
   .leiste span { color: ${GRAU}; }
   .leiste button {
-    margin-left: auto; padding: 7px 14px;
+    padding: 7px 14px;
     font: inherit; font-weight: 600; color: #fff;
     background: ${BLAU}; border: 0; cursor: pointer;
   }
+  .leiste button:first-of-type { margin-left: auto; }
+  .leiste button.zweit { color: ${BLAU}; background: #fff; box-shadow: inset 0 0 0 1px ${BLAU}; }
+  .leiste button:disabled { opacity: .6; cursor: default; }
 
   /* --- Blatt ---------------------------------------------------------- */
   .seite {
@@ -1053,11 +1056,144 @@ export function buildKatalogHtml(
   <div class="leiste">
     <b>${esc(e.title)}</b>
     <span>${seiten.length} Seiten · ${aufbau.gedruckt} Artikel · im Druckdialog „Als PDF sichern“ wählen, Ränder „Keine“, Hintergrundgrafiken an</span>
+    <button type="button" class="zweit" id="als-bilder" title="Alle Seiten als PNG (1080 × 1920, z. B. für die WhatsApp-Story) in einem ZIP">Als Bilder (ZIP)</button>
     <button type="button" onclick="window.print()">Drucken / PDF</button>
   </div>
   <main class="l-${esc(e.layout)}">
 ${seiten.join("\n")}
   </main>
+  <script src="/vendor/html-to-image.js"></script>
+  <script>
+    // Jede Seite als PNG, 1080 × 1920 (Story-Format): die A4-Seite auf volle
+    // Breite, der Rest weiß. Alle Seiten in einem ZIP: mehrere Einzel-Downloads
+    // hintereinander lassen Browser nicht zu.
+    (function () {
+      var knopf = document.getElementById("als-bilder");
+      if (!knopf) return;
+      var TITEL = ${JSON.stringify(e.title).replace(/</g, "\\u003c")};
+      // Der weiße Rand oben trägt die Preisart: auf dem Bild fehlt sonst jeder
+      // Hinweis, wofür die Preise gelten (die Fußzeile ist dort zu klein).
+      var PREISART = ${JSON.stringify(
+        e.preisart === "ohne"
+          ? null
+          : {
+              titel: e.preisart === "grosshandel" ? "Großhandelspreise" : "Ladenpreise",
+              zusatz: preishinweis(e, firma),
+            },
+      ).replace(/</g, "\\u003c")};
+      var SCHRIFT = ${JSON.stringify(SCHRIFT).replace(/</g, "\\u003c")};
+      // ZIP ohne Kompression (PNG ist schon gepackt): lokale Köpfe, Daten,
+      // Verzeichnis, Ende. Dateinamen als UTF-8 (Bit 11).
+      var CRC = (function () {
+        var t = new Uint32Array(256);
+        for (var n = 0; n < 256; n++) {
+          var c = n;
+          for (var k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
+          t[n] = c >>> 0;
+        }
+        return t;
+      })();
+      function crc32(daten) {
+        var c = 0xFFFFFFFF;
+        for (var i = 0; i < daten.length; i++) c = CRC[(c ^ daten[i]) & 0xFF] ^ (c >>> 8);
+        return (c ^ 0xFFFFFFFF) >>> 0;
+      }
+      function zip(dateien) {
+        var jetzt = new Date();
+        var zeit = (jetzt.getHours() << 11) | (jetzt.getMinutes() << 5) | (jetzt.getSeconds() >> 1);
+        var datum = ((jetzt.getFullYear() - 1980) << 9) | ((jetzt.getMonth() + 1) << 5) | jetzt.getDate();
+        var enc = new TextEncoder();
+        var teile = [], verzeichnis = [], versatz = 0;
+        dateien.forEach(function (f) {
+          var name = enc.encode(f.name), crc = crc32(f.daten), n = f.daten.length;
+          var kopf = new DataView(new ArrayBuffer(30));
+          kopf.setUint32(0, 0x04034b50, true); kopf.setUint16(4, 20, true); kopf.setUint16(6, 0x0800, true);
+          kopf.setUint16(8, 0, true); kopf.setUint16(10, zeit, true); kopf.setUint16(12, datum, true);
+          kopf.setUint32(14, crc, true); kopf.setUint32(18, n, true); kopf.setUint32(22, n, true);
+          kopf.setUint16(26, name.length, true); kopf.setUint16(28, 0, true);
+          var eintrag = new DataView(new ArrayBuffer(46));
+          eintrag.setUint32(0, 0x02014b50, true); eintrag.setUint16(4, 20, true); eintrag.setUint16(6, 20, true);
+          eintrag.setUint16(8, 0x0800, true); eintrag.setUint16(10, 0, true);
+          eintrag.setUint16(12, zeit, true); eintrag.setUint16(14, datum, true);
+          eintrag.setUint32(16, crc, true); eintrag.setUint32(20, n, true); eintrag.setUint32(24, n, true);
+          eintrag.setUint16(28, name.length, true); eintrag.setUint32(42, versatz, true);
+          teile.push(kopf, name, f.daten);
+          verzeichnis.push(eintrag, name);
+          versatz += 30 + name.length + n;
+        });
+        var groesse = 0;
+        verzeichnis.forEach(function (v) { groesse += v.byteLength; });
+        var ende = new DataView(new ArrayBuffer(22));
+        ende.setUint32(0, 0x06054b50, true);
+        ende.setUint16(8, dateien.length, true); ende.setUint16(10, dateien.length, true);
+        ende.setUint32(12, groesse, true); ende.setUint32(16, versatz, true);
+        return new Blob(teile.concat(verzeichnis, [ende]), { type: "application/zip" });
+      }
+      function blobDaten(canvas) {
+        return new Promise(function (ok, fehl) {
+          canvas.toBlob(function (b) {
+            if (!b) { fehl(new Error("toBlob")); return; }
+            b.arrayBuffer().then(function (ab) { ok(new Uint8Array(ab)); }, fehl);
+          }, "image/png");
+        });
+      }
+      function dateiname(n, summe) {
+        var name = TITEL.toLowerCase().replace(/[^a-z0-9äöüß]+/g, "-").replace(/^-+|-+$/g, "") || "katalog";
+        var stellen = String(summe).length;
+        return name + "-" + String(n).padStart(stellen, "0") + ".png";
+      }
+      knopf.addEventListener("click", async function () {
+        if (!window.htmlToImage) { window.alert("Die Bildfunktion konnte nicht geladen werden."); return; }
+        var seiten = Array.prototype.slice.call(document.querySelectorAll(".seite"));
+        var text = knopf.textContent;
+        var dateien = [];
+        knopf.disabled = true;
+        try {
+          for (var i = 0; i < seiten.length; i++) {
+            knopf.textContent = "Seite " + (i + 1) + " von " + seiten.length + " …";
+            var el = seiten[i];
+            var opt = {
+              pixelRatio: 1080 / el.offsetWidth,
+              backgroundColor: "#ffffff",
+              style: { margin: "0" }
+            };
+            // Beim ersten Aufruf fehlen in manchen Browsern noch die Fotos.
+            await window.htmlToImage.toCanvas(el, opt);
+            var seite = await window.htmlToImage.toCanvas(el, opt);
+            var blatt = document.createElement("canvas");
+            blatt.width = 1080; blatt.height = 1920;
+            var g = blatt.getContext("2d");
+            g.fillStyle = "#ffffff"; g.fillRect(0, 0, 1080, 1920);
+            var oben = Math.round((1920 - seite.height) / 2);
+            g.drawImage(seite, 0, oben);
+            if (PREISART) {
+              g.textAlign = "center"; g.textBaseline = "middle";
+              g.fillStyle = "#111827";
+              g.font = "700 44px " + SCHRIFT;
+              g.fillText(PREISART.titel, 540, oben / 2 - 22);
+              g.fillStyle = "#4b5563";
+              g.font = "400 30px " + SCHRIFT;
+              g.fillText(PREISART.zusatz, 540, oben / 2 + 28);
+            }
+            dateien.push({ name: dateiname(i + 1, seiten.length), daten: await blobDaten(blatt) });
+          }
+          knopf.textContent = "Archiv wird erstellt …";
+          var url = URL.createObjectURL(zip(dateien));
+          var a = document.createElement("a");
+          a.href = url;
+          a.download = dateiname(1, 1).replace(/-1[.]png$/, "") + "-seiten.zip";
+          document.body.appendChild(a); a.click(); a.remove();
+          window.setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
+        } catch (err) {
+          console.error(err);
+          window.alert("Die Bilder konnten nicht erzeugt werden.");
+        } finally {
+          knopf.textContent = text;
+          knopf.disabled = false;
+        }
+      });
+    })();
+  </script>
   <script>
     (function () {
       var bilder = Array.prototype.slice.call(document.images);

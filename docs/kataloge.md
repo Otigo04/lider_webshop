@@ -89,6 +89,15 @@ A4-Dokument drucken oder über den Druckdialog als PDF sichern.
   verschicken lässt. Das Original reist als `data-roh` mit und wird
   nachgeladen, falls der Optimierer die Adresse ablehnt. Der Druckdialog
   öffnet erst, wenn alle Bilder da sind, spätestens nach 15 Sekunden.
+- **„Als Bilder (ZIP)“** in der Leiste des Bogens: alle Seiten als einzelne PNG in einem ZIP, 1080 × 1920 (Story-Format, A4 auf voller Breite, Rest weiß), für
+  WhatsApp-Status und Ähnliches. Im weißen Rand oben steht die Preisart
+  („Großhandelspreise“ plus der Preishinweis, z. B. „netto zzgl. gesetzl.
+  USt.“), weil die Fußzeile auf dem Bild zu klein zum Lesen ist; bei „ohne
+  Preise“ entfällt der Hinweis. Gerendert im Browser aus denselben
+  `.seite`-Blöcken wie der Druck, mit `html-to-image` 1.11.13 (liegt
+  minifiziert in `public/vendor/`, vom Linter ausgenommen). Ein ZIP statt vieler Einzel-Downloads: Browser blocken mehrere
+  Downloads hintereinander. Das ZIP (ohne Kompression, PNG ist schon gepackt)
+  baut ein kleiner Schreiber im Skript des Bogens, ohne weitere Bibliothek.
 - **Strichcode als ein SVG-Pfad** je Code (`lib/barcode.ts`), immer schwarz
   auf Weiß; unter `MODUL_MIN` oder bei ungültiger Nummer steht keiner.
 - **Kein Speichern-Knopf in der Werkbank**: jede Änderung geht sofort als
