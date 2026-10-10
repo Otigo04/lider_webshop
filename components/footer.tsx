@@ -95,6 +95,10 @@ export async function Footer() {
             <CookieSettingsLink />
           </nav>
         </div>
+        <p className="mt-4 text-xs text-surface-dark-muted/60">
+          Einzelne Bilder und Texte auf dieser Seite können KI-generiert sein.
+          Abbildungen können vom gelieferten Artikel abweichen.
+        </p>
       </div>
     </footer>
   );
