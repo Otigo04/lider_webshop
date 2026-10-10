@@ -1155,6 +1155,10 @@ ${seiten.join("\n")}
             var opt = {
               pixelRatio: 1080 / el.offsetWidth,
               backgroundColor: "#ffffff",
+              // Alle Fotos laufen über /_next/image und unterscheiden sich nur
+              // in der Query. Ohne diese Option teilen sie sich einen
+              // Cache-Eintrag, und jede Seite zeigt das erste Foto.
+              includeQueryParams: true,
               style: { margin: "0" }
             };
             // Beim ersten Aufruf fehlen in manchen Browsern noch die Fotos.
