@@ -246,6 +246,11 @@ export function CheckoutForm({
                       {item.productSku}
                     </p>
                     <p className="font-medium">{item.productName}</p>
+                    {item.preorder ? (
+                      <p className="text-xs font-semibold text-brand">
+                        Vorbestellung
+                      </p>
+                    ) : null}
                     <p className="text-sm text-muted-foreground tabular">
                       {formatQuantity(item.quantity)} ×{" "}
                       {tier ? formatPrice(tier.unit_price) : "–"}
@@ -259,6 +264,14 @@ export function CheckoutForm({
               );
             })}
           </ul>
+          {items.some((item) => item.preorder) ? (
+            <p className="mt-3 rounded-md border border-brand/30 bg-brand/5 px-3 py-2 text-sm">
+              <strong className="font-semibold">Enthält Vorbestellungen.</strong>{" "}
+              Diese Artikel sind noch nicht eingetroffen. Wir liefern die
+              Bestellung, sobald die Ware da ist, oder sprechen eine
+              Teillieferung mit Ihnen ab.
+            </p>
+          ) : null}
           <p className="mt-2 text-xs text-muted-foreground">
             Maßgeblich sind die Preise und Bestände zum Zeitpunkt der Bestellung.
             Sie werden beim Absenden erneut geprüft.

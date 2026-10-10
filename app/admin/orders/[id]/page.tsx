@@ -137,6 +137,9 @@ export default async function AdminOrderDetailPage({
                     {item.product_sku}
                   </p>
                   <p className="font-medium">{item.product_name}</p>
+                  {item.is_preorder ? (
+                    <p className="text-xs font-semibold text-brand">Vorbestellung</p>
+                  ) : null}
                 </td>
                 <td className="py-3 pr-4 text-right tabular">
                   {formatQuantity(item.quantity)}

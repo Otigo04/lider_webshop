@@ -181,7 +181,7 @@ export interface ProductDetail extends Omit<Product, "category"> {
 }
 
 const LIST_COLUMNS = `
-  id, category_id, group_id, sku, barcode, name, description, is_active, is_new, is_topseller, has_image,
+  id, category_id, group_id, sku, barcode, name, description, is_active, is_new, is_topseller, is_preorder, preorder_note, has_image,
   retail_price, list_price, stock_available, stock_reserved, created_by, created_at, updated_at,
   group:product_groups (id, name, description, created_by, created_at, updated_at),
   variants:product_variants (id, product_id, min_quantity, max_quantity, unit_price, created_at),

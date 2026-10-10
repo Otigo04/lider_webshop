@@ -23,6 +23,7 @@ import {
 const FLAG_LABELS: Record<ProductFlag, string> = {
   is_new: "Neuheit",
   is_topseller: "Topseller",
+  is_preorder: "Vorbestellbar",
 };
 
 /**

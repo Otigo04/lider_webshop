@@ -758,6 +758,7 @@ export default async function AdminProductsPage({
                         flags={{
                           is_new: product.is_new,
                           is_topseller: product.is_topseller,
+                          is_preorder: product.is_preorder,
                         }}
                         customFlags={customFlags}
                         activeCustomFlagIds={product.flags.map((flag) => flag.id)}

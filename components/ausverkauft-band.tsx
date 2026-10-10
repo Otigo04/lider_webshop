@@ -21,5 +21,23 @@ export function AusverkauftBand({ className }: { className?: string }) {
   );
 }
 
+/**
+ * „VORBESTELLBAR" an derselben Stelle wie das Ausverkauft-Band: der Artikel ist
+ * nicht da, lässt sich aber bestellen. Blau statt Rot, damit niemand ein
+ * Sperrzeichen liest. Das Foto bleibt ungedämpft.
+ */
+export function VorbestellBand({ className }: { className?: string }) {
+  return (
+    <span
+      className={cn(
+        "absolute inset-x-0 bottom-0 z-10 bg-brand py-1.5 text-center text-sm font-extrabold uppercase tracking-widest text-white",
+        className,
+      )}
+    >
+      Vorbestellbar
+    </span>
+  );
+}
+
 /** Klassen für das Foto eines ausverkauften Artikels: gedämpft, aber erkennbar. */
 export const ausverkauftBild = "opacity-60 saturate-50";

@@ -5,11 +5,16 @@ import { formatPrice } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import {
   freeStock,
+  istVorbestellbar,
   minOrderQuantity,
   priceRange,
   reduzierung,
 } from "@/lib/pricing";
-import { AusverkauftBand, ausverkauftBild } from "@/components/ausverkauft-band";
+import {
+  AusverkauftBand,
+  VorbestellBand,
+  ausverkauftBild,
+} from "@/components/ausverkauft-band";
 import { MerkButton } from "@/components/merk-button";
 import { ProductFlagBadges } from "@/components/product-flag-badges";
 import { QuickAddButton } from "@/components/quick-add-button";
@@ -27,7 +32,8 @@ export function ProductCard({
   const range = priceRange(product.variants);
   const minQty = minOrderQuantity(product.variants);
   const free = freeStock(product);
-  const ausverkauft = free <= 0;
+  const vorbestellbar = istVorbestellbar(product);
+  const ausverkauft = free <= 0 && !vorbestellbar;
   // Bezug ist der günstigste erreichbare Stückpreis: gegen den rechnet der
   // Kunde, wenn er die Karte überfliegt.
   const rabatt = reduzierung(product.list_price, range?.from, product.retail_price);
@@ -43,7 +49,7 @@ export function ProductCard({
   const titel =
     ausfuehrungen > 1 ? (product.group?.name ?? product.name) : product.name;
   // Bei einem Angebot mit Ausführungen muss erst gewählt werden, welche.
-  const schnellKauf = ausfuehrungen === 1 && range !== null && free >= minQty;
+  const schnellKauf = ausfuehrungen === 1 && range !== null && (vorbestellbar || free >= minQty);
 
   return (
     // Das Herz steht neben dem Link, nicht darin (siehe MerkButton). Es sitzt
@@ -81,13 +87,14 @@ export function ProductCard({
             </div>
           )}
           {ausverkauft ? <AusverkauftBand /> : null}
+          {vorbestellbar ? <VorbestellBand /> : null}
         </div>
 
         <div className="flex flex-1 flex-col p-4">
           <div className="flex items-center justify-between gap-2">
             <p className="code text-xs text-muted-foreground">{product.sku}</p>
-            {/* Ausverkauft sagt schon das Band auf dem Foto. */}
-            {ausverkauft ? null : <StockBadge free={free} />}
+            {/* Ausverkauft und Vorbestellbar sagt schon das Band auf dem Foto. */}
+            {ausverkauft || vorbestellbar ? null : <StockBadge free={free} />}
           </div>
 
           <h3 className="mt-2 font-semibold leading-snug group-hover:underline">
@@ -168,6 +175,7 @@ export function ProductCard({
           productSku={product.sku}
           tiers={product.variants}
           freeStock={free}
+          vorbestellung={vorbestellbar ? { hinweis: product.preorder_note } : null}
           imagePath={product.imagePath ?? null}
           className="absolute bottom-4 right-4 z-10"
         />

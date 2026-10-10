@@ -35,7 +35,7 @@ const ORDER_COLUMNS = `
   created_at, updated_at,
   items:order_items (
     id, order_id, product_variant_id, product_name, product_sku,
-    quantity, unit_price, subtotal, created_at
+    quantity, unit_price, subtotal, is_preorder, created_at
   )
 `;
 

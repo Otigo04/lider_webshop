@@ -100,6 +100,13 @@ export interface Product {
   is_active: boolean;
   is_new: boolean;
   is_topseller: boolean;
+  /**
+   * Vorbestellbar (Migration 066) – wirksam nur, solange der freie Bestand 0
+   * ist; `istVorbestellbar()` in lib/pricing.ts entscheidet.
+   */
+  is_preorder: boolean;
+  /** Hinweis zur erwarteten Lieferung, z. B. „voraussichtlich KW 45" */
+  preorder_note: string | null;
   /** Folgt automatisch product_images (Trigger, Migration 020) – kein manueller Schalter. */
   has_image: boolean;
   /**
@@ -235,6 +242,8 @@ export interface OrderItem {
   quantity: number;
   unit_price: number;
   subtotal: number;
+  /** Position war bei der Bestellung eine Vorbestellung (Migration 066) */
+  is_preorder: boolean;
   created_at: string;
 }
 
@@ -301,6 +310,9 @@ export interface CartItem {
    * (lib/actions/cart-images.ts).
    */
   imagePath?: string | null;
+  /** Vorbestellung: kein Bestand, Menge nicht nach oben begrenzt */
+  preorder?: boolean;
+  preorderNote?: string | null;
 }
 
 export type AccessRequestStatus = "new" | "contacted" | "done";

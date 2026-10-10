@@ -118,6 +118,17 @@ export function CartContents({
                 >
                   {item.productName}
                 </Link>
+                {item.preorder ? (
+                  <p className="mt-1 text-xs font-semibold text-brand">
+                    Vorbestellung
+                    {item.preorderNote ? (
+                      <span className="font-normal text-muted-foreground">
+                        {" "}
+                        · {item.preorderNote}
+                      </span>
+                    ) : null}
+                  </p>
+                ) : null}
                 <p className="mt-1 text-sm text-muted-foreground">
                   {tier
                     ? `${formatPrice(tier.unit_price)} / Stück`

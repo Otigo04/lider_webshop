@@ -12,6 +12,7 @@ import {
   freeStock,
   stockLevel,
   marge,
+  istVorbestellbar,
 } from "@/lib/pricing";
 
 const tier = (min: number, max: number | null, preis: number) => ({
@@ -139,4 +140,16 @@ test("Marge: negativ erlaubt, ohne Einkaufspreis keine Angabe", () => {
   assert.equal(marge(5, ""), null);
   assert.equal(marge(5, 0), null);
   assert.deepEqual(marge(0, 4), { einkauf: 4, prozent: 0 });
+});
+
+test("Vorbestellbar nur mit Flag und ohne freien Bestand", () => {
+  const artikel = (is_preorder: boolean, da: number, res: number) => ({
+    is_preorder,
+    stock_available: da,
+    stock_reserved: res,
+  });
+  assert.equal(istVorbestellbar(artikel(true, 0, 0)), true);
+  assert.equal(istVorbestellbar(artikel(true, 5, 5)), true, "alles reserviert");
+  assert.equal(istVorbestellbar(artikel(true, 5, 2)), false, "Ware da");
+  assert.equal(istVorbestellbar(artikel(false, 0, 0)), false, "kein Flag");
 });

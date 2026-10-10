@@ -8,6 +8,7 @@ import { useCart } from "@/lib/cart-context";
 import { formatPrice, formatQuantity } from "@/lib/format";
 import { steuer } from "@/lib/vat";
 import {
+  PREORDER_MAX_QUANTITY,
   baseUnitPrice,
   lineTotal,
   minOrderQuantity,
@@ -27,6 +28,12 @@ interface ProductPurchaseProps {
   productSku: string;
   tiers: PriceTier[];
   freeStock: number;
+  /**
+   * Gesetzt, wenn der Artikel nur vorbestellbar ist (kein freier Bestand):
+   * dann gibt es keine Mengenobergrenze durch den Bestand, und der Hinweis zur
+   * erwarteten Lieferung steht unter dem Knopf.
+   */
+  vorbestellung?: { hinweis: string | null } | null;
   /** Vorher-Preis für die Rabattanzeige (Migration 023) */
   listPrice: number | null;
   /** Ladenpreis – Bezug der Reduzierung (lib/pricing.ts, reduzierung()) */
@@ -50,6 +57,7 @@ export function ProductPurchase({
   productSku,
   tiers,
   freeStock,
+  vorbestellung = null,
   listPrice,
   retailPrice,
   imagePath,
@@ -60,7 +68,8 @@ export function ProductPurchase({
   const { addItem } = useCart();
   const router = useRouter();
 
-  const soldOut = freeStock <= 0;
+  const soldOut = freeStock <= 0 && !vorbestellung;
+  const maxMenge = vorbestellung ? PREORDER_MAX_QUANTITY : freeStock;
   const noPrices = tiers.length === 0;
   const activeTier = resolveTier(tiers, quantity);
 
@@ -77,7 +86,7 @@ export function ProductPurchase({
   const betraege = steuer(lineTotal(tiers, quantity), vatRate);
 
   const belowMin = quantity < min;
-  const aboveStock = quantity > freeStock;
+  const aboveStock = quantity > maxMenge;
   const error = belowMin
     ? `Mindestbestellmenge: ${formatQuantity(min)} Stück`
     : aboveStock
@@ -92,10 +101,13 @@ export function ProductPurchase({
       productSku,
       quantity,
       tiers,
-      maxStock: freeStock,
+      maxStock: maxMenge,
       imagePath,
+      preorder: Boolean(vorbestellung),
+      preorderNote: vorbestellung?.hinweis ?? null,
     });
-    toast.success(`${formatQuantity(quantity)} × ${productName} im Warenkorb`, {
+    toast.success(
+      `${formatQuantity(quantity)} × ${productName} ${vorbestellung ? "vorbestellt" : "im Warenkorb"}`, {
       action: { label: "Warenkorb", onClick: () => router.push("/cart") },
     });
   }
@@ -124,7 +136,7 @@ export function ProductPurchase({
                 label="Menge"
                 value={quantity}
                 min={min}
-                max={freeStock}
+                max={maxMenge}
                 disabled={soldOut}
                 onChange={setQuantity}
               />
@@ -156,7 +168,7 @@ export function ProductPurchase({
               onClick={handleAdd}
               disabled={soldOut || Boolean(error)}
             >
-              In den Warenkorb
+              {vorbestellung ? "Vorbestellen" : "In den Warenkorb"}
             </Button>
           </div>
 
@@ -168,6 +180,15 @@ export function ProductPurchase({
             <p className="mt-3 text-sm text-destructive">{error}</p>
           ) : (
             <p className="mt-3 text-sm text-muted-foreground">
+              {vorbestellung ? (
+                <>
+                  <strong className="font-semibold text-foreground">
+                    Vorbestellung:
+                  </strong>{" "}
+                  Der Artikel ist noch nicht eingetroffen.
+                  {vorbestellung.hinweis ? ` ${vorbestellung.hinweis}.` : ""}{" "}
+                </>
+              ) : null}
               Preise verstehen sich netto zzgl. USt.{" "}
               <Link href="/cart" className="underline">
                 Warenkorb ansehen

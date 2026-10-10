@@ -568,6 +568,27 @@ kleine Verfügbarkeitsmarke entfällt dann, der Warenkorb-Knopf bleibt gesperrt.
 Die öffentliche Startseite zeigt keine Bestände und damit auch kein Band.
 
 
+## 📬 Vorbestellung
+
+Migration 066, Spec `docs/superpowers/specs/2026-10-10-vorbestellung-design.md`.
+
+- **Flag am Artikel** (`products.is_preorder`, Hinweis `preorder_note`), gesetzt
+  im Artikelformular oder im Flags-Menü der Artikelliste. **Wirksam nur bei
+  freiem Bestand 0** (`istVorbestellbar()`, `lib/pricing.ts`): Ware eingebucht,
+  Artikel normal, ohne dass jemand das Flag zurücknimmt.
+- **Shop**: Band „Vorbestellbar" statt „Ausverkauft", Knopf „Vorbestellen",
+  Menge nur durch `PREORDER_MAX_QUANTITY` begrenzt. Der Warenkorb trägt
+  `preorder`/`preorderNote` je Position; ein alter Korb kann das Flag noch
+  tragen, wenn die Ware inzwischen da ist – die Bestellung kennzeichnet nach dem
+  Stand beim Absenden.
+- **Gemischter Warenkorb**, eine Bestellung. `create_order()` ist unverändert
+  (prüft den Bestand seit 049 nicht mehr); `order_items.is_preorder` setzt ein
+  BEFORE-INSERT-Trigger, damit die Markierung an der Position bleibt.
+- **Nicht betroffen**: Kasse, Katalog („Bald" bleibt manuell), öffentliche
+  Startseite (kennt keine Bestände).
+- **Reihenfolge beim Einspielen**: erst Migration 066, dann deployen – die
+  Artikelabfrage liest `is_preorder`, ohne die Spalte fällt der Shop aus.
+
 ---
 
 ## 🗑️ Papierkorb für Artikel

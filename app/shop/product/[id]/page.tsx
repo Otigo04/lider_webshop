@@ -10,7 +10,7 @@ import { ProductPurchase } from "@/components/product-purchase";
 import { PublicPurchaseCta } from "@/components/public-purchase-cta";
 import { StockBadge } from "@/components/stock-badge";
 import { getCurrentUser } from "@/lib/auth";
-import { freeStock } from "@/lib/pricing";
+import { freeStock, istVorbestellbar } from "@/lib/pricing";
 import { istNeu } from "@/lib/product-flags";
 import {
   getProductAttributeValueIds,
@@ -201,6 +201,7 @@ export default async function ProductPage({
   if (!product || !product.is_active || !product.has_image) notFound();
 
   const free = freeStock(product);
+  const vorbestellbar = istVorbestellbar(product);
   const [company, merkmale, gesetzteWerte, geschwister] = await Promise.all([
     getCompanySettings(),
     getProductAttributes(),
@@ -248,7 +249,8 @@ export default async function ProductPage({
         <ProductGallery
           urls={product.imageUrls}
           alt={product.name}
-          ausverkauft={free <= 0}
+          ausverkauft={free <= 0 && !vorbestellbar}
+          vorbestellbar={vorbestellbar}
         />
 
         <div>
@@ -256,7 +258,7 @@ export default async function ProductPage({
             <p className="code rounded-md border border-border bg-muted px-2 py-0.5 text-xs text-muted-foreground">
               {product.sku}
             </p>
-            <StockBadge free={free} />
+            {vorbestellbar ? null : <StockBadge free={free} />}
             {istNeu(product) ? (
               <span className="rounded-md bg-signal px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-signal-foreground">
                 Neu
@@ -303,6 +305,9 @@ export default async function ProductPage({
               productSku={product.sku}
               tiers={product.variants}
               freeStock={free}
+              vorbestellung={
+                vorbestellbar ? { hinweis: product.preorder_note } : null
+              }
               listPrice={product.list_price}
               retailPrice={product.retail_price}
               imagePath={firstImagePath(product.images)}

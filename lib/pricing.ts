@@ -197,6 +197,24 @@ export function freeStock(product: {
   return Math.max(0, toNumber(product.stock_available) - toNumber(product.stock_reserved));
 }
 
+/**
+ * Obergrenze der Menge bei einer Vorbestellung. Es gibt keinen Bestand, an dem
+ * sie sich messen ließe; die Zahl verhindert nur Tippfehler im Mengenfeld.
+ */
+export const PREORDER_MAX_QUANTITY = 9999;
+
+/**
+ * Vorbestellbar, wenn der Artikel so markiert ist und nichts mehr frei ist.
+ * Kommt Ware an, ist er ohne weiteres Zutun wieder ein normaler Artikel.
+ */
+export function istVorbestellbar(product: {
+  is_preorder: boolean;
+  stock_available: number;
+  stock_reserved: number;
+}): boolean {
+  return product.is_preorder && freeStock(product) <= 0;
+}
+
 export function stockLevel(free: number): StockLevel {
   if (free <= 0) return "out";
   if (free < LOW_STOCK_THRESHOLD) return "low";

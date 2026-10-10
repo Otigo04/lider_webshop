@@ -85,6 +85,8 @@ function addItem(item: CartItem) {
     ...next[index],
     tiers: item.tiers,
     maxStock: item.maxStock,
+    preorder: item.preorder,
+    preorderNote: item.preorderNote,
     quantity: Math.min(next[index].quantity + item.quantity, item.maxStock),
   };
   setItems(next);

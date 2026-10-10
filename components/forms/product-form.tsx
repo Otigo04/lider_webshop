@@ -66,6 +66,8 @@ interface ProductFormProps {
     name: string;
     description: string | null;
     is_active: boolean;
+    is_preorder: boolean;
+    preorder_note: string | null;
     stock_available: number;
     retail_price: number | null;
     /** Einkaufspreis aus product_costs (Migration 047); nur für Admins */
@@ -260,6 +262,8 @@ export function ProductForm({
     name,
     description,
     is_active: true,
+    is_preorder: false,
+    preorder_note: "",
     stock_available: 0,
     retail_price: retailPrice.trim(),
     cost_price: costPrice.trim(),
@@ -286,6 +290,8 @@ export function ProductForm({
         const merged = {
           ...payload,
           is_active: formData.get("is_active") === "on",
+          is_preorder: formData.get("is_preorder") === "on",
+          preorder_note: String(formData.get("preorder_note") ?? ""),
           stock_available: String(formData.get("stock_available") ?? "0"),
         };
         formData.set("payload", JSON.stringify(merged));
@@ -419,6 +425,27 @@ export function ProductForm({
           <Label htmlFor="is_active" className="font-normal">
             Im Shop sichtbar
           </Label>
+        </div>
+
+        <div className="space-y-2 sm:col-span-2">
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="is_preorder"
+              name="is_preorder"
+              defaultChecked={product?.is_preorder ?? false}
+            />
+            <Label htmlFor="is_preorder" className="font-normal">
+              Vorbestellbar, solange kein Bestand da ist
+            </Label>
+          </div>
+          <Input
+            id="preorder_note"
+            name="preorder_note"
+            defaultValue={product?.preorder_note ?? ""}
+            maxLength={120}
+            placeholder="Hinweis für Kunden, z. B. voraussichtlich KW 45"
+            aria-label="Hinweis zur Vorbestellung"
+          />
         </div>
       </section>
 

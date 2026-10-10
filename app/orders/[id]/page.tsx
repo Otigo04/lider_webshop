@@ -147,6 +147,9 @@ export default async function OrderDetailPage({
                       {item.product_sku}
                     </p>
                     <p className="font-medium">{item.product_name}</p>
+                    {item.is_preorder ? (
+                      <p className="text-xs font-semibold text-brand">Vorbestellung</p>
+                    ) : null}
                     <p className="mt-0.5 text-sm text-muted-foreground tabular">
                       {formatQuantity(item.quantity)} × {formatPrice(item.unit_price)}
                     </p>
@@ -178,6 +181,9 @@ export default async function OrderDetailPage({
                           {item.product_sku}
                         </p>
                         <p className="font-medium">{item.product_name}</p>
+                        {item.is_preorder ? (
+                          <p className="text-xs font-semibold text-brand">Vorbestellung</p>
+                        ) : null}
                       </td>
                       <td className="py-3 pr-4 text-right tabular">
                         {formatQuantity(item.quantity)}

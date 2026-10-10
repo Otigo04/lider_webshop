@@ -5,7 +5,7 @@ import { ShoppingCart } from "lucide-react";
 import { toast } from "sonner";
 import { useCart } from "@/lib/cart-context";
 import { formatQuantity } from "@/lib/format";
-import { minOrderQuantity } from "@/lib/pricing";
+import { PREORDER_MAX_QUANTITY, minOrderQuantity } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import type { PriceTier } from "@/lib/types";
 
@@ -21,6 +21,7 @@ export function QuickAddButton({
   tiers,
   freeStock,
   imagePath,
+  vorbestellung = null,
   className,
 }: {
   productId: string;
@@ -29,6 +30,8 @@ export function QuickAddButton({
   tiers: PriceTier[];
   freeStock: number;
   imagePath: string | null;
+  /** Gesetzt, wenn der Artikel nur vorbestellbar ist (kein freier Bestand) */
+  vorbestellung?: { hinweis: string | null } | null;
   className?: string;
 }) {
   const { addItem } = useCart();
@@ -42,10 +45,13 @@ export function QuickAddButton({
       productSku,
       quantity: menge,
       tiers,
-      maxStock: freeStock,
+      maxStock: vorbestellung ? PREORDER_MAX_QUANTITY : freeStock,
       imagePath,
+      preorder: Boolean(vorbestellung),
+      preorderNote: vorbestellung?.hinweis ?? null,
     });
-    toast.success(`${formatQuantity(menge)} × ${productName} im Warenkorb`, {
+    toast.success(
+      `${formatQuantity(menge)} × ${productName} ${vorbestellung ? "vorbestellt" : "im Warenkorb"}`, {
       action: { label: "Warenkorb", onClick: () => router.push("/cart") },
     });
   }
