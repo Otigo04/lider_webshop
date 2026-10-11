@@ -47,6 +47,9 @@ export function Schnellleiste({
         <Link href="/shop/topseller" className={knopf}>
           Topseller
         </Link>
+        <Link href="/shop/restposten" className={knopf}>
+          Restposten
+        </Link>
         {warengruppen.map((gruppe) => (
           <Link key={gruppe.slug} href={`/shop/${gruppe.slug}`} className={knopf}>
             {gruppe.name}

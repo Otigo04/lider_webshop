@@ -150,7 +150,11 @@ export default async function ProductPage({
         </nav>
 
         <div className="mt-6 grid gap-10 md:grid-cols-2">
-          <ProductGallery urls={product.imageUrls} alt={product.name} />
+          <ProductGallery
+            urls={product.imageUrls}
+            alt={product.name}
+            restposten={product.is_restposten}
+          />
 
           <div>
             <div className="flex flex-wrap items-center gap-2">
@@ -321,6 +325,7 @@ export default async function ProductPage({
           alt={product.name}
           ausverkauft={free <= 0 && !vorbestellbar}
           vorbestellbar={vorbestellbar}
+          restposten={product.is_restposten}
         />
 
         <div>

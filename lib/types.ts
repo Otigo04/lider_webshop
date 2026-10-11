@@ -101,6 +101,11 @@ export interface Product {
   is_new: boolean;
   is_topseller: boolean;
   /**
+   * Restposten/B-Ware (Migration 068): bleibt in der Warengruppe und steht
+   * zusätzlich unter /shop/restposten; am Foto gekennzeichnet.
+   */
+  is_restposten: boolean;
+  /**
    * Vorbestellbar (Migration 066) – wirksam nur, solange der freie Bestand 0
    * ist; `istVorbestellbar()` in lib/pricing.ts entscheidet.
    */

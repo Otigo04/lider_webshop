@@ -21,6 +21,7 @@ export async function Header() {
     { href: "/shop/neuheiten", label: "Neuheiten" },
     { href: "/shop/topseller", label: "Topseller" },
     { href: "/shop/reduziert", label: "Reduziert", erstAbXl: isAdmin },
+    { href: "/shop/restposten", label: "Restposten", erstAbXl: isAdmin },
     // Für Admins erst ab xl: zwischen 1024 und 1280 px passen Logo, sieben
     // Reiter und Benutzermenü nicht in die auf max-w-6xl gedeckelte Leiste.
     // Der Admin erreicht seine Bestellungen dort über das Benutzermenü.

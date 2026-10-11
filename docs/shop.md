@@ -682,3 +682,27 @@ den Newsletter aus Bausteinen und schickt ihn über Resend an alle Abonnenten.
   übersprungen – auch später beim Versand an alle (gleiche Zeile in
   `newsletter_deliveries`). Die Oberfläche warnt bei Nicht-Abonnenten: Werbung
   braucht Einwilligung oder einen persönlichen Anlass.
+
+---
+
+## Restposten / B-Ware (Migration 068)
+
+Ein Artikel mit `products.is_restposten` bleibt in seiner Warengruppe und
+steht **zusätzlich** unter `/shop/restposten` – dieselbe Mechanik wie
+Topseller und Neuheiten, kein zweites Kategoriesystem.
+
+- **Eigener Artikel.** B-Ware hat eigene Artikelnummer, eigenen Bestand und
+  eigenen Preis; die Neuware desselben Produkts bleibt unberührt. Es gibt
+  bewusst keine Verknüpfung beider. Den Zustand („Karton eingedrückt") schreibt
+  der Admin in die Beschreibung.
+- **Schalter** im Artikelformular („Restposten / B-Ware") und im Flags-Menü der
+  Artikelliste.
+- **Kennzeichnung am Foto:** Chip „Restposten" (anthrazit, `RestpostenChip` in
+  `components/product-flag-badges.tsx`) oben links auf Karten und in der
+  Galerie der Artikelseite. Anthrazit, weil Rot dem Preis und Gold den
+  Topsellern gehört.
+- **Schaufenster:** `products_public` führt die Spalte, `anon` bekommt das
+  Spaltenrecht (View ist `security_invoker`, Migration 034). Wer die Migration
+  nicht eingespielt hat, bekommt im Shop Abfragefehler – erst 068, dann Deploy.
+- Nav: Reiter „Restposten" neben „Reduziert", Knopf in der Schnellleiste,
+  Eintrag in der Sitemap.

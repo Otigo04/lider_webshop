@@ -54,6 +54,7 @@ export interface PublicProductListItem {
   description: string | null;
   is_new: boolean;
   is_topseller: boolean;
+  is_restposten: boolean;
   /** Aufnahmedatum – trägt zusammen mit is_new das Neu-Label (lib/product-flags.ts) */
   created_at: string;
   imageUrl: string | null;
@@ -103,6 +104,7 @@ interface PublicRow {
   description: string | null;
   is_new: boolean;
   is_topseller: boolean;
+  is_restposten: boolean;
   created_at: string;
   list_price: number | null;
 }
@@ -181,7 +183,7 @@ export interface ProductDetail extends Omit<Product, "category"> {
 }
 
 const LIST_COLUMNS = `
-  id, category_id, group_id, sku, barcode, name, description, is_active, is_new, is_topseller, is_preorder, preorder_note, has_image,
+  id, category_id, group_id, sku, barcode, name, description, is_active, is_new, is_topseller, is_restposten, is_preorder, preorder_note, has_image,
   retail_price, list_price, stock_available, stock_reserved, created_by, created_at, updated_at,
   group:product_groups (id, name, description, created_by, created_at, updated_at),
   variants:product_variants (id, product_id, min_quantity, max_quantity, unit_price, created_at),
@@ -431,7 +433,7 @@ export async function getPublicProducts(options?: {
   let query = supabase
     .from("products_public")
     .select(
-      "id, category_id, group_id, sku, name, description, is_new, is_topseller, created_at, list_price",
+      "id, category_id, group_id, sku, name, description, is_new, is_topseller, is_restposten, created_at, list_price",
     );
 
   query =
@@ -488,6 +490,7 @@ export async function getPublicProducts(options?: {
       description: row.description as string | null,
       is_new: row.is_new as boolean,
       is_topseller: row.is_topseller as boolean,
+      is_restposten: (row.is_restposten as boolean | undefined) ?? false,
       created_at: row.created_at as string,
       imageUrl: urls[index],
       priceFrom: preis?.min_unit_price ?? null,
@@ -588,7 +591,7 @@ export async function getLandingData(perSection = 8): Promise<LandingData> {
     supabase
       .from("products_public")
       .select(
-        "id, category_id, group_id, sku, name, description, is_new, is_topseller, created_at, list_price",
+        "id, category_id, group_id, sku, name, description, is_new, is_topseller, is_restposten, created_at, list_price",
       )
       .order("created_at", { ascending: false }),
     getCategories(supabase),
@@ -713,6 +716,7 @@ export async function getLandingData(perSection = 8): Promise<LandingData> {
       description: row.description as string | null,
       is_new: row.is_new as boolean,
       is_topseller: row.is_topseller as boolean,
+      is_restposten: (row.is_restposten as boolean | undefined) ?? false,
       created_at: row.created_at as string,
       imageUrl: bilder.get(id) ?? null,
       priceFrom: preis?.min_unit_price ?? null,
@@ -799,7 +803,7 @@ export async function getPublicProduct(id: string): Promise<PublicProductDetail 
   const { data, error } = await supabase
     .from("products_public")
     .select(
-      "id, category_id, group_id, sku, name, description, is_new, is_topseller, created_at, list_price, category:categories (*)",
+      "id, category_id, group_id, sku, name, description, is_new, is_topseller, is_restposten, created_at, list_price, category:categories (*)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -831,6 +835,7 @@ export async function getPublicProduct(id: string): Promise<PublicProductDetail 
     description: string | null;
     is_new: boolean;
     is_topseller: boolean;
+    is_restposten?: boolean;
     created_at: string;
     list_price: number | null;
     category: Category | null;
@@ -848,6 +853,7 @@ export async function getPublicProduct(id: string): Promise<PublicProductDetail 
     description: row.description,
     is_new: row.is_new,
     is_topseller: row.is_topseller,
+    is_restposten: row.is_restposten ?? false,
     created_at: row.created_at,
     category: row.category ?? null,
     imageUrl: imageUrls[0] ?? null,

@@ -67,6 +67,7 @@ interface ProductFormProps {
     name: string;
     description: string | null;
     is_active: boolean;
+    is_restposten: boolean;
     is_preorder: boolean;
     preorder_note: string | null;
     stock_available: number;
@@ -266,6 +267,7 @@ export function ProductForm({
     name,
     description,
     is_active: true,
+    is_restposten: false,
     is_preorder: false,
     preorder_note: "",
     stock_available: 0,
@@ -294,6 +296,7 @@ export function ProductForm({
         const merged = {
           ...payload,
           is_active: formData.get("is_active") === "on",
+          is_restposten: formData.get("is_restposten") === "on",
           is_preorder: formData.get("is_preorder") === "on",
           preorder_note: String(formData.get("preorder_note") ?? ""),
           stock_available: String(formData.get("stock_available") ?? "0"),
@@ -429,6 +432,24 @@ export function ProductForm({
           <Label htmlFor="is_active" className="font-normal">
             Im Shop sichtbar
           </Label>
+        </div>
+
+        <div className="space-y-1 sm:col-span-2">
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="is_restposten"
+              name="is_restposten"
+              defaultChecked={product?.is_restposten ?? false}
+            />
+            <Label htmlFor="is_restposten" className="font-normal">
+              Restposten / B-Ware
+            </Label>
+          </div>
+          <p className="pl-6 text-xs text-muted-foreground">
+            Bleibt in seiner Warengruppe und steht zusätzlich unter Restposten.
+            Eigene Artikelnummer, eigener Bestand und Preis; den Zustand
+            (z. B. Karton eingedrückt) in die Beschreibung schreiben.
+          </p>
         </div>
 
         <div className="space-y-2 sm:col-span-2">

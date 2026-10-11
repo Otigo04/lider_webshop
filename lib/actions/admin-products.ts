@@ -28,6 +28,8 @@ const productSchema = z.object({
   name: z.string().trim().min(1, "Name fehlt").max(200),
   description: z.string().trim().max(5000).optional(),
   is_active: z.boolean(),
+  /** Restposten/B-Ware (Migration 068) */
+  is_restposten: z.boolean(),
   /** Vorbestellbar bei freiem Bestand 0 (Migration 066) */
   is_preorder: z.boolean(),
   preorder_note: z.string().trim().max(120, "Hinweis ist zu lang").optional(),
@@ -152,6 +154,7 @@ export async function saveProduct(
     name: data.name,
     description: data.description || null,
     is_active: data.is_active,
+    is_restposten: data.is_restposten,
     is_preorder: data.is_preorder,
     preorder_note: data.preorder_note || null,
     stock_available: data.stock_available,
@@ -255,7 +258,7 @@ export async function saveProduct(
   return { success: "Artikel gespeichert." };
 }
 
-const PRODUCT_FLAGS = ["is_new", "is_topseller", "is_preorder"] as const;
+const PRODUCT_FLAGS = ["is_new", "is_topseller", "is_restposten", "is_preorder"] as const;
 export type ProductFlag = (typeof PRODUCT_FLAGS)[number];
 
 const flagSchema = z.object({

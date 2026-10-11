@@ -9,6 +9,7 @@ import {
   VorbestellBand,
   ausverkauftBild,
 } from "@/components/ausverkauft-band";
+import { RestpostenChip } from "@/components/product-flag-badges";
 import { cn } from "@/lib/utils";
 
 /** Signierte URLs, Reihenfolge wie display_order. Einträge können null sein. */
@@ -17,6 +18,7 @@ export function ProductGallery({
   alt,
   ausverkauft = false,
   vorbestellbar = false,
+  restposten = false,
 }: {
   urls: (string | null)[];
   alt: string;
@@ -24,6 +26,8 @@ export function ProductGallery({
   ausverkauft?: boolean;
   /** Band „Vorbestellbar" statt „Ausverkauft": nicht da, aber bestellbar. */
   vorbestellbar?: boolean;
+  /** Kennzeichen „Restposten" oben links auf dem großen Foto. */
+  restposten?: boolean;
 }) {
   const available = urls.filter((url): url is string => Boolean(url));
   const [active, setActive] = useState(0);
@@ -48,6 +52,9 @@ export function ProductGallery({
           className={cn("object-contain p-6", ausverkauft && ausverkauftBild)}
           priority
         />
+        {restposten ? (
+          <RestpostenChip className="absolute left-3 top-3 z-10 px-2.5 py-1 text-sm" />
+        ) : null}
         {ausverkauft ? <AusverkauftBand className="py-2 text-base" /> : null}
         {vorbestellbar ? <VorbestellBand className="py-2 text-base" /> : null}
       </div>
