@@ -127,10 +127,32 @@ export function ProductPurchase({
       <PriceTable variants={tiers} activeTierId={activeTier?.id} />
 
       {noPrices ? null : (
-        <div className="rounded-md border border-border p-4">
-          <div className="flex flex-wrap items-end gap-4">
+        <div className="rounded-lg border border-border p-6">
+          {/*
+            Der Preis steht allein und groß ganz oben: er ist das Erste, was
+            ein Händler sucht. Netto ist der Preis, den er vergleicht; brutto
+            der Betrag, der vom Konto geht – beide stehen da, damit niemand
+            überrascht wird.
+          */}
+          <div>
+            <p className="tabular text-4xl font-bold leading-none tracking-tight">
+              {formatPrice(lineTotal(tiers, quantity))}
+            </p>
+            <p className="mt-2 text-sm text-muted-foreground tabular">
+              {activeTier
+                ? `${formatPrice(activeTier.unit_price)} / Stück`
+                : `ab ${formatQuantity(min)} Stück bestellbar`}
+              {" · "}
+              {formatPrice(betraege.brutto)} brutto ({betraege.satz.toFixed(0)} %
+              USt.)
+            </p>
+          </div>
+
+          <div className="mt-6 flex flex-wrap items-end gap-3">
             <div className="space-y-2">
-              <Label htmlFor="quantity">Menge</Label>
+              <Label htmlFor="quantity" className="text-xs text-muted-foreground">
+                Menge
+              </Label>
               <QuantityInput
                 id="quantity"
                 label="Menge"
@@ -142,29 +164,10 @@ export function ProductPurchase({
               />
             </div>
 
-            <div className="flex-1">
-              <p className="text-sm text-muted-foreground">
-                {activeTier
-                  ? `${formatPrice(activeTier.unit_price)} / Stück`
-                  : `ab ${formatQuantity(min)} Stück bestellbar`}
-              </p>
-              <p className="text-2xl font-semibold tabular">
-                {formatPrice(lineTotal(tiers, quantity))}
-              </p>
-              {/*
-                Netto ist der Preis, den ein Gewerbekunde vergleicht; brutto ist
-                der Betrag, der vom Konto geht. Beide stehen da, damit niemand
-                an der Kasse überrascht wird.
-              */}
-              <p className="text-xs text-muted-foreground tabular">
-                {formatPrice(betraege.brutto)} brutto (
-                {betraege.satz.toFixed(0)} % USt.)
-              </p>
-            </div>
-
             <Button
               type="button"
               size="lg"
+              className="h-11 min-w-48 flex-1"
               onClick={handleAdd}
               disabled={soldOut || Boolean(error)}
             >
@@ -173,13 +176,13 @@ export function ProductPurchase({
           </div>
 
           {soldOut ? (
-            <p className="mt-3 text-sm text-destructive">
+            <p className="mt-4 text-sm text-destructive">
               Dieser Artikel ist derzeit ausverkauft.
             </p>
           ) : error ? (
-            <p className="mt-3 text-sm text-destructive">{error}</p>
+            <p className="mt-4 text-sm text-destructive">{error}</p>
           ) : (
-            <p className="mt-3 text-sm text-muted-foreground">
+            <p className="mt-4 text-xs text-muted-foreground">
               {vorbestellung ? (
                 <>
                   <strong className="font-semibold text-foreground">

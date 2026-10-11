@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Store, Truck } from "lucide-react";
+import { ChevronDown, Store, Truck } from "lucide-react";
 import { formatThreshold } from "@/lib/shipping";
 import { cn } from "@/lib/utils";
 
@@ -22,23 +22,26 @@ export function ProductFacts({
 }) {
   if (facts.length === 0) return null;
 
+  // Eingeklappt: die Angaben sind Nachschlagewerk, keine Kaufentscheidung.
+  // Der Preis und der Knopf sollen auf der Seite allein stehen.
   return (
-    <section aria-labelledby="artikeldaten" className={className}>
-      <h2 id="artikeldaten" className="text-sm font-semibold">
+    <details className={cn("group border-t border-border pt-4", className)}>
+      <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-medium [&::-webkit-details-marker]:hidden">
         Artikeldaten
-      </h2>
-      <dl className="mt-2 rounded-md border border-border">
+        <ChevronDown
+          className="size-4 text-muted-foreground transition-transform group-open:rotate-180"
+          aria-hidden
+        />
+      </summary>
+      <dl className="mt-3 space-y-1.5 text-sm">
         {facts.map((fact) => (
-          <div
-            key={fact.label}
-            className="flex items-baseline gap-4 border-b border-border px-4 py-2 text-sm last:border-0"
-          >
-            <dt className="w-40 shrink-0 text-muted-foreground">{fact.label}</dt>
-            <dd className="min-w-0 break-words font-medium">{fact.value}</dd>
+          <div key={fact.label} className="flex gap-4">
+            <dt className="w-44 shrink-0 text-muted-foreground">{fact.label}</dt>
+            <dd className="min-w-0 break-words">{fact.value}</dd>
           </div>
         ))}
       </dl>
-    </section>
+    </details>
   );
 }
 
@@ -62,24 +65,22 @@ export function ProductDelivery({
   return (
     <ul
       className={cn(
-        "space-y-3 rounded-md border border-border bg-muted/40 p-4 text-sm",
+        "space-y-2 text-sm text-muted-foreground",
         className,
       )}
     >
       <li className="flex items-start gap-3">
-        <Truck className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
+        <Truck className="mt-0.5 size-4 shrink-0" aria-hidden />
         <span>
-          <span className="font-medium">Lieferung an Ihre Adresse.</span>{" "}
-          <span className="text-muted-foreground">{frei}</span>
+          <span className="font-medium text-foreground">Lieferung an Ihre Adresse.</span>{" "}
+          {frei}
         </span>
       </li>
       <li className="flex items-start gap-3">
-        <Store className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
+        <Store className="mt-0.5 size-4 shrink-0" aria-hidden />
         <span>
-          <span className="font-medium">Selbstabholung in Berlin</span>{" "}
-          <span className="text-muted-foreground">
-            ist bei jeder Bestellung möglich.{" "}
-          </span>
+          <span className="font-medium text-foreground">Selbstabholung in Berlin</span>{" "}
+          ist bei jeder Bestellung möglich.{" "}
           <Link href="/versand" className="underline underline-offset-2 hover:text-foreground">
             Mehr zu Versand und Ablauf
           </Link>

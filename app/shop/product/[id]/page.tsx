@@ -214,10 +214,10 @@ export default async function ProductPage({
 
             <ProductDelivery
               freeShippingThreshold={kontakt.free_shipping_threshold}
-              className="mt-6"
+              className="mt-5"
             />
             <ProductFacts
-              className="mt-6"
+              className="mt-8"
               facts={[
                 { label: "Artikelnummer", value: <span className="code">{product.sku}</span> },
                 ...(product.category
@@ -387,10 +387,10 @@ export default async function ProductPage({
 
           <ProductDelivery
             freeShippingThreshold={company.free_shipping_threshold}
-            className="mt-6"
+            className="mt-5"
           />
           <ProductFacts
-            className="mt-6"
+            className="mt-8"
             facts={[
               { label: "Artikelnummer", value: <span className="code">{product.sku}</span> },
               ...(product.barcode
