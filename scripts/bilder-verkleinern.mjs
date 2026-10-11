@@ -11,6 +11,8 @@
  * Regeln:
  *   - längere Kante höchstens 1600 px, JPEG q82 (mozjpeg), PNG/WebP gleiches
  *     Format; Pfad, Dateiendung und Datenbankzeilen bleiben unverändert
+ *   - nur Artikelordner (UUID); Startseiten-Slider (3584 px breit) und
+ *     anderes bleibt, weil Banner bei breiten Bildschirmen die Auflösung brauchen
  *   - Dateien ≤ 350 KB und ≤ 1600 px bleiben unberührt
  *   - ist das Ergebnis nicht kleiner, bleibt das Original
  *   - vor dem Überschreiben liegt das Original in ./backup-produktbilder/
@@ -56,7 +58,10 @@ let nachher = 0;
 let geaendert = 0;
 let uebersprungen = 0;
 
+const ARTIKELORDNER = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\//;
+
 for (const { pfad, groesse } of await pfade()) {
+  if (!ARTIKELORDNER.test(pfad)) continue;
   const { data: blob, error } = await db.storage.from(BUCKET).download(pfad);
   if (error) {
     console.error(`! ${pfad}: ${error.message}`);
