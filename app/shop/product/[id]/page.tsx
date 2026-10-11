@@ -4,7 +4,11 @@ import { notFound } from "next/navigation";
 import { ChevronRight } from "lucide-react";
 import { MerkButton } from "@/components/merk-button";
 import { MerkmalListe } from "@/components/merkmal-liste";
+import { ProductCard } from "@/components/product-card";
+import { ProductDelivery, ProductFacts } from "@/components/product-facts";
 import { ProductGallery } from "@/components/product-gallery";
+import { ProductRail } from "@/components/product-rail";
+import { PublicProductCard } from "@/components/public-product-card";
 import { ProductVariantPicker } from "@/components/product-variant-picker";
 import { ProductPurchase } from "@/components/product-purchase";
 import { PublicPurchaseCta } from "@/components/public-purchase-cta";
@@ -18,8 +22,20 @@ import {
 } from "@/lib/queries/attributes";
 import { getGroupSiblings } from "@/lib/queries/groups";
 import { baueAuswahlfelder } from "@/lib/product-groups";
-import { firstImagePath, getProduct, getPublicProduct } from "@/lib/queries/products";
-import { getCompanySettings } from "@/lib/queries/settings";
+import {
+  firstImagePath,
+  getProduct,
+  getKundenKauftenAuch,
+  getProducts,
+  getPublicProduct,
+  getPublicProducts,
+} from "@/lib/queries/products";
+import { getCompanySettings, getPublicContact } from "@/lib/queries/settings";
+import { formatQuantity } from "@/lib/format";
+import { minOrderQuantity } from "@/lib/pricing";
+
+/** Wie viele Karten die Reihe „Ähnliche Artikel" höchstens zeigt. */
+const AEHNLICHE = 10;
 
 export async function generateMetadata({
   params,
@@ -82,11 +98,17 @@ export default async function ProductPage({
 
     // Merkmale stehen auch ohne Anmeldung da: Farbe und Größe sind das, wonach
     // im Schaufenster gesucht wird, und keine Preisauskunft.
-    const [merkmale, gesetzteWerte, geschwister] = await Promise.all([
-      getProductAttributes(),
-      getProductAttributeValueIds(product.id),
-      product.group_id ? getGroupSiblings(product.group_id) : [],
-    ]);
+    const [merkmale, gesetzteWerte, geschwister, kontakt, kategorieArtikel] =
+      await Promise.all([
+        getProductAttributes(),
+        getProductAttributeValueIds(product.id),
+        product.group_id ? getGroupSiblings(product.group_id) : [],
+        getPublicContact(),
+        getPublicProducts({ categoryId: product.category_id }),
+      ]);
+    const aehnliche = kategorieArtikel
+      .filter((p) => p.id !== product.id && p.group_id !== product.group_id)
+      .slice(0, AEHNLICHE);
 
     /*
      * Bestände sind ohne Anmeldung nicht sichtbar (products_public führt sie
@@ -189,8 +211,41 @@ export default async function ProductPage({
                 retailPrice={product.retail_price}
               />
             </div>
+
+            <ProductDelivery
+              freeShippingThreshold={kontakt.free_shipping_threshold}
+              className="mt-6"
+            />
+            <ProductFacts
+              className="mt-6"
+              facts={[
+                { label: "Artikelnummer", value: <span className="code">{product.sku}</span> },
+                ...(product.category
+                  ? [{ label: "Kategorie", value: product.category.name }]
+                  : []),
+              ]}
+            />
           </div>
         </div>
+
+        {aehnliche.length > 0 ? (
+          <section aria-labelledby="aehnliche" className="mt-16">
+            <h2 id="aehnliche" className="headline text-xl font-bold">
+              Ähnliche Artikel
+            </h2>
+            <div className="mt-4">
+              <ProductRail label="Ähnliche Artikel">
+                {aehnliche.map((p) => (
+                  <PublicProductCard
+                    key={p.id}
+                    product={p}
+                    className="w-[15rem] shrink-0 snap-start sm:w-[16rem]"
+                  />
+                ))}
+              </ProductRail>
+            </div>
+          </section>
+        ) : null}
       </div>
     );
   }
@@ -202,12 +257,27 @@ export default async function ProductPage({
 
   const free = freeStock(product);
   const vorbestellbar = istVorbestellbar(product);
-  const [company, merkmale, gesetzteWerte, geschwister] = await Promise.all([
-    getCompanySettings(),
-    getProductAttributes(),
-    getProductAttributeValueIds(product.id),
-    product.group_id ? getGroupSiblings(product.group_id) : [],
-  ]);
+  const [company, merkmale, gesetzteWerte, geschwister, kategorieArtikel, gekauft] =
+    await Promise.all([
+      getCompanySettings(),
+      getProductAttributes(),
+      getProductAttributeValueIds(product.id),
+      product.group_id ? getGroupSiblings(product.group_id) : [],
+      product.category_id
+        ? getProducts({ categoryId: product.category_id })
+        : [],
+      getKundenKauftenAuch(product.id, AEHNLICHE),
+    ]);
+  // Echte Kaufdaten gehen vor; ohne sie (neuer Artikel, noch keine
+  // Bestellungen) zeigt die Reihe Artikel derselben Kategorie.
+  const ausKauf = gekauft.length > 0;
+  const aehnliche = ausKauf
+    ? gekauft
+    : kategorieArtikel
+        .filter((p) => p.id !== product.id && (!p.group_id || p.group_id !== product.group_id))
+        .slice(0, AEHNLICHE);
+  const reihenTitel = ausKauf ? "Kunden kauften auch" : "Ähnliche Artikel";
+  const mindestmenge = minOrderQuantity(product.variants);
 
   // Angemeldete Kunden sehen Bestände, also kann die Auswahl durchstreichen,
   // was gerade nicht lieferbar ist – und führt bei mehreren gleich passenden
@@ -314,8 +384,47 @@ export default async function ProductPage({
               vatRate={company.pos_vat_rate}
             />
           </div>
+
+          <ProductDelivery
+            freeShippingThreshold={company.free_shipping_threshold}
+            className="mt-6"
+          />
+          <ProductFacts
+            className="mt-6"
+            facts={[
+              { label: "Artikelnummer", value: <span className="code">{product.sku}</span> },
+              ...(product.barcode
+                ? [{ label: "Barcode (EAN)", value: <span className="code">{product.barcode}</span> }]
+                : []),
+              ...(product.category
+                ? [{ label: "Kategorie", value: product.category.name }]
+                : []),
+              ...(product.variants.length > 0
+                ? [{ label: "Mindestbestellmenge", value: `${formatQuantity(mindestmenge)} Stück` }]
+                : []),
+            ]}
+          />
         </div>
       </div>
+
+      {aehnliche.length > 0 ? (
+        <section aria-labelledby="aehnliche" className="mt-16">
+          <h2 id="aehnliche" className="headline text-xl font-bold">
+            {reihenTitel}
+          </h2>
+          <div className="mt-4">
+            <ProductRail label={reihenTitel}>
+              {aehnliche.map((p) => (
+                <ProductCard
+                  key={p.id}
+                  product={p}
+                  className="w-[15rem] shrink-0 snap-start sm:w-[16rem]"
+                />
+              ))}
+            </ProductRail>
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }

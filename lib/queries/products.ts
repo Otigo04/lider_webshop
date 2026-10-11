@@ -345,6 +345,35 @@ export async function getProducts(options?: {
   }));
 }
 
+/**
+ * „Kunden kauften auch": Artikel aus denselben Bestellungen (Migration 067),
+ * meistgekaufte zuerst. Leer, solange es keine Bestellungen gibt oder die
+ * Migration noch nicht eingespielt ist – der Aufrufer fällt dann auf die
+ * Kategorie zurück.
+ */
+export async function getKundenKauftenAuch(
+  productId: string,
+  limit = 10,
+): Promise<ProductListItem[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("kunden_kauften_auch", {
+    p_product_id: productId,
+    p_limit: limit,
+  });
+  if (error) {
+    console.error("[katalog] Kunden kauften auch:", error.message);
+    return [];
+  }
+
+  const ids = ((data ?? []) as { product_id: string }[]).map((r) => r.product_id);
+  if (ids.length === 0) return [];
+
+  // getProducts sortiert nach Name; die Rangfolge der Funktion geht vor.
+  const items = await getProducts({ ids });
+  const rang = new Map(ids.map((id, i) => [id, i]));
+  return items.sort((a, b) => (rang.get(a.id) ?? 0) - (rang.get(b.id) ?? 0));
+}
+
 export async function getProduct(id: string): Promise<ProductDetail | null> {
   const supabase = await createClient();
   const { data, error } = await supabase
