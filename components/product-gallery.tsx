@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import { ShopImage } from "@/components/shop-image";
 import { ImageOff } from "lucide-react";
 import {
   AusverkauftBand,
@@ -39,7 +40,7 @@ export function ProductGallery({
   return (
     <div className="space-y-3">
       <div className="relative aspect-square overflow-hidden rounded-md border border-border bg-muted">
-        <Image
+        <ShopImage
           src={available[active]}
           alt={alt}
           fill

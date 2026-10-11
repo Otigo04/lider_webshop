@@ -1,5 +1,6 @@
 "use client";
 
+import { bildVorbereiten } from "@/lib/bild-verkleinern";
 import { useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -52,11 +53,14 @@ export function ArtikelBildZelle({
         toast.error(`${datei.name}: größer als 5 MB`);
         continue;
       }
-      const endung = datei.name.split(".").pop()?.toLowerCase() ?? "jpg";
-      const pfad = `${productId}/${crypto.randomUUID()}.${endung}`;
+      const bild = await bildVorbereiten(
+        datei,
+        datei.name.split(".").pop()?.toLowerCase() ?? "jpg",
+      );
+      const pfad = `${productId}/${crypto.randomUUID()}.${bild.endung}`;
       const { error } = await supabase.storage
         .from(PRODUCT_BUCKET)
-        .upload(pfad, datei, { contentType: datei.type });
+        .upload(pfad, bild.blob, { contentType: bild.contentType });
       if (error) {
         toast.error(`${datei.name}: Upload fehlgeschlagen`);
         continue;

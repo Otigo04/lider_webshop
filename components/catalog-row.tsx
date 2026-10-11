@@ -1,4 +1,4 @@
-import Image from "next/image";
+import { ShopImage } from "@/components/shop-image";
 import Link from "next/link";
 import { ChevronRight, ImageOff } from "lucide-react";
 import { RabattBadge } from "@/components/sale-price";
@@ -43,7 +43,7 @@ export function CatalogRow({
       ) : null}
       <span className="relative block size-16 shrink-0 overflow-hidden rounded-md bg-muted">
         {product.imageUrl ? (
-          <Image
+          <ShopImage
             src={product.imageUrl}
             alt=""
             fill

@@ -1,4 +1,4 @@
-import Image from "next/image";
+import { ShopImage } from "@/components/shop-image";
 import Link from "next/link";
 import { ImageOff } from "lucide-react";
 import { MerkButton } from "@/components/merk-button";
@@ -45,7 +45,7 @@ export function CatalogCard({
             />
           ) : null}
           {product.imageUrl ? (
-            <Image
+            <ShopImage
               src={product.imageUrl}
               alt={product.name}
               fill

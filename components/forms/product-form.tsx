@@ -1,5 +1,6 @@
 "use client";
 
+import { bildVorbereiten } from "@/lib/bild-verkleinern";
 import { useActionState, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -225,12 +226,15 @@ export function ProductForm({
         continue;
       }
 
-      const extension = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
-      const path = `${productId}/${crypto.randomUUID()}.${extension}`;
+      const bild = await bildVorbereiten(
+        file,
+        file.name.split(".").pop()?.toLowerCase() ?? "jpg",
+      );
+      const path = `${productId}/${crypto.randomUUID()}.${bild.endung}`;
 
       const { error } = await supabase.storage
         .from(PRODUCT_BUCKET)
-        .upload(path, file, { contentType: file.type });
+        .upload(path, bild.blob, { contentType: bild.contentType });
 
       if (error) {
         toast.error(`${file.name}: Upload fehlgeschlagen`);
