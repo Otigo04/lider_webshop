@@ -726,3 +726,25 @@ sein, ohne dass man den Reiter „Restposten" kennt:
   Zugang.
 - Im Schaufenster erscheint nur, was aktiv ist **und** ein Foto hat
   (`products_public`). Ein Restposten ohne Bild ist im Shop unsichtbar.
+
+### Reduzierung bei Restposten
+
+Bei normalen Artikeln ist der Vorher-Preis ein Ladenpreis, und gespart wird
+gegenüber dem **Ladenpreis** (`reduzierung()`, Migration 045). Für Restposten
+mit Vorher-Preis gilt die Ausnahme: gespart wird gegenüber dem **angezeigten
+Preis**. Sonst blieb ein Restposten mit Vorher 18 € und Ladenpreis 18 € ohne
+rote Auszeichnung, obwohl der Kunde 14,50 € zahlt.
+
+- Umgesetzt in `reduzierungsBezug()` (`lib/pricing.ts`): liefert für
+  Restposten mit Vorher-Preis den angezeigten Preis als Bezug, sonst den
+  Ladenpreis. Angewandt an den vier Stellen, an denen Shop-Artikel gebaut
+  werden (`getProducts`, `getProduct`, `getPublicProducts`, Landing,
+  Schaufenster-Detail) – danach rechnen Karten, Filter „Nur reduzierte" und
+  Startseite unverändert über `reduzierung()`.
+- Ein Vorher-Preis **unter** dem angezeigten Preis ergibt weiter keine
+  Reduzierung.
+- Gilt nur im Shop. Katalog, Newsletter, Preisschild und Kasse rechnen weiter
+  gegen den Ladenpreis.
+- Vorher-Preis und Preis stehen nebeneinander, obwohl der Vorher-Preis oft ein
+  Bruttopreis (OVP) ist und der Shop netto zeigt. Wer das vermeiden will,
+  trägt den Vorher-Preis netto ein.

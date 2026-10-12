@@ -146,6 +146,39 @@ export function reduzierung(
   return { vorher, jetzt, prozent };
 }
 
+/**
+ * Bezug für `reduzierung()` im Shop.
+ *
+ * Normalerweise der Ladenpreis (siehe dort). **Restposten mit Vorher-Preis**
+ * sind die Ausnahme: der Vorher-Preis ist dort der ursprüngliche Preis der
+ * Ware, und gespart wird gegenüber dem Preis, den der Kunde zahlt. Als Bezug
+ * dient deshalb der angezeigte Preis selbst – `reduzierung()` rechnet dann
+ * (Vorher − Preis) / Vorher und zeigt den Vorher-Preis unverändert.
+ *
+ * Ohne Vorher-Preis oder ohne Restposten-Kennzeichen bleibt der Ladenpreis
+ * der Bezug; ein Vorher-Preis unter dem angezeigten Preis ergibt weiter
+ * keine Reduzierung.
+ */
+export function reduzierungsBezug(
+  artikel: {
+    is_restposten?: boolean | null;
+    list_price?: number | null;
+  },
+  aktuellerPreis: number | null | undefined,
+  ladenpreis: number | null | undefined,
+): number | null {
+  if (
+    artikel.is_restposten &&
+    artikel.list_price !== null &&
+    artikel.list_price !== undefined &&
+    aktuellerPreis !== null &&
+    aktuellerPreis !== undefined
+  ) {
+    return aktuellerPreis;
+  }
+  return ladenpreis ?? null;
+}
+
 /** Positionssumme für eine Menge. 0, wenn keine Staffel greift. */
 export function lineTotal(variants: PriceTier[], quantity: number): number {
   const tier = resolveTier(variants, quantity);

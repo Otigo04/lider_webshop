@@ -7,6 +7,7 @@ import {
   priceRange,
   discountPercent,
   reduzierung,
+  reduzierungsBezug,
   lineTotal,
   counterUnitPrice,
   freeStock,
@@ -152,4 +153,26 @@ test("Vorbestellbar nur mit Flag und ohne freien Bestand", () => {
   assert.equal(istVorbestellbar(artikel(true, 5, 5)), true, "alles reserviert");
   assert.equal(istVorbestellbar(artikel(true, 5, 2)), false, "Ware da");
   assert.equal(istVorbestellbar(artikel(false, 0, 0)), false, "kein Flag");
+});
+
+test("Restposten mit Vorher-Preis: gespart wird gegenüber dem angezeigten Preis", () => {
+  // BWT Alpine: GH 14,50, Ladenpreis 18, Vorher 18 → mit Ladenpreis als Bezug
+  // keine Reduzierung, als Restposten gegen den angezeigten Preis schon.
+  const artikel = { is_restposten: true, list_price: 18 };
+  assert.equal(reduzierung(18, 14.5, 18), null);
+  const bezug = reduzierungsBezug(artikel, 14.5, 18);
+  assert.equal(bezug, 14.5);
+  assert.deepEqual(reduzierung(18, 14.5, bezug), { vorher: 18, jetzt: 14.5, prozent: 19 });
+});
+
+test("reduzierungsBezug bleibt beim Ladenpreis, wo es nicht um Restposten geht", () => {
+  assert.equal(reduzierungsBezug({ is_restposten: false, list_price: 18 }, 14.5, 18), 18);
+  // Restposten ohne Vorher-Preis: nichts zu vergleichen
+  assert.equal(reduzierungsBezug({ is_restposten: true, list_price: null }, 14.5, 18), 18);
+  assert.equal(reduzierungsBezug({ is_restposten: true, list_price: null }, 14.5, null), null);
+});
+
+test("Restposten: Vorher-Preis unter dem Preis ist keine Reduzierung", () => {
+  const bezug = reduzierungsBezug({ is_restposten: true, list_price: 10 }, 14.5, 18);
+  assert.equal(reduzierung(10, 14.5, bezug), null);
 });

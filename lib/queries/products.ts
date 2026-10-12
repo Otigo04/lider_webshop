@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createPublicClient } from "@/lib/supabase/public";
 import { getImageUrls } from "@/lib/storage";
 import { NEU_TAGE, istNeu } from "@/lib/product-flags";
-import { reduzierung } from "@/lib/pricing";
+import { lowestUnitPrice, reduzierung, reduzierungsBezug } from "@/lib/pricing";
 import { gruppiere } from "@/lib/product-groups";
 import { neuZuerst, querschnitt } from "@/lib/startseite";
 import { sucheWortweise } from "@/lib/search";
@@ -339,12 +339,18 @@ export async function getProducts(options?: {
   const coverPaths = rows.map((row) => firstImagePath(row.images));
   const urls = await getImageUrls(coverPaths);
 
-  return rows.map((row, index) => ({
-    ...row,
-    variants: row.variants ?? [],
-    imageUrl: urls[index],
-    imagePath: coverPaths[index],
-  }));
+  return rows.map((row, index) => {
+    const variants = row.variants ?? [];
+    return {
+      ...row,
+      variants,
+      // Restposten mit Vorher-Preis: Bezug der Reduzierung ist der
+      // angezeigte Preis (reduzierungsBezug in lib/pricing.ts).
+      retail_price: reduzierungsBezug(row, lowestUnitPrice(variants), row.retail_price),
+      imageUrl: urls[index],
+      imagePath: coverPaths[index],
+    };
+  });
 }
 
 /**
@@ -399,9 +405,11 @@ export async function getProduct(id: string): Promise<ProductDetail | null> {
   const images = sortImages(row.images ?? []);
   const imageUrls = await getImageUrls(images.map((image) => image.file_path));
 
+  const variants = row.variants ?? [];
   return {
     ...row,
-    variants: row.variants ?? [],
+    variants,
+    retail_price: reduzierungsBezug(row, lowestUnitPrice(variants), row.retail_price),
     images,
     category: row.category ?? null,
     imageUrls,
@@ -496,9 +504,26 @@ export async function getPublicProducts(options?: {
       priceFrom: preis?.min_unit_price ?? null,
       minOrderQuantity: preis?.min_order_quantity ?? null,
       list_price: (row.list_price as number | null) ?? null,
-      retail_price: preis?.sale_base ?? null,
+      retail_price: bezugFuer(row, preis),
     };
   });
+}
+
+/**
+ * Bezug der Reduzierung für Schaufenster-Zeilen: der Ladenpreis (sale_base),
+ * bei Restposten mit Vorher-Preis der angezeigte Preis (lib/pricing.ts,
+ * reduzierungsBezug()).
+ */
+function bezugFuer(
+  row: unknown,
+  preis: { min_unit_price: number | null; sale_base: number | null } | undefined,
+): number | null {
+  const r = row as { is_restposten?: boolean | null; list_price?: number | null };
+  return reduzierungsBezug(
+    { is_restposten: r.is_restposten ?? false, list_price: r.list_price ?? null },
+    preis?.min_unit_price,
+    preis?.sale_base,
+  );
 }
 
 /** Warengruppe mit der Zahl der darin gelisteten Artikel. */
@@ -737,7 +762,7 @@ export async function getLandingData(perSection = 8): Promise<LandingData> {
       priceFrom: preis?.min_unit_price ?? null,
       minOrderQuantity: preis?.min_order_quantity ?? null,
       list_price: (row.list_price as number | null) ?? null,
-      retail_price: preis?.sale_base ?? null,
+      retail_price: bezugFuer(row, preis),
     };
   };
 
@@ -893,7 +918,7 @@ export async function getPublicProduct(id: string): Promise<PublicProductDetail 
     priceFrom: preis?.min_unit_price ?? null,
     minOrderQuantity: preis?.min_order_quantity ?? null,
     list_price: row.list_price,
-    retail_price: preis?.sale_base ?? null,
+    retail_price: bezugFuer(row, preis),
   };
 }
 
