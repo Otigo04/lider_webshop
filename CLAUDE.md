@@ -205,7 +205,9 @@ CREATE TABLE product_images (
 - `/admin/products/[id]/edit` – Produkt bearbeiten
 - `/admin/orders` – Bestellverwaltung
 - `/admin/categories` – Kategorien verwalten
-- `/admin/settings` – Firmendaten, Kassenvorgaben, Merkmale und Artikel-Flags
+- `/admin/settings` – Einstellungen mit Menü links, je Thema eine Unterseite:
+  Firmendaten (inkl. Kassenvorgaben), `/hinweisleiste`, `/texte` (Sätze der
+  Sonderseiten, Migration 069), `/merkmale`, `/flags`, `/impressum`, `/wartung`
 
 ### **Kassenportal (Protected, nur für Admins):**
 

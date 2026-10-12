@@ -255,7 +255,7 @@ export async function setProductAttributes(input: {
 
 /** Überall dort, wo Merkmale gelesen werden – Verwaltung wie Sortiment. */
 function merkmaleNeuLaden() {
-  revalidatePath("/admin/settings");
+  revalidatePath("/admin/settings", "layout");
   revalidatePath("/admin/products");
   revalidatePath("/admin/bestand");
   revalidatePath("/shop");

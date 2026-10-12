@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { ShopView } from "@/components/shop-view";
+import { getShopTexte } from "@/lib/queries/shop-texte";
 import { loadShopPage } from "@/lib/queries/shop-page";
 
 export const metadata: Metadata = {
@@ -16,6 +17,7 @@ export default async function TopsellerPage({
     searchParams: await searchParams,
     flag: "is_topseller",
   });
+  const texte = await getShopTexte();
 
   return (
     <ShopView
@@ -25,7 +27,7 @@ export default async function TopsellerPage({
       activeSlug={null}
       action="/shop/topseller"
       heading="Topseller"
-      description="Artikel, die unsere Händler regelmäßig nachbestellen."
+      description={texte.topseller}
       // Der Haken "Nur Topseller" wäre hier ohne Wirkung.
       showFlagFilters={false}
     />

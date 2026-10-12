@@ -42,7 +42,7 @@ export async function createProductFlag(
     };
   }
 
-  revalidatePath("/admin/settings");
+  revalidatePath("/admin/settings", "layout");
   revalidatePath("/admin/products");
   return { success: "Flag angelegt." };
 }
@@ -67,7 +67,7 @@ export async function deleteProductFlag(
     return { error: "Das Flag konnte nicht gelöscht werden." };
   }
 
-  revalidatePath("/admin/settings");
+  revalidatePath("/admin/settings", "layout");
   revalidatePath("/admin/products");
   return { success: "Flag gelöscht." };
 }

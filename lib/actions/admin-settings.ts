@@ -150,7 +150,7 @@ export async function updateCompanySettings(
     return { error: "Die Firmendaten konnten nicht gespeichert werden." };
   }
 
-  revalidatePath("/admin/settings");
+  revalidatePath("/admin/settings", "layout");
   revalidatePath("/kasse/terminal");
   // Die Versandgrenze steht auch im Schaufenster und im Bestellweg.
   revalidatePath("/");
@@ -192,7 +192,7 @@ export async function setMaintenanceMode(
     return { error: "Der Wartungsmodus konnte nicht geändert werden." };
   }
 
-  revalidatePath("/admin/settings");
+  revalidatePath("/admin/settings", "layout");
   revalidatePath("/wartung");
   return {
     success: aktiv
@@ -255,7 +255,7 @@ export async function updateMaintenanceContent(
     return { error: "Text und Datum konnten nicht gespeichert werden." };
   }
 
-  revalidatePath("/admin/settings");
+  revalidatePath("/admin/settings", "layout");
   revalidatePath("/wartung");
   return { success: "Wartungstext gespeichert." };
 }
@@ -315,7 +315,7 @@ export async function updateImpressum(
     };
   }
 
-  revalidatePath("/admin/settings");
+  revalidatePath("/admin/settings", "layout");
   revalidatePath("/impressum");
   return {
     success: wert === null ? "Vorlage wiederhergestellt." : "Impressum gespeichert.",

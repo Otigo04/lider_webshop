@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { ShopView } from "@/components/shop-view";
+import { getShopTexte } from "@/lib/queries/shop-texte";
 import { loadShopPage } from "@/lib/queries/shop-page";
 
 export const metadata: Metadata = {
@@ -20,6 +21,7 @@ export default async function ReduziertPage({
   const daten = await loadShopPage({
     searchParams: { ...(await searchParams), rabatt: "1" },
   });
+  const texte = await getShopTexte();
 
   return (
     <ShopView
@@ -29,7 +31,7 @@ export default async function ReduziertPage({
       activeSlug={null}
       action="/shop/reduziert"
       heading="Reduziert"
-      description="Artikel mit gesenktem Preis – solange der Vorrat reicht."
+      description={texte.reduziert}
       showFlagFilters={false}
     />
   );

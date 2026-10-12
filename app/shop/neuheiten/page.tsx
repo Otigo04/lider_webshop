@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { ShopView } from "@/components/shop-view";
+import { getShopTexte } from "@/lib/queries/shop-texte";
 import { loadShopPage } from "@/lib/queries/shop-page";
 
 export const metadata: Metadata = {
@@ -16,6 +17,7 @@ export default async function NeuheitenPage({
     searchParams: await searchParams,
     flag: "is_new",
   });
+  const texte = await getShopTexte();
 
   return (
     <ShopView
@@ -25,7 +27,7 @@ export default async function NeuheitenPage({
       activeSlug={null}
       action="/shop/neuheiten"
       heading="Neuheiten"
-      description="Zuletzt ins Sortiment aufgenommen."
+      description={texte.neuheiten}
       // Der Haken "Nur Neuheiten" wäre hier ohne Wirkung.
       showFlagFilters={false}
     />

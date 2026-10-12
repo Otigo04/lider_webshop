@@ -748,3 +748,11 @@ rote Auszeichnung, obwohl der Kunde 14,50 € zahlt.
 - Vorher-Preis und Preis stehen nebeneinander, obwohl der Vorher-Preis oft ein
   Bruttopreis (OVP) ist und der Shop netto zeigt. Wer das vermeiden will,
   trägt den Vorher-Preis netto ein.
+
+### Texte der Sonderseiten (Migration 069)
+
+Der Satz unter der Überschrift von `/shop/reduziert`, `/shop/restposten`,
+`/shop/neuheiten` und `/shop/topseller` steht in `shop_texte` und wird unter
+`/admin/settings/texte` gepflegt. Standardtexte in `lib/shop-texte.ts`: eine
+Zeile überschreibt, leer lassen löscht die Zeile. Fehlt die Tabelle, gelten die
+Standardtexte; Speichern meldet dann, dass Migration 069 fehlt.
