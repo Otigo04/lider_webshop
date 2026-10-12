@@ -170,6 +170,29 @@ setzen, drucken – A4 mit Schnittlinien.
 
 ---
 
+## ⚡ Schnelle Preisschilder
+
+`/admin/preisschilder/schnell`, `components/admin/preisschild-schnell.tsx`.
+Bezeichnung, Preis, Stück, optional Vorher-Preis – für Einzelware, die nicht in den Bestand soll.
+
+- **Kein Scan, kein Artikel, kein Rückschreiben.** Das ist der Unterschied
+  zum freien Generator: der legt bei unbekanntem Code einen Artikel an und
+  schreibt Preise zurück. Hier passiert nichts außer Papier.
+- **Derselbe Bogen.** Gedruckt wird über `/admin/preisschilder/druck`,
+  Vorschau über `PreisschildBogenVorschau` – kein zweiter Zeichenweg. Ohne
+  Artikelnummer, Barcode, Symbol und Großhandelscode.
+- **Vorher-Preis macht das Schild rot.** `schildPreis()`/`schildLabel()`
+  entscheiden wie überall; ein Cent Unterschied ist kein Angebot. Leeres Feld
+  heißt „keine Reduzierung".
+- **Eine leere Zeile steht immer am Ende.** Enter in der Bezeichnung springt
+  in den Preis, Enter im Preis in die nächste Bezeichnung. Gedruckt werden
+  nur Zeilen mit Bezeichnung und Preis über 0.
+- **Die Liste liegt im Browser** (`localStorage`), nicht in der Datenbank.
+  Schildgrößen kommen aus `label_sizes` und gelten wie bei den anderen
+  Generatoren.
+
+---
+
 ## ✍️ Freie Preisschilder
 
 `/admin/preisschilder/frei`. Derselbe Bogen, dieselben Regeln, nur ohne

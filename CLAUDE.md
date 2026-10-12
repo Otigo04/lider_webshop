@@ -198,6 +198,7 @@ CREATE TABLE product_images (
 - `/admin/kassenbuch` – Tageskasse von Hand (Bargeld, Karte, Großhandel je Tag), unabhängig von der Kasse (Migration 057)
 - `/admin/bestand` – Wareneingang (Schnellerfassung) und sein Journal
 - `/admin/preisschilder` – Preisschilder fürs Regal, druckfertig auf A4
+- `/admin/preisschilder/schnell` – Preisschilder nur Bezeichnung, Preis, optional Vorher-Preis, ohne Bestand
 - `/admin/preisschilder/frei` – Preisschilder von Hand, mit Artikelabgleich
 - `/admin/kataloge` – Kataloge zusammenstellen und als A4 drucken / PDF
 - `/admin/products/new` – Produkt erstellen

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutTemplate, PencilLine, Package } from "lucide-react";
+import { LayoutTemplate, PencilLine, Package, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -20,6 +20,12 @@ const WEGE = [
     label: "Aus dem Bestand",
     hinweis: "Artikel anklicken",
     icon: Package,
+  },
+  {
+    href: "/admin/preisschilder/schnell",
+    label: "Schnell",
+    hinweis: "nur Bezeichnung + Preis",
+    icon: Zap,
   },
   {
     href: "/admin/preisschilder/frei",
