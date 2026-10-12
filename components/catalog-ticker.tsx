@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ImageOff } from "lucide-react";
 import { formatPrice } from "@/lib/format";
-import { reduzierung } from "@/lib/pricing";
+import { hatPreisspanne, reduzierung } from "@/lib/pricing";
 import type { PublicProductListItem } from "@/lib/queries/products";
 
 /**
@@ -102,7 +102,8 @@ function TickerCard({
           */
           <span className="mt-0.5 flex flex-wrap items-baseline gap-x-1.5 text-sm text-gold-bright tabular">
             <span>
-              ab {formatPrice(product.priceFrom)}
+              {hatPreisspanne(product.priceFrom, product.priceTo) ? "ab " : ""}
+              {formatPrice(product.priceFrom)}
               <span className="text-surface-dark-muted"> / Stück</span>
             </span>
             {rabatt ? (

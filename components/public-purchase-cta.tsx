@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { SalePrice } from "@/components/sale-price";
 import { formatPrice } from "@/lib/format";
-import { reduzierung } from "@/lib/pricing";
+import { hatPreisspanne, reduzierung } from "@/lib/pricing";
 
 /**
  * Ersetzt ProductPurchase für nicht angemeldete Besucher. Zeigt den
@@ -11,11 +11,14 @@ import { reduzierung } from "@/lib/pricing";
  */
 export function PublicPurchaseCta({
   priceFrom,
+  priceTo = null,
   minOrderQuantity,
   listPrice = null,
   retailPrice = null,
 }: {
   priceFrom: number | null;
+  /** Höchster Stückpreis; gleich priceFrom heißt: ein Preis, kein „ab" */
+  priceTo?: number | null;
   minOrderQuantity: number | null;
   /** Vorher-Preis für die Rabattanzeige (Migration 023) */
   listPrice?: number | null;
@@ -35,7 +38,9 @@ export function PublicPurchaseCta({
             <SalePrice reduktion={rabatt} suffix="/ Stück netto" groesse="gross" className="mt-2" />
           ) : (
             <p className="mt-2 flex items-baseline gap-1.5">
-              <span className="text-sm text-muted-foreground">ab</span>
+              {hatPreisspanne(priceFrom, priceTo) ? (
+                <span className="text-sm text-muted-foreground">ab</span>
+              ) : null}
               <span className="text-3xl font-bold tabular">
                 {formatPrice(priceFrom)}
               </span>

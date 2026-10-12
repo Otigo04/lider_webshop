@@ -5,7 +5,7 @@ import { MerkButton } from "@/components/merk-button";
 import { ProductFlagBadges } from "@/components/product-flag-badges";
 import { RabattBadge, SalePrice } from "@/components/sale-price";
 import { formatPrice } from "@/lib/format";
-import { reduzierung } from "@/lib/pricing";
+import { hatPreisspanne, reduzierung } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import type { PublicProductListItem } from "@/lib/queries/products";
 
@@ -95,7 +95,9 @@ export function PublicProductCard({
                   <SalePrice reduktion={rabatt} suffix="/ Stück netto" />
                 ) : (
                   <p className="flex items-baseline gap-1">
-                    <span className="text-xs text-muted-foreground">ab</span>
+                    {hatPreisspanne(product.priceFrom, product.priceTo) ? (
+                      <span className="text-xs text-muted-foreground">ab</span>
+                    ) : null}
                     <span className="text-xl font-bold tabular">
                       {formatPrice(product.priceFrom)}
                     </span>

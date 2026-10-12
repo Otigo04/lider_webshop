@@ -211,6 +211,7 @@ export default async function ProductPage({
             <div className="mt-8">
               <PublicPurchaseCta
                 priceFrom={product.priceFrom}
+                priceTo={product.priceTo}
                 minOrderQuantity={product.minOrderQuantity}
                 listPrice={product.list_price}
                 retailPrice={product.retail_price}

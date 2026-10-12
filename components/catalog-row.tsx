@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ChevronRight, ImageOff } from "lucide-react";
 import { RabattBadge } from "@/components/sale-price";
 import { formatPrice } from "@/lib/format";
-import { reduzierung } from "@/lib/pricing";
+import { hatPreisspanne, reduzierung } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import type { PublicProductListItem } from "@/lib/queries/products";
 
@@ -76,7 +76,9 @@ export function CatalogRow({
               </>
             ) : (
               <>
-                <span className="text-xs text-muted-foreground">ab</span>
+                {hatPreisspanne(product.priceFrom, product.priceTo) ? (
+                  <span className="text-xs text-muted-foreground">ab</span>
+                ) : null}
                 <span className="font-bold">{formatPrice(product.priceFrom)}</span>
                 <span className="text-xs text-muted-foreground">/ Stück netto</span>
               </>

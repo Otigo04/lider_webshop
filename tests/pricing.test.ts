@@ -176,3 +176,11 @@ test("Restposten: Vorher-Preis unter dem Preis ist keine Reduzierung", () => {
   const bezug = reduzierungsBezug({ is_restposten: true, list_price: 10 }, 14.5, 18);
   assert.equal(reduzierung(10, 14.5, bezug), null);
 });
+
+test("hatPreisspanne: ab nur bei mehr als einem Preis", async () => {
+  const { hatPreisspanne } = await import("@/lib/pricing");
+  assert.equal(hatPreisspanne(4.9, 4.9), false);
+  assert.equal(hatPreisspanne(4.9, null), false);
+  assert.equal(hatPreisspanne(null, null), false);
+  assert.equal(hatPreisspanne(3.5, 4.9), true);
+});

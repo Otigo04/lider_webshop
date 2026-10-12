@@ -32,7 +32,7 @@ import { accentIndex } from "@/lib/accent-colors";
 import { getCurrentUser } from "@/lib/auth";
 import { faqGruppen } from "@/lib/faq";
 import { formatPrice } from "@/lib/format";
-import { reduzierung } from "@/lib/pricing";
+import { hatPreisspanne, reduzierung } from "@/lib/pricing";
 import { getLandingData } from "@/lib/queries/products";
 import { getPublicContact } from "@/lib/queries/settings";
 import { getActiveSlides } from "@/lib/queries/slides";
@@ -343,9 +343,11 @@ export default async function HomePage() {
                           </span>
                         ) : product.priceFrom !== null ? (
                           <span className="flex items-baseline gap-1">
-                            <span className="text-[10px] text-muted-foreground">
-                              ab
-                            </span>
+                            {hatPreisspanne(product.priceFrom, product.priceTo) ? (
+                              <span className="text-[10px] text-muted-foreground">
+                                ab
+                              </span>
+                            ) : null}
                             <span className="text-sm font-bold tabular text-foreground">
                               {formatPrice(product.priceFrom)}
                             </span>

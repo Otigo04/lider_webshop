@@ -43,6 +43,18 @@ export function lowestUnitPrice(variants: PriceTier[]): number | null {
   return Math.min(...variants.map((v) => toNumber(v.unit_price)));
 }
 
+/**
+ * Gibt es mehr als einen Stückpreis? Nur dann steht vor dem Schaufensterpreis
+ * „ab". Bei einem einzigen Preis ändert sich nichts mehr, und „ab 4,90 €"
+ * würde eine Staffel versprechen, die es nicht gibt.
+ */
+export function hatPreisspanne(
+  von: number | null | undefined,
+  bis: number | null | undefined,
+): boolean {
+  return von != null && bis != null && bis > von;
+}
+
 /** Höchster Stückpreis – zusammen mit lowestUnitPrice die Preisspanne. */
 export function highestUnitPrice(variants: PriceTier[]): number | null {
   if (variants.length === 0) return null;

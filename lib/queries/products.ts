@@ -67,6 +67,11 @@ export interface PublicProductListItem {
    * eingespielt ist oder der Artikel keine Preise hat.
    */
   priceFrom: number | null;
+  /**
+   * Höchster Stückpreis der Staffeln. Gleich priceFrom (oder null) heißt: es
+   * gibt nur einen Preis, und „ab" entfällt (hatPreisspanne in lib/pricing.ts).
+   */
+  priceTo: number | null;
   minOrderQuantity: number | null;
   /**
    * Vorher-Preis für die Rabattanzeige (Migration 023). Anders als der
@@ -116,6 +121,7 @@ let viewFehltGemeldet = false;
 
 interface PriceRangeRow {
   min_unit_price: number;
+  max_unit_price: number;
   min_order_quantity: number;
   /** Ladenpreis reduzierter Artikel, sonst null (Migration 045) */
   sale_base: number | null;
@@ -141,12 +147,14 @@ async function priceRangesFor(
   };
 
   let { data, error } = await abfrage(
-    "product_id, min_unit_price, min_order_quantity, sale_base",
+    "product_id, min_unit_price, max_unit_price, min_order_quantity, sale_base",
   );
   // Ohne Migration 045 fehlt sale_base. Die Ab-Preise sollen deshalb nicht
   // wegfallen – die Reduzierung rechnet dann nur gegen den Großhandelspreis.
   if (error?.code === "42703") {
-    ({ data, error } = await abfrage("product_id, min_unit_price, min_order_quantity"));
+    ({ data, error } = await abfrage(
+      "product_id, min_unit_price, max_unit_price, min_order_quantity",
+    ));
   }
 
   if (error) {
@@ -169,6 +177,7 @@ async function priceRangesFor(
       row.product_id as string,
       {
         min_unit_price: Number(row.min_unit_price),
+        max_unit_price: Number(row.max_unit_price ?? row.min_unit_price),
         min_order_quantity: Number(row.min_order_quantity),
         // undefined ohne Migration 045, null bei Artikeln ohne Streichpreis
         sale_base: row.sale_base == null ? null : Number(row.sale_base),
@@ -506,6 +515,7 @@ export async function getPublicProducts(options?: {
       created_at: row.created_at as string,
       imageUrl: urls[index],
       priceFrom: preis?.min_unit_price ?? null,
+      priceTo: preis?.max_unit_price ?? null,
       minOrderQuantity: preis?.min_order_quantity ?? null,
       list_price: (row.list_price as number | null) ?? null,
       retail_price: bezugFuer(row, preis),
@@ -765,6 +775,7 @@ export async function getLandingData(perSection = 8): Promise<LandingData> {
       created_at: row.created_at as string,
       imageUrl: bilder.get(id) ?? null,
       priceFrom: preis?.min_unit_price ?? null,
+      priceTo: preis?.max_unit_price ?? null,
       minOrderQuantity: preis?.min_order_quantity ?? null,
       list_price: (row.list_price as number | null) ?? null,
       retail_price: bezugFuer(row, preis),
@@ -923,6 +934,7 @@ export async function getPublicProduct(id: string): Promise<PublicProductDetail 
     imageUrl: imageUrls[0] ?? null,
     imageUrls,
     priceFrom: preis?.min_unit_price ?? null,
+    priceTo: preis?.max_unit_price ?? null,
     minOrderQuantity: preis?.min_order_quantity ?? null,
     list_price: row.list_price,
     retail_price: bezugFuer(row, preis),
