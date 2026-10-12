@@ -75,6 +75,8 @@ export interface ShopPageData {
   /** Gepflegte Merkmale für die Filterspalte; leer, solange keine da sind */
   attributes: ProductAttributeGroup[];
   totalCount: number;
+  /** Zahl der Restposten-Angebote – Eintrag in der Warengruppenliste */
+  restpostenAnzahl: number;
   /** Treffer nach Filtern und Suche, über alle Seiten */
   gefunden: number;
   seite: number;
@@ -110,6 +112,15 @@ export async function loadShopPage({
     getCategoryCounts({ flag }),
     getProductAttributes(),
   ]);
+  // Auf /shop/restposten stehen die Zahlen schon da; sonst eigene Zählung.
+  const restpostenZaehler =
+    flag === "is_restposten"
+      ? counts
+      : await getCategoryCounts({ flag: "is_restposten" });
+  const restpostenAnzahl = [...restpostenZaehler.values()].reduce(
+    (summe, n) => summe + n,
+    0,
+  );
 
   /*
    * Merkmalsfilter. Die angehakten Werte werden nach ihrem Merkmal gruppiert,
@@ -156,6 +167,7 @@ export async function loadShopPage({
       categories: mitZahlen,
       attributes,
       totalCount,
+      restpostenAnzahl,
       mengenstaffeln: artikel.some((p) => (BESUCHER.minQuantity(p) ?? 1) > 1),
       gefunden: seite.gefunden,
       seite: seite.seite,
@@ -183,6 +195,7 @@ export async function loadShopPage({
     categories: mitZahlen,
     attributes,
     totalCount,
+    restpostenAnzahl,
     mengenstaffeln: artikel.some((p) => (KUNDE.minQuantity(p) ?? 1) > 1),
     gefunden: seite.gefunden,
     seite: seite.seite,

@@ -41,6 +41,12 @@ interface ShopFilterPanelProps {
    */
   showMinQuantityFilter: boolean;
   totalCount: number;
+  /**
+   * Zahl der Restposten-Angebote. Der Eintrag steht in der Warengruppenliste,
+   * ist aber keine Warengruppe: Restposten bleiben in ihrer eigenen Gruppe
+   * und stehen nur zusätzlich hier (Migration 068).
+   */
+  restpostenAnzahl: number;
 }
 
 /**
@@ -65,7 +71,9 @@ export function ShopFilterPanel({
   showFlagFilters,
   showMinQuantityFilter,
   totalCount,
+  restpostenAnzahl,
 }: ShopFilterPanelProps) {
+  const restpostenAktiv = action === "/shop/restposten";
   const gesetzt = activeFilterCount(filters);
   // Ein per Adresse gesetzter Mengenfilter bleibt sichtbar, sonst ließe er
   // sich nicht mehr zurücknehmen.
@@ -111,7 +119,7 @@ export function ShopFilterPanel({
               <li>
                 <FilterLink
                   href={buildShopHref("/shop", filters)}
-                  active={activeSlug === null}
+                  active={activeSlug === null && !restpostenAktiv}
                   count={totalCount}
                 >
                   Alle Artikel
@@ -129,6 +137,17 @@ export function ShopFilterPanel({
                   </FilterLink>
                 </li>
               ))}
+              {restpostenAnzahl > 0 || restpostenAktiv ? (
+                <li className="mt-2 border-t border-border pt-2">
+                  <FilterLink
+                    href={buildShopHref("/shop/restposten", filters)}
+                    active={restpostenAktiv}
+                    count={restpostenAnzahl}
+                  >
+                    Restposten
+                  </FilterLink>
+                </li>
+              ) : null}
             </ul>
           </section>
 

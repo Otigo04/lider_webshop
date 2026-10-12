@@ -6,6 +6,7 @@ import {
   ChevronDown,
   Layers,
   PackageCheck,
+  PackageOpen,
   Percent,
   Sparkles,
   Store,
@@ -110,6 +111,8 @@ export default async function HomePage() {
     sortiment,
     sortimentNachGruppe,
     reduziert,
+    restposten,
+    restpostenAnzahl,
     schaufenster,
   } = daten;
   const angemeldet = Boolean(user);
@@ -124,6 +127,16 @@ export default async function HomePage() {
    * halb gefülltes Raster sähe nach Fehler aus.
    */
   const heroBilder = schaufenster.slice(0, 4);
+
+  // Restposten sind nach Ersparnis sortiert; die größte steht vorn. Ohne
+  // gepflegten Vorher-Preis ist es 0, dann entfällt die Zahl im Aktionsfeld.
+  const hoechsterRestpostenRabatt = restposten[0]
+    ? (reduzierung(
+          restposten[0].list_price,
+          restposten[0].priceFrom,
+          restposten[0].retail_price,
+        )?.prozent ?? 0)
+    : 0;
 
   // reduziert ist nach Ersparnis absteigend sortiert – vorn steht die größte.
   const hoechsterRabatt = reduziert[0]
@@ -429,13 +442,26 @@ export default async function HomePage() {
                   eine vermisst, hält das Sortiment für kleiner, als es ist.
                   Schnellleiste und Reiter weiter unten bleiben bei den
                   gefüllten – dort führte eine leere ins Nichts. */}
-              <CategoryGrid categories={categories} />
+              <CategoryGrid
+                categories={categories}
+                restposten={
+                  restpostenAnzahl > 0
+                    ? {
+                        anzahl: restpostenAnzahl,
+                        vorschau: restposten
+                          .map((product) => product.imageUrl)
+                          .filter((url): url is string => url !== null)
+                          .slice(0, 3),
+                      }
+                    : undefined
+                }
+              />
             </Reveal>
 
             {/* Schnellwege zu den Sonderlisten – dieselben Ziele wie in der
                 Kopfleiste, hier direkt neben den Warengruppen. */}
             <Reveal delay={140} className="mt-4">
-              <div className="grid gap-3 sm:grid-cols-3">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <Schnellweg
                   href="/shop/reduziert"
                   icon={Percent}
@@ -461,6 +487,15 @@ export default async function HomePage() {
                   text="Wird oft nachbestellt"
                   klasse="bg-surface-dark text-surface-dark-foreground"
                 />
+                {restpostenAnzahl > 0 ? (
+                  <Schnellweg
+                    href="/shop/restposten"
+                    icon={PackageOpen}
+                    titel="Restposten"
+                    text={`${restpostenAnzahl} ${restpostenAnzahl === 1 ? "Angebot" : "Angebote"} zum Sonderpreis`}
+                    klasse="bg-neutral-800 text-white"
+                  />
+                ) : null}
               </div>
             </Reveal>
           </div>
@@ -520,6 +555,73 @@ export default async function HomePage() {
                     key={product.id}
                     product={product}
                     className="w-[15rem] shrink-0 snap-start border-signal/25 sm:w-[16rem]"
+                  />
+                ))}
+              </ProductRail>
+            </Reveal>
+          </div>
+        </section>
+      ) : null}
+
+      {/* --------------------------------------------------------- Restposten */}
+      {/* Steht unter „Reduziert": wer auf Preise schaut, findet hier die
+          stärksten. Die Artikel sind zugleich in ihrer Warengruppe. */}
+      {restposten.length > 0 ? (
+        <section className="border-b border-border bg-muted">
+          <div className="mx-auto grid max-w-6xl gap-6 px-4 py-16 lg:grid-cols-[19rem_1fr] lg:gap-8">
+            <Reveal className="flex">
+              <div className="relative flex w-full flex-col overflow-hidden rounded-xl bg-neutral-800 p-7 text-white shadow-xl shadow-black/15">
+                <span
+                  aria-hidden
+                  className="absolute -right-10 -top-10 size-40 rounded-full bg-white/5"
+                />
+                <span
+                  aria-hidden
+                  className="absolute -bottom-16 -left-8 size-44 rounded-full bg-black/20"
+                />
+                <span className="relative flex size-12 items-center justify-center rounded-full bg-white text-neutral-800">
+                  <PackageOpen className="size-6" aria-hidden />
+                </span>
+                <p className="eyebrow relative mt-6 text-white/70">
+                  Restposten &amp; B-Ware
+                </p>
+                <h2 className="headline relative mt-1 text-4xl font-bold">
+                  Restposten
+                </h2>
+                {hoechsterRestpostenRabatt > 0 ? (
+                  <p className="relative mt-3 text-5xl font-extrabold tabular">
+                    {restposten.length > 1 ? (
+                      <span className="mr-2 text-2xl font-bold">bis</span>
+                    ) : null}
+                    −{hoechsterRestpostenRabatt}&nbsp;%
+                  </p>
+                ) : null}
+                <p className="relative mt-3 text-sm text-white/85">
+                  {restpostenAnzahl === 1
+                    ? "Ein Angebot"
+                    : `${restpostenAnzahl} Angebote`}{" "}
+                  mit Auslaufware und B-Ware zu Sonderpreisen – nur solange der
+                  Vorrat reicht.
+                </p>
+                <Button
+                  asChild
+                  className="shine relative mt-auto w-full bg-white text-neutral-800 hover:bg-white/90 lg:mt-8"
+                >
+                  <Link href="/shop/restposten">
+                    Alle Restposten
+                    <ArrowRight className="size-4" aria-hidden />
+                  </Link>
+                </Button>
+              </div>
+            </Reveal>
+
+            <Reveal delay={80} className="min-w-0">
+              <ProductRail label="Restposten">
+                {restposten.map((product) => (
+                  <CatalogCard
+                    key={product.id}
+                    product={product}
+                    className="w-[15rem] shrink-0 snap-start sm:w-[16rem]"
                   />
                 ))}
               </ProductRail>

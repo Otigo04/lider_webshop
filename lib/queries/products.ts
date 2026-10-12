@@ -539,6 +539,14 @@ export interface LandingData {
    */
   reduziert: PublicProductListItem[];
   /**
+   * Restposten/B-Ware (Migration 068), die am stärksten reduzierten zuerst,
+   * danach die zuletzt aufgenommenen. Die Artikel stehen zusätzlich in ihrer
+   * Warengruppe; hier ist nur das Schaufenster dafür.
+   */
+  restposten: PublicProductListItem[];
+  /** Zahl aller Restposten-Angebote, nicht nur der gezeigten */
+  restpostenAnzahl: number;
+  /**
    * Vier Bilder im Kopfbereich: reduzierte Artikel, Topseller und Neuheiten,
    * bei jedem Aufruf neu gemischt. Der Kopf ist das Schaufenster – dort
    * gehört hin, was gerade beworben werden soll, und nicht bei jedem Besuch
@@ -584,6 +592,8 @@ export async function getLandingData(perSection = 8): Promise<LandingData> {
     sortiment: [],
     sortimentNachGruppe: {},
     reduziert: [],
+    restposten: [],
+    restpostenAnzahl: 0,
     schaufenster: [],
   };
 
@@ -676,9 +686,14 @@ export async function getLandingData(perSection = 8): Promise<LandingData> {
   // Ob daraus eine Ersparnis wird, zeigt sich erst mit den Preisen.
   const rabattZeilen = rows.filter((row) => row.list_price !== null).slice(0, 40);
 
+  // Restposten: alle Kandidaten holen, Preise und Ersparnis entscheiden unten
+  // über die Reihenfolge. rows ist schon zu Angeboten zusammengefaltet.
+  const restpostenZeilen = rows.filter((row) => row.is_restposten).slice(0, 40);
+
   const ids = [
     ...new Set(
       [
+        ...restpostenZeilen,
         ...hervorgehoben,
         ...bandZeilen,
         ...sortimentZeilen,
@@ -773,6 +788,21 @@ export async function getLandingData(perSection = 8): Promise<LandingData> {
     .slice(0, 12)
     .map((eintrag) => eintrag.product);
 
+  // Stärkste Ersparnis zuerst, Artikel ohne Reduzierung dahinter in der
+  // Reihenfolge der Aufnahme (restpostenZeilen ist danach vorsortiert; sort
+  // ist stabil).
+  const restposten = restpostenZeilen
+    .map(zuArtikel)
+    .map((product) => ({
+      product,
+      prozent:
+        reduzierung(product.list_price, product.priceFrom, product.retail_price)
+          ?.prozent ?? 0,
+    }))
+    .sort((a, b) => b.prozent - a.prozent)
+    .slice(0, 12)
+    .map((eintrag) => eintrag.product);
+
   return {
     neuheiten: neuZeilen.map(zuArtikel),
     topseller: topZeilen.map(zuArtikel),
@@ -790,6 +820,8 @@ export async function getLandingData(perSection = 8): Promise<LandingData> {
     sortiment: sortimentZeilen.map(zuArtikel),
     sortimentNachGruppe,
     reduziert,
+    restposten,
+    restpostenAnzahl: rows.filter((row) => row.is_restposten).length,
     schaufenster,
   };
 }

@@ -20,6 +20,8 @@ interface ShopViewProps {
   istKunde: boolean;
   filters: ShopFilters;
   totalCount: number;
+  /** Zahl der Restposten-Angebote für den Eintrag in der Warengruppenliste */
+  restpostenAnzahl?: number;
   /** Treffer nach Filtern und Suche, über alle Seiten */
   gefunden: number;
   seite: number;
@@ -52,6 +54,7 @@ export function ShopView({
   istKunde,
   filters,
   totalCount,
+  restpostenAnzahl = 0,
   gefunden,
   seite,
   seitenGesamt,
@@ -129,6 +132,7 @@ export function ShopView({
           showFlagFilters={showFlagFilters}
           showMinQuantityFilter={mengenstaffeln}
           totalCount={totalCount}
+          restpostenAnzahl={restpostenAnzahl}
         />
 
         <div className="min-w-0 flex-1">

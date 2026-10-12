@@ -706,3 +706,23 @@ Topseller und Neuheiten, kein zweites Kategoriesystem.
   nicht eingespielt hat, bekommt im Shop Abfragefehler – erst 068, dann Deploy.
 - Nav: Reiter „Restposten" neben „Reduziert", Knopf in der Schnellleiste,
   Eintrag in der Sitemap.
+
+### Sichtbarkeit (Startseite und Warengruppenliste)
+
+Ein Restposten ist kein eigener Bereich im Datenmodell, soll aber auffindbar
+sein, ohne dass man den Reiter „Restposten" kennt:
+
+- **Startseite:** eigener Abschnitt direkt unter „Reduziert"
+  (`getLandingData().restposten`, höchstens 12, stärkste Ersparnis zuerst,
+  danach zuletzt aufgenommene). Erscheint nur, wenn es Restposten gibt.
+  Die Prozentzahl im Aktionsfeld entsteht wie bei Reduziert aus
+  `reduzierung()` – ohne gepflegten Vorher-Preis steht dort keine Zahl.
+- **Warengruppen-Kacheln der Startseite:** letzte Kachel „Restposten", dazu
+  ein vierter Schnellweg neben Reduziert, Neuheiten, Topseller.
+- **Filterspalte im Shop:** Eintrag „Restposten" mit Zahl unter den
+  Warengruppen, durch eine Linie abgesetzt. Gezählt werden Angebote
+  (`getCategoryCounts({ flag: "is_restposten" })`).
+- Die Artikel behalten ihre Hauptwarengruppe; hier steht nur ein zusätzlicher
+  Zugang.
+- Im Schaufenster erscheint nur, was aktiv ist **und** ein Foto hat
+  (`products_public`). Ein Restposten ohne Bild ist im Shop unsichtbar.

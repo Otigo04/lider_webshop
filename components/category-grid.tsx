@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, Boxes } from "lucide-react";
+import { ArrowRight, Boxes, PackageOpen } from "lucide-react";
 import { accentIndex } from "@/lib/accent-colors";
 import { cn } from "@/lib/utils";
 import type { LandingCategory } from "@/lib/queries/products";
@@ -16,7 +16,17 @@ import type { LandingCategory } from "@/lib/queries/products";
  * Die Fläche trägt die Warengruppenfarbe aus lib/accent-colors.ts, dieselbe
  * wie in Filterspalte und Artikelliste.
  */
-export function CategoryGrid({ categories }: { categories: LandingCategory[] }) {
+export function CategoryGrid({
+  categories,
+  restposten,
+}: {
+  categories: LandingCategory[];
+  /**
+   * Restposten als letzte Kachel. Keine Warengruppe im Datenmodell: die
+   * Artikel bleiben in ihrer Gruppe und stehen nur zusätzlich hier.
+   */
+  restposten?: { anzahl: number; vorschau: string[] };
+}) {
   if (categories.length === 0) return null;
 
   return (
@@ -28,7 +38,64 @@ export function CategoryGrid({ categories }: { categories: LandingCategory[] }) 
           <Kachel category={category} />
         </li>
       ))}
+      {restposten ? (
+        <li>
+          <RestpostenKachel {...restposten} />
+        </li>
+      ) : null}
     </ul>
+  );
+}
+
+function RestpostenKachel({
+  anzahl,
+  vorschau,
+}: {
+  anzahl: number;
+  vorschau: string[];
+}) {
+  return (
+    <Link
+      href="/shop/restposten"
+      className="card-hover group relative flex h-full min-h-[14rem] flex-col overflow-hidden rounded-xl bg-neutral-800 p-4 text-white shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand sm:min-h-[18rem] sm:p-6 lg:min-h-[22rem]"
+    >
+      <span
+        aria-hidden
+        className="absolute -bottom-20 -right-14 size-56 rounded-full bg-white/10 transition-transform duration-700 group-hover:scale-110 sm:size-80"
+      />
+      <div className="relative z-10">
+        <p className="text-lg font-bold leading-tight sm:text-2xl lg:text-[1.7rem]">
+          Restposten
+        </p>
+        <p className="mt-1.5 text-xs font-medium opacity-80 tabular sm:text-sm">
+          {anzahl} {anzahl === 1 ? "Angebot" : "Angebote"} · aus allen
+          Warengruppen
+        </p>
+      </div>
+      <div className="relative z-10 mt-auto flex items-end justify-between gap-2 pt-4">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-white/70 text-neutral-800 transition-all duration-300 group-hover:translate-x-1 group-hover:bg-white sm:size-11">
+          <ArrowRight className="size-4 sm:size-5" aria-hidden />
+        </span>
+        {vorschau.length > 0 ? (
+          <span className="fan relative flex h-[4.5rem] items-end sm:h-28 md:h-32 lg:h-36">
+            {vorschau.map((url, index) => (
+              <span
+                key={url}
+                className={cn(
+                  "relative block size-16 overflow-hidden rounded-md border-2 border-white bg-white shadow-md sm:size-24 md:size-28 lg:size-32",
+                  index > 0 && "-ml-7 sm:-ml-8 md:-ml-12 lg:-ml-16",
+                  index === 1 && "z-10 -translate-y-1.5",
+                )}
+              >
+                <Image src={url} alt="" fill sizes="(min-width: 1024px) 128px, (min-width: 768px) 112px, (min-width: 640px) 96px, 64px" className="object-contain p-1" />
+              </span>
+            ))}
+          </span>
+        ) : (
+          <PackageOpen className="size-10 opacity-40 sm:size-16" aria-hidden />
+        )}
+      </div>
+    </Link>
   );
 }
 
