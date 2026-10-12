@@ -23,7 +23,7 @@ export const RUNDUNG_LABELS: Record<Rundung, string> = {
 };
 
 export const AUFSCHLAG_STANDARD = {
-  prozent: 10,
+  prozent: 20,
   mindestEuro: 0.5,
   rundung: "5" as Rundung,
 };

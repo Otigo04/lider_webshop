@@ -4,12 +4,12 @@
  *   node --env-file=.env.local scripts/lego-preise.mjs           # Trockenlauf
  *   node --env-file=.env.local scripts/lego-preise.mjs --apply   # schreibt
  *
- * Pauschal 10 % Aufschlag auf den EK (Entscheidung des Betreibers).
+ * Pauschal 20 % Aufschlag auf den EK (Entscheidung des Betreibers).
  * Die Marge zur OVP netto (Ladenpreis brutto ÷ Steuer) wird nur angezeigt.
  *
  * Nur die Staffel (product_variants.unit_price). Ladenpreis und Vorher-Preis
- * bleiben. Ohne gepflegten EK oder ohne Ladenpreis: unverändert. Ein Preis wird
- * nie angehoben. Vor dem Schreiben landet der alte Stand als JSON in
+ * bleiben. Ohne gepflegten EK oder ohne Ladenpreis: unverändert. Preise
+ * können auch steigen (10 % → 20 %, Lauf vom 2026-10-12). Vor dem Schreiben landet der alte Stand als JSON in
  * scripts/_backup-lego-preise-<Zeitstempel>.json.
  */
 import { writeFileSync } from "node:fs";
@@ -27,7 +27,7 @@ const mwst = Number(firma?.pos_vat_rate ?? 19);
 const faktor = 1 + mwst / 100;
 
 function aufschlag() {
-  return 0.1;
+  return 0.2;
 }
 
 const { data, error } = await db
@@ -55,7 +55,7 @@ for (const p of data) {
   const neu = Math.round(ek * (1 + satz) * 100) / 100;
   const v = p.product_variants[0];
   const alt = Number(v.unit_price);
-  if (neu >= alt) { uebersprungen.push([p.sku, p.name, `neu ${neu} ≥ alt ${alt}`]); continue; }
+  if (neu === alt) { uebersprungen.push([p.sku, p.name, `Preis bleibt ${alt}`]); continue; }
   aenderungen.push({ variantId: v.id, sku: p.sku, name: p.name, ek, alt, neu, marge, satz });
 }
 
