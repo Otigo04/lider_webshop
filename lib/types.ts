@@ -105,6 +105,8 @@ export interface Product {
    * zusätzlich unter /shop/restposten; am Foto gekennzeichnet.
    */
   is_restposten: boolean;
+  /** Güteklasse des Restpostens (Migration 070); null = keine Angabe */
+  restposten_ware: RestpostenWare | null;
   /**
    * Vorbestellbar (Migration 066) – wirksam nur, solange der freie Bestand 0
    * ist; `istVorbestellbar()` in lib/pricing.ts entscheidet.
@@ -683,3 +685,11 @@ export interface SiteBanner {
   is_active: boolean;
   order_index: number;
 }
+
+/** Güteklasse eines Restpostens: A-Ware einwandfrei, B-Ware mit Mängeln (Migration 070). */
+export type RestpostenWare = "A" | "B";
+
+export const RESTPOSTEN_WARE_LABELS: Record<RestpostenWare, string> = {
+  A: "A-Ware",
+  B: "B-Ware",
+};

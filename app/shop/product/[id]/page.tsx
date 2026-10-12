@@ -154,6 +154,7 @@ export default async function ProductPage({
             urls={product.imageUrls}
             alt={product.name}
             restposten={product.is_restposten}
+            restpostenWare={product.restposten_ware}
           />
 
           <div>
@@ -326,6 +327,7 @@ export default async function ProductPage({
           ausverkauft={free <= 0 && !vorbestellbar}
           vorbestellbar={vorbestellbar}
           restposten={product.is_restposten}
+          restpostenWare={product.restposten_ware}
         />
 
         <div>

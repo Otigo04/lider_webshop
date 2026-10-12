@@ -756,3 +756,16 @@ Der Satz unter der Überschrift von `/shop/reduziert`, `/shop/restposten`,
 `/admin/settings/texte` gepflegt. Standardtexte in `lib/shop-texte.ts`: eine
 Zeile überschreibt, leer lassen löscht die Zeile. Fehlt die Tabelle, gelten die
 Standardtexte; Speichern meldet dann, dass Migration 069 fehlt.
+
+### A-Ware / B-Ware (Migration 070)
+
+`products.restposten_ware` ('A' | 'B' | NULL = keine Angabe). A-Ware ist
+einwandfreie Neuware im Auslauf, B-Ware hat Mängel oder beschädigte
+Verpackung. Gesetzt im Artikelformular (Auswahl „Güteklasse" unter dem
+Restposten-Haken) oder im Flags-Menü der Artikelliste (Abschnitt „Güteklasse
+Restposten"; setzt das Restposten-Flag mit). Abwählen von „Restposten" im
+Formular löscht die Klasse. Das Kennzeichen am Foto lautet „Restposten · A-Ware"
+bzw. „· B-Ware".
+
+**Reihenfolge beim Einspielen:** erst Migration 070, dann Deploy – wie bei 068
+fragen Shop und Artikelliste die Spalte ab und laufen ohne sie in Fehler.

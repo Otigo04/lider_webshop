@@ -68,6 +68,7 @@ interface ProductFormProps {
     description: string | null;
     is_active: boolean;
     is_restposten: boolean;
+    restposten_ware: "A" | "B" | null;
     is_preorder: boolean;
     preorder_note: string | null;
     stock_available: number;
@@ -268,6 +269,7 @@ export function ProductForm({
     description,
     is_active: true,
     is_restposten: false,
+    restposten_ware: null as "A" | "B" | null,
     is_preorder: false,
     preorder_note: "",
     stock_available: 0,
@@ -297,6 +299,9 @@ export function ProductForm({
           ...payload,
           is_active: formData.get("is_active") === "on",
           is_restposten: formData.get("is_restposten") === "on",
+          restposten_ware: (["A", "B"].includes(String(formData.get("restposten_ware")))
+            ? String(formData.get("restposten_ware"))
+            : null) as "A" | "B" | null,
           is_preorder: formData.get("is_preorder") === "on",
           preorder_note: String(formData.get("preorder_note") ?? ""),
           stock_available: String(formData.get("stock_available") ?? "0"),
@@ -442,8 +447,23 @@ export function ProductForm({
               defaultChecked={product?.is_restposten ?? false}
             />
             <Label htmlFor="is_restposten" className="font-normal">
-              Restposten / B-Ware
+              Restposten
             </Label>
+          </div>
+          <div className="flex items-center gap-2 pl-6">
+            <Label htmlFor="restposten_ware" className="text-xs font-normal text-muted-foreground">
+              Güteklasse
+            </Label>
+            <select
+              id="restposten_ware"
+              name="restposten_ware"
+              defaultValue={product?.restposten_ware ?? ""}
+              className="h-8 rounded-md border border-input bg-transparent px-2 text-sm"
+            >
+              <option value="">Keine Angabe</option>
+              <option value="A">A-Ware (einwandfrei, Auslauf)</option>
+              <option value="B">B-Ware (Mängel / Verpackung beschädigt)</option>
+            </select>
           </div>
           <p className="pl-6 text-xs text-muted-foreground">
             Bleibt in seiner Warengruppe und steht zusätzlich unter Restposten.

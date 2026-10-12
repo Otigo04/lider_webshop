@@ -782,6 +782,7 @@ export default async function AdminProductsPage({
                           is_preorder: product.is_preorder,
                         }}
                         customFlags={customFlags}
+                        restpostenWare={product.restposten_ware}
                         activeCustomFlagIds={product.flags.map((flag) => flag.id)}
                       />
                     </td>

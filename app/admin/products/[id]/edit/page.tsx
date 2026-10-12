@@ -65,6 +65,7 @@ export default async function EditProductPage({
             description: product.description,
             is_active: product.is_active,
             is_restposten: product.is_restposten,
+            restposten_ware: product.restposten_ware,
             is_preorder: product.is_preorder,
             preorder_note: product.preorder_note,
             stock_available: product.stock_available,

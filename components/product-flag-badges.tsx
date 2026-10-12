@@ -1,12 +1,20 @@
 import { istNeu } from "@/lib/product-flags";
 import { cn } from "@/lib/utils";
+import { RESTPOSTEN_WARE_LABELS, type RestpostenWare } from "@/lib/types";
 
 /**
  * Kennzeichnung für Restposten/B-Ware. Anthrazit statt einer Signalfarbe:
  * sie soll sachlich sagen, was die Ware ist, nicht um Aufmerksamkeit
  * konkurrieren – Rot gehört dem Preis, Gold den Topsellern.
  */
-export function RestpostenChip({ className }: { className?: string }) {
+export function RestpostenChip({
+  className,
+  ware,
+}: {
+  className?: string;
+  /** Güteklasse (Migration 070); ohne Angabe steht nur „Restposten". */
+  ware?: RestpostenWare | null;
+}) {
   return (
     <span
       className={cn(
@@ -15,6 +23,7 @@ export function RestpostenChip({ className }: { className?: string }) {
       )}
     >
       Restposten
+      {ware ? ` · ${RESTPOSTEN_WARE_LABELS[ware]}` : ""}
     </span>
   );
 }
@@ -34,6 +43,7 @@ export function ProductFlagBadges({
     is_new: boolean;
     is_topseller: boolean;
     is_restposten?: boolean;
+    restposten_ware?: RestpostenWare | null;
     created_at: string;
   };
   className?: string;
@@ -59,7 +69,9 @@ export function ProductFlagBadges({
           Topseller
         </span>
       ) : null}
-      {product.is_restposten ? <RestpostenChip /> : null}
+      {product.is_restposten ? (
+        <RestpostenChip ware={product.restposten_ware} />
+      ) : null}
     </div>
   );
 }

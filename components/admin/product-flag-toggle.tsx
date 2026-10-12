@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import {
+  setzeRestpostenWare,
   toggleProductFlag,
   type ProductFlag,
 } from "@/lib/actions/admin-products";
@@ -16,6 +17,8 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -47,25 +50,33 @@ export function ProductFlagsMenu({
   flags,
   customFlags,
   activeCustomFlagIds,
+  restpostenWare = null,
 }: {
   productId: string;
   flags: Record<ProductFlag, boolean>;
+  restpostenWare?: "A" | "B" | null;
   customFlags: ProductFlagDef[];
   activeCustomFlagIds: string[];
 }) {
   const router = useRouter();
   const [fest, setFest] = useState(flags);
   const [eigene, setEigene] = useState(() => new Set(activeCustomFlagIds));
+  const [ware, setWare] = useState<"A" | "B" | null>(restpostenWare);
   const [geaendert, setGeaendert] = useState(false);
 
   // Stand vom Server übernehmen, sobald er sich geändert hat (nach dem
   // Neuladen oder wenn ein anderer Weg das Flag gesetzt hat).
-  const serverStand = JSON.stringify([flags, [...activeCustomFlagIds].sort()]);
+  const serverStand = JSON.stringify([
+    flags,
+    [...activeCustomFlagIds].sort(),
+    restpostenWare,
+  ]);
   const [gesehen, setGesehen] = useState(serverStand);
   if (gesehen !== serverStand) {
     setGesehen(serverStand);
     setFest(flags);
     setEigene(new Set(activeCustomFlagIds));
+    setWare(restpostenWare);
   }
 
   async function handleChange(flag: ProductFlag, next: boolean) {
@@ -107,6 +118,25 @@ export function ProductFlagsMenu({
     }
   }
 
+  async function handleWare(wert: string) {
+    const neu = wert === "A" || wert === "B" ? wert : null;
+    const alt = ware;
+    const altRestposten = fest.is_restposten;
+    setWare(neu);
+    if (neu) setFest((a) => ({ ...a, is_restposten: true }));
+    setGeaendert(true);
+
+    const formData = new FormData();
+    formData.set("id", productId);
+    formData.set("ware", neu ?? "");
+    const result = await setzeRestpostenWare({}, formData);
+    if (result.error) {
+      toast.error(result.error);
+      setWare(alt);
+      setFest((a) => ({ ...a, is_restposten: altRestposten }));
+    }
+  }
+
   function beiOeffnen(offen: boolean) {
     if (!offen && geaendert) {
       setGeaendert(false);
@@ -117,7 +147,11 @@ export function ProductFlagsMenu({
   const labels = [
     ...(Object.keys(fest) as ProductFlag[])
       .filter((flag) => fest[flag])
-      .map((flag) => FLAG_LABELS[flag]),
+      .map((flag) =>
+        flag === "is_restposten" && ware
+          ? `Restposten (${ware}-Ware)`
+          : FLAG_LABELS[flag],
+      ),
     ...customFlags.filter((flag) => eigene.has(flag.id)).map((flag) => flag.name),
   ];
 
@@ -140,6 +174,20 @@ export function ProductFlagsMenu({
             {FLAG_LABELS[flag]}
           </DropdownMenuCheckboxItem>
         ))}
+
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel>Güteklasse Restposten</DropdownMenuLabel>
+        <DropdownMenuRadioGroup value={ware ?? ""} onValueChange={handleWare}>
+          <DropdownMenuRadioItem value="" onSelect={(e) => e.preventDefault()}>
+            Keine Angabe
+          </DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="A" onSelect={(e) => e.preventDefault()}>
+            A-Ware
+          </DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="B" onSelect={(e) => e.preventDefault()}>
+            B-Ware
+          </DropdownMenuRadioItem>
+        </DropdownMenuRadioGroup>
 
         {customFlags.length > 0 ? (
           <>

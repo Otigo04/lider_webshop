@@ -31,6 +31,8 @@ const productSchema = z.object({
   is_active: z.boolean(),
   /** Restposten/B-Ware (Migration 068) */
   is_restposten: z.boolean(),
+  /** Güteklasse des Restpostens (Migration 070); nur mit is_restposten wirksam */
+  restposten_ware: z.enum(["A", "B"]).nullable(),
   /** Vorbestellbar bei freiem Bestand 0 (Migration 066) */
   is_preorder: z.boolean(),
   preorder_note: z.string().trim().max(120, "Hinweis ist zu lang").optional(),
@@ -156,6 +158,7 @@ export async function saveProduct(
     description: data.description || null,
     is_active: data.is_active,
     is_restposten: data.is_restposten,
+    restposten_ware: data.is_restposten ? data.restposten_ware : null,
     is_preorder: data.is_preorder,
     preorder_note: data.preorder_note || null,
     stock_available: data.stock_available,
@@ -806,4 +809,47 @@ export async function aufschlagAnwenden(
   revalidatePath("/admin/kataloge");
   revalidatePath("/shop");
   return { zeilen, uebersprungen, geschrieben, fehlgeschlagen };
+}
+
+const wareSchema = z.object({
+  id: z.string().uuid(),
+  ware: z.enum(["A", "B", ""]),
+});
+
+/**
+ * Güteklasse eines Restpostens setzen (Migration 070), aus dem Flags-Menü der
+ * Artikelliste. Leer löscht die Angabe. Setzt zugleich das Restposten-Flag:
+ * eine Güteklasse ohne Restposten hätte keinen Ort, an dem sie auftaucht.
+ */
+export async function setzeRestpostenWare(
+  _prevState: AdminFormState,
+  formData: FormData,
+): Promise<AdminFormState> {
+  await requireAdmin();
+
+  const parsed = wareSchema.safeParse({
+    id: formData.get("id"),
+    ware: formData.get("ware") ?? "",
+  });
+  if (!parsed.success) return { error: "Ungültiger Wert." };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("products")
+    .update(
+      parsed.data.ware === ""
+        ? { restposten_ware: null }
+        : { restposten_ware: parsed.data.ware, is_restposten: true },
+    )
+    .eq("id", parsed.data.id);
+
+  if (error) {
+    console.error("[admin] Güteklasse ändern:", error.message);
+    return { error: "Konnte nicht gespeichert werden." };
+  }
+
+  revalidatePath("/admin/products");
+  revalidatePath("/shop");
+  revalidatePath("/");
+  return { success: "Gespeichert." };
 }
