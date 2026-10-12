@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Layers, Pencil, Plus, ScanBarcode, Search, Trash2, Undo2 } from "lucide-react";
+import { AufschlagLeiste } from "@/components/admin/aufschlag-leiste";
 import { ArtikelBildZelle } from "@/components/admin/artikel-bild-zelle";
 import { ArtikelListeMerker } from "@/components/admin/artikel-liste-merker";
 import { ConfirmAction } from "@/components/admin/confirm-action";
@@ -521,7 +522,8 @@ export default async function AdminProductsPage({
         Bezeichnung, Barcode, Warengruppe, alle vier Preise (GH = Großhandel,
         EH = Einzelhandel, vorher = Streichpreis, EK = Einkauf, nur intern)
         und der Bestand lassen sich direkt in der Tabelle ändern – anklicken,
-        tippen, Enter.
+        tippen, Enter. Mehrere Artikel ankreuzen: unten erscheint die Leiste
+        für einen Aufschlag auf den Einkauf.
       </p>
 
       {products.length === 0 ? (
@@ -548,6 +550,14 @@ export default async function AdminProductsPage({
           <table className="w-full min-w-3xl border-collapse text-sm">
             <thead>
               <tr className="border-b-2 border-border text-left text-muted-foreground">
+                <th className="w-8 py-2 pr-2 font-medium">
+                  <input
+                    type="checkbox"
+                    data-artikel-alle
+                    aria-label="Alle angezeigten Artikel auswählen"
+                    className="size-4 rounded border-input"
+                  />
+                </th>
                 <th className="w-16 py-2 pr-3 font-medium">Bild</th>
                 <th className="py-2 pr-3 font-medium">Artikel</th>
                 <th className="py-2 pr-3 font-medium">Barcode</th>
@@ -574,6 +584,16 @@ export default async function AdminProductsPage({
                     id={`artikel-${product.id}`}
                     className="scroll-mt-24 border-b border-border align-top last:border-0 hover:bg-muted/50"
                   >
+                    <td className="py-2 pr-2">
+                      <input
+                        type="checkbox"
+                        data-artikel-wahl
+                        value={product.id}
+                        aria-label={`${product.name} auswählen`}
+                        className="mt-1 size-4 rounded border-input"
+                      />
+                    </td>
+
                     <td className="py-2 pr-3">
                       <ArtikelBildZelle
                         productId={product.id}
@@ -814,6 +834,7 @@ export default async function AdminProductsPage({
       )}
 
       <ArtikelListeMerker />
+      <AufschlagLeiste />
     </div>
   );
 }

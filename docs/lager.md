@@ -59,6 +59,25 @@ wird: nicht aufs Preisschild, nicht auf Bon, Beleg, Z-Bon oder Rechnung.
   Zwang. Dieselbe Funktion, zwei Aufrufer, zwei Erwartungen: die Grenze
   gehört an den Aufrufer, der sie braucht, nicht an die gemeinsame Funktion.
 
+### Aufschlag auf den Einkauf für mehrere Artikel
+
+`components/admin/aufschlag-leiste.tsx`, `aufschlagAnwenden()`
+(`lib/actions/admin-products.ts`), Rechnung in `lib/aufschlag.ts`
+(`tests/aufschlag.test.ts`). In der Artikelliste Artikel ankreuzen (oder
+Kopfzeilen-Häkchen für alle angezeigten), unten erscheint die Leiste.
+
+- **Prozent und Mindestbetrag**: es gilt, was größer ist. 10 % auf 1 € sind
+  10 Cent – das trägt kein Artikel; der Mindestaufschlag (Vorgabe 0,50 €)
+  fängt billige Ware ab, bei teurer dominiert die Prozentzahl.
+- **Rundung nur nach oben** (5 Cent, 10 Cent, Endung ,x9), Vorgabe 5 Cent.
+- **Vorschau und Schreiben sind derselbe Aufruf** (`uebernehmen`): die
+  Vorschau zeigt exakt, was beim Übernehmen geschrieben wird.
+- **Nur die Grundstaffel** (wie beim Inline-Edit), nur mit gepflegtem EK.
+  Ladenpreis und Vorher-Preis bleiben. Ohne EK steht der Artikel in der
+  Liste „Unverändert".
+- Einmalige Massenläufe nach Marke: `scripts/lego-preise.mjs` (Trockenlauf,
+  `--apply`, JSON-Backup).
+
 ---
 
 ## 📦 Bestandsführung

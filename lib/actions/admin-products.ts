@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { PRODUCT_BUCKET } from "@/lib/constants";
 import { naechsteReihenfolge, pruefeBildpfade } from "@/lib/artikel-bilder";
 import { reduzierung } from "@/lib/pricing";
+import { RUNDUNGEN, aufschlagPreis } from "@/lib/aufschlag";
 import type { AdminFormState } from "@/lib/actions/admin-categories";
 
 const tierSchema = z.object({
@@ -684,4 +685,125 @@ export async function addProductImages(
   return {
     success: pfade.length === 1 ? "Foto hinzugefügt." : "Fotos hinzugefügt.",
   };
+}
+
+/**
+ * Aufschlag auf den Einkaufspreis für mehrere Artikel auf einmal.
+ *
+ * Ein Aufruf für Vorschau und Schreiben: `uebernehmen = false` rechnet nur,
+ * `true` schreibt genau das, was die Vorschau gezeigt hat. Geschrieben wird
+ * wie beim Inline-Edit in die Grundstaffel (kleinste Mindestmenge); weitere
+ * Staffeln bleiben unberührt. Artikel ohne gepflegten Einkaufspreis oder ohne
+ * Staffel werden nie angefasst – ohne EK gibt es nichts, worauf aufzuschlagen
+ * wäre.
+ */
+export interface AufschlagZeile {
+  id: string;
+  sku: string;
+  name: string;
+  ek: number;
+  alt: number;
+  neu: number;
+  staffeln: number;
+}
+
+export interface AufschlagErgebnis {
+  error?: string;
+  zeilen?: AufschlagZeile[];
+  uebersprungen?: { id: string; sku: string; name: string; grund: string }[];
+  geschrieben?: number;
+  fehlgeschlagen?: number;
+}
+
+const aufschlagSchema = z.object({
+  ids: z.array(z.string().uuid()).min(1, "Keine Artikel ausgewählt.").max(1000),
+  prozent: z.number().min(0, "Aufschlag darf nicht negativ sein.").max(1000),
+  mindestEuro: z.number().min(0).max(10_000),
+  rundung: z.enum(RUNDUNGEN),
+  uebernehmen: z.boolean(),
+});
+
+export async function aufschlagAnwenden(
+  input: z.input<typeof aufschlagSchema>,
+): Promise<AufschlagErgebnis> {
+  await requireAdmin();
+
+  const eingabe = aufschlagSchema.safeParse(input);
+  if (!eingabe.success) {
+    return { error: eingabe.error.issues[0].message };
+  }
+  const { ids, prozent, mindestEuro, rundung, uebernehmen } = eingabe.data;
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("products")
+    .select(
+      "id, sku, name, cost:product_costs(cost_price), variants:product_variants(id, min_quantity, unit_price)",
+    )
+    .in("id", ids)
+    .order("name");
+  if (error) {
+    console.error("[admin] Aufschlag lesen:", error.message);
+    return { error: "Die Artikel konnten nicht gelesen werden." };
+  }
+
+  const zeilen: AufschlagZeile[] = [];
+  const schreib: { variantId: string; neu: number }[] = [];
+  const uebersprungen: NonNullable<AufschlagErgebnis["uebersprungen"]> = [];
+
+  for (const p of data ?? []) {
+    const kosten = Array.isArray(p.cost) ? p.cost[0] : p.cost;
+    const ek = Number(kosten?.cost_price);
+    const staffeln = [...(p.variants ?? [])].sort(
+      (a, b) => a.min_quantity - b.min_quantity,
+    );
+    const basis = staffeln[0];
+    const kopf = { id: p.id as string, sku: p.sku as string, name: p.name as string };
+
+    if (!ek) {
+      uebersprungen.push({ ...kopf, grund: "kein Einkaufspreis" });
+      continue;
+    }
+    if (!basis) {
+      uebersprungen.push({ ...kopf, grund: "keine Preisstaffel" });
+      continue;
+    }
+
+    const alt = Number(basis.unit_price);
+    const neu = aufschlagPreis({ ek, prozent, mindestEuro, rundung });
+    if (neu === alt) {
+      uebersprungen.push({ ...kopf, grund: "Preis bleibt gleich" });
+      continue;
+    }
+    zeilen.push({ ...kopf, ek, alt, neu, staffeln: staffeln.length });
+    schreib.push({ variantId: basis.id as string, neu });
+  }
+
+  if (!uebernehmen) return { zeilen, uebersprungen };
+
+  let geschrieben = 0;
+  let fehlgeschlagen = 0;
+  for (let i = 0; i < schreib.length; i += 20) {
+    const ergebnisse = await Promise.all(
+      schreib.slice(i, i + 20).map((s) =>
+        supabase
+          .from("product_variants")
+          .update({ unit_price: s.neu })
+          .eq("id", s.variantId),
+      ),
+    );
+    for (const r of ergebnisse) {
+      if (r.error) {
+        console.error("[admin] Aufschlag speichern:", r.error.message);
+        fehlgeschlagen++;
+      } else geschrieben++;
+    }
+  }
+
+  revalidatePath("/admin/products");
+  revalidatePath("/admin");
+  revalidatePath("/admin/preisschilder");
+  revalidatePath("/admin/kataloge");
+  revalidatePath("/shop");
+  return { zeilen, uebersprungen, geschrieben, fehlgeschlagen };
 }
