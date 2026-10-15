@@ -35,6 +35,7 @@ import { faqGruppen } from "@/lib/faq";
 import { formatPrice } from "@/lib/format";
 import { hatPreisspanne, reduzierung } from "@/lib/pricing";
 import { getLandingData } from "@/lib/queries/products";
+import { getOeffnungszeiten } from "@/lib/queries/oeffnungszeiten";
 import { getPublicContact } from "@/lib/queries/settings";
 import { getActiveSlides } from "@/lib/queries/slides";
 import { formatThreshold } from "@/lib/shipping";
@@ -94,11 +95,12 @@ const leistungen = (versandFreiAb: number) => [
 ];
 
 export default async function HomePage() {
-  const [daten, user, firma, slides] = await Promise.all([
+  const [daten, user, firma, slides, zeiten] = await Promise.all([
     getLandingData(),
     getCurrentUser(),
     getPublicContact(),
     getActiveSlides(),
+    getOeffnungszeiten(),
   ]);
   // Werbeangabe, deshalb auch ohne Anmeldung sichtbar: public_company_contact()
   // gibt die Grenze mit heraus (Migration 037).
@@ -206,7 +208,7 @@ export default async function HomePage() {
 
   return (
     <>
-      <StructuredData firma={firma} />
+      <StructuredData firma={firma} zeiten={zeiten} />
       {/* Werbebilder ganz oben (Migration 055, gepflegt unter
           /admin/startseite). Ohne aktive Bilder fällt der Block weg. */}
       <HomeSlider

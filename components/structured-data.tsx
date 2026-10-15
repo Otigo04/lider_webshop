@@ -1,15 +1,21 @@
 import { siteUrl } from "@/lib/site";
 import type { PublicContact } from "@/lib/queries/settings";
+import { openingHoursSpecification, type Oeffnungszeiten } from "@/lib/oeffnungszeiten";
 
 /**
  * Firmendaten als schema.org-JSON-LD für Suchmaschinen (Startseite).
  *
  * Google zieht daraus Name, Adresse, Telefon und Logo für Wissensfeld und
  * Karteneinträge. Angaben, die in den Firmendaten fehlen, bleiben weg – nichts
- * wird erfunden. Öffnungszeiten stehen bewusst nicht drin, solange sie nirgends
- * gepflegt sind.
+ * wird erfunden. Öffnungszeiten kommen aus company_settings.opening_hours (Migration 071).
  */
-export function StructuredData({ firma }: { firma: PublicContact }) {
+export function StructuredData({
+  firma,
+  zeiten,
+}: {
+  firma: PublicContact;
+  zeiten?: Oeffnungszeiten;
+}) {
   const basis = siteUrl();
 
   const adresse =
@@ -33,6 +39,7 @@ export function StructuredData({ firma }: { firma: PublicContact }) {
     logo: `${basis}/logo/logo-mark.png`,
     image: `${basis}/logo/logo_v1.png`,
     telephone: firma.phone ?? undefined,
+    openingHoursSpecification: zeiten ? openingHoursSpecification(zeiten) : undefined,
     email: firma.email ?? undefined,
     vatID: firma.vat_id ?? undefined,
     address: adresse,

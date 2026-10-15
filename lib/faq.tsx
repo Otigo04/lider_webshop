@@ -211,7 +211,7 @@ export function faqGruppen(versandFreiAb: number): FaqGruppe[] {
           frage: "Kann ich die Ware abholen?",
           wichtig: true,
           antwort:
-            "Ja. Wählen Sie im Bestellformular „Abholung“ und auf Wunsch einen Termin – frühestens am nächsten Tag ab 8 Uhr, damit wir in Ruhe kommissionieren können. Sobald die Ware bereitsteht, bekommen Sie eine E-Mail.",
+            "Ja. Wählen Sie im Bestellformular „Abholung“ und auf Wunsch einen Termin – frühestens am nächsten Tag, innerhalb unserer Öffnungszeiten (siehe Kontakt), damit wir in Ruhe kommissionieren können. Sobald die Ware bereitsteht, bekommen Sie eine E-Mail.",
         },
         {
           frage: "Wie lange dauert die Lieferung?",

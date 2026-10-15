@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Globe, Mail, MapPin, Phone } from "lucide-react";
+import { Clock, Globe, Mail, MapPin, Phone } from "lucide-react";
+import { OeffnungszeitenListe } from "@/components/oeffnungszeiten-liste";
+import { getOeffnungszeiten } from "@/lib/queries/oeffnungszeiten";
 import { getPublicContact } from "@/lib/queries/settings";
 
 export const metadata: Metadata = {
@@ -19,7 +21,7 @@ export const metadata: Metadata = {
  * niemand liest, ist schlechter als eine Telefonnummer.
  */
 export default async function KontaktPage() {
-  const firma = await getPublicContact();
+  const [firma, zeiten] = await Promise.all([getPublicContact(), getOeffnungszeiten()]);
 
   const anschrift =
     firma.address_street && firma.address_city
@@ -63,6 +65,9 @@ export default async function KontaktPage() {
         <Zeile icon={<MapPin className="size-4" aria-hidden />} label="Anschrift und Abholung">
           {firma.company_name ? <span className="block">{firma.company_name}</span> : null}
           {anschrift ?? "[STRASSE, PLZ ORT]"}
+        </Zeile>
+        <Zeile icon={<Clock className="size-4" aria-hidden />} label="Öffnungszeiten">
+          <OeffnungszeitenListe zeiten={zeiten} />
         </Zeile>
         {firma.website ? (
           <Zeile icon={<Globe className="size-4" aria-hidden />} label="Webseite">

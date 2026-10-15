@@ -17,6 +17,7 @@ import {
   shippingNote,
 } from "@/lib/shipping";
 import { steuer } from "@/lib/vat";
+import { formatOeffnungszeiten, istGeoeffnet, type Oeffnungszeiten } from "@/lib/oeffnungszeiten";
 import { gutscheinAnteil, rabatte, satzText, type GutscheinKern } from "@/lib/rabatt";
 import { VoucherField } from "@/components/voucher-field";
 import { AddressFields } from "@/components/forms/address-fields";
@@ -108,6 +109,7 @@ export function CheckoutForm({
   vatRate,
   versandFreiAb,
   kundenSatz = 0,
+  oeffnungszeiten,
 }: {
   adresse: HinterlegteAdresse;
   /** Steuersatz aus den Firmendaten – nur Anzeige, gerechnet wird in der DB */
@@ -116,6 +118,8 @@ export function CheckoutForm({
   versandFreiAb: number;
   /** Sonderkondition des Kunden in Prozent (meine_kondition()) */
   kundenSatz?: number;
+  /** Öffnungszeiten – Abholtermine außerhalb werden gesperrt (die DB prüft nochmals) */
+  oeffnungszeiten: Oeffnungszeiten;
 }) {
   const { items, ready, total, clear } = useCart();
   const bilder = useCartImages(items);
@@ -189,6 +193,8 @@ export function CheckoutForm({
   const netto = rechnung.netto;
   const betraege = steuer(netto, vatRate);
   const versand = deliveryMethod === "shipping";
+  const terminAusserhalb =
+    !versand && abholung !== "" && !istGeoeffnet(new Date(abholung), oeffnungszeiten);
 
   return (
     <form action={formAction} className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_22rem]">
@@ -358,6 +364,17 @@ export function CheckoutForm({
                 Abholbar in der Regel am selben oder am nächsten Werktag.
                 Rufen Sie dafür gerne kurz durch.
               </p>
+              <ul className="text-xs text-muted-foreground">
+                {formatOeffnungszeiten(oeffnungszeiten).map((zeile) => (
+                  <li key={zeile}>{zeile}</li>
+                ))}
+              </ul>
+              {terminAusserhalb ? (
+                <p role="alert" className="text-sm font-medium text-destructive">
+                  Dieser Termin liegt außerhalb unserer Öffnungszeiten. Bitte
+                  wählen Sie eine Zeit innerhalb der oben genannten.
+                </p>
+              ) : null}
             </div>
           )}
         </section>
@@ -492,7 +509,7 @@ export function CheckoutForm({
         ) : null}
 
         <div className="mt-5">
-          <SubmitButton disabled={items.length === 0} />
+          <SubmitButton disabled={items.length === 0 || terminAusserhalb} />
         </div>
         <Button asChild variant="ghost" size="sm" className="mt-2 w-full">
           <Link href="/cart">Zurück zum Warenkorb</Link>

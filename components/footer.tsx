@@ -1,12 +1,14 @@
 import Image from "next/image";
 import Link from "next/link";
 import { CookieSettingsLink } from "@/components/cookie-settings-link";
+import { OeffnungszeitenListe } from "@/components/oeffnungszeiten-liste";
 import { getLogoPath } from "@/lib/logo";
+import { getOeffnungszeiten } from "@/lib/queries/oeffnungszeiten";
 import { getPublicContact } from "@/lib/queries/settings";
 
 export async function Footer() {
   const logoPath = getLogoPath();
-  const kontakt = await getPublicContact();
+  const [kontakt, zeiten] = await Promise.all([getPublicContact(), getOeffnungszeiten()]);
 
   return (
     <footer className="border-t-2 border-gold bg-surface-dark text-surface-dark-muted">
@@ -57,6 +59,12 @@ export async function Footer() {
                 ) : (
                   "[E-MAIL]"
                 )}
+              </dd>
+            </div>
+            <div className="sm:col-span-2">
+              <dt className="text-surface-dark-muted/70">Öffnungszeiten</dt>
+              <dd className="mt-1 text-surface-dark-foreground">
+                <OeffnungszeitenListe zeiten={zeiten} />
               </dd>
             </div>
           </dl>

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { CheckoutForm } from "@/components/forms/checkout-form";
 import { requireUser } from "@/lib/auth";
 import { profilLuecken } from "@/lib/profil";
+import { getOeffnungszeiten } from "@/lib/queries/oeffnungszeiten";
 import { getCompanySettings } from "@/lib/queries/settings";
 import { getMeineKondition } from "@/lib/queries/vouchers";
 
@@ -21,9 +22,10 @@ export default async function CheckoutPage() {
   }
   // Nur für die Anzeige der Bruttosumme. Verbindlich rechnet create_order()
   // mit dem Satz, den es selbst aus den Firmendaten festschreibt.
-  const [company, kondition] = await Promise.all([
+  const [company, kondition, zeiten] = await Promise.all([
     getCompanySettings(),
     getMeineKondition(),
+    getOeffnungszeiten(),
   ]);
 
   return (
@@ -45,6 +47,7 @@ export default async function CheckoutPage() {
           vatRate={company.pos_vat_rate}
           versandFreiAb={company.free_shipping_threshold}
           kundenSatz={kondition}
+          oeffnungszeiten={zeiten}
         />
       </div>
     </div>
