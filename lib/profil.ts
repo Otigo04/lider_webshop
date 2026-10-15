@@ -6,7 +6,12 @@
  *
  * Reine Funktion ohne Server-Importe: Kundenakte, Checkout und Bestell-Action
  * fragen dieselbe Stelle.
+ *
+ * Die USt-IdNr. oder Steuernummer steht seit Migration 073 ebenfalls auf der
+ * Liste (Format: `lib/steuernummer.ts`).
  */
+
+import { pruefeSteuernummer } from "@/lib/steuernummer";
 
 export interface ProfilFelder {
   full_name?: string | null;
@@ -14,6 +19,7 @@ export interface ProfilFelder {
   billing_street?: string | null;
   billing_zip?: string | null;
   billing_city?: string | null;
+  vat_id?: string | null;
 }
 
 const PFLICHT: [keyof ProfilFelder, string][] = [
@@ -26,5 +32,13 @@ const PFLICHT: [keyof ProfilFelder, string][] = [
 
 /** Bezeichnungen der fehlenden Pflichtangaben; leer = Profil vollständig. */
 export function profilLuecken(profil: ProfilFelder): string[] {
-  return PFLICHT.filter(([feld]) => !profil[feld]?.trim()).map(([, name]) => name);
+  const luecken = PFLICHT.filter(([feld]) => !profil[feld]?.trim()).map(
+    ([, name]) => name,
+  );
+  // USt-IdNr. oder Steuernummer: Pflicht und im Format gültig. Ein Wert, den
+  // das Konto-Formular nie angenommen hätte (Altbestand), gilt als fehlend.
+  if (!pruefeSteuernummer(profil.vat_id ?? "").ok) {
+    luecken.push("USt-IdNr. / Steuernummer");
+  }
+  return luecken;
 }

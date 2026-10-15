@@ -76,13 +76,14 @@ export function ProfilVervollstaendigenForm({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="vat_id">USt-IdNr. (optional)</Label>
+        <Label htmlFor="vat_id">USt-IdNr. / Steuernummer</Label>
         <Input
           id="vat_id"
           name="vat_id"
+          required
           defaultValue={user.vat_id ?? ""}
           maxLength={40}
-          placeholder="DE123456789"
+          placeholder="DE123456789 oder 30/123/45678"
         />
       </div>
 

@@ -109,7 +109,7 @@ export function CustomerForm({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="vat_id">USt-IdNr.</Label>
+        <Label htmlFor="vat_id">USt-IdNr. / Steuernummer</Label>
         <Input
           id="vat_id"
           name="vat_id"

@@ -6,6 +6,7 @@ import { z } from "zod";
 import { requireUser } from "@/lib/auth";
 import { clearMustChangePassword } from "@/lib/password-flag";
 import { createClient } from "@/lib/supabase/server";
+import { pruefeSteuernummer } from "@/lib/steuernummer";
 
 export interface FormState {
   error?: string;
@@ -15,9 +16,17 @@ export interface FormState {
 const profileSchema = z.object({
   full_name: z.string().trim().min(1, "Name fehlt").max(120),
   company_name: z.string().trim().max(120).optional(),
-  // Ohne Formatprüfung, siehe Migration 028: die Formate der Mitgliedstaaten
-  // gehen zu weit auseinander, als dass eine Regex mehr nützte als schadete.
-  vat_id: z.string().trim().max(40).optional(),
+  // Format: lib/steuernummer.ts. Pflicht nur für Kunden (siehe updateProfile).
+  vat_id: z
+    .string()
+    .trim()
+    .max(40)
+    .optional()
+    .superRefine((wert, ctx) => {
+      if (!wert) return;
+      const r = pruefeSteuernummer(wert);
+      if (!r.ok) ctx.addIssue({ code: "custom", message: r.grund });
+    }),
 });
 
 /**
@@ -38,6 +47,10 @@ export async function updateProfile(
 
   if (!parsed.success) {
     return { error: parsed.error.issues[0].message };
+  }
+
+  if (user.role === "customer" && !parsed.data.vat_id) {
+    return { error: "Die USt-IdNr. oder Steuernummer fehlt." };
   }
 
   const supabase = await createClient();
@@ -179,7 +192,14 @@ function innererPfad(ziel: FormDataEntryValue | null, fallback: string): string 
 const vervollstaendigenSchema = z.object({
   full_name: z.string().trim().min(1, "Der Ansprechpartner fehlt").max(120),
   company_name: z.string().trim().min(1, "Die Firma fehlt").max(120),
-  vat_id: z.string().trim().max(40).optional(),
+  vat_id: z
+    .string()
+    .trim()
+    .max(40)
+    .superRefine((wert, ctx) => {
+      const r = pruefeSteuernummer(wert);
+      if (!r.ok) ctx.addIssue({ code: "custom", message: r.grund });
+    }),
   billing_street: z.string().trim().min(1, "Straße und Hausnummer fehlen").max(200),
   billing_zip: z.string().trim().min(1, "Die PLZ fehlt").max(20),
   billing_city: z.string().trim().min(1, "Der Ort fehlt").max(120),
@@ -206,7 +226,7 @@ export async function vervollstaendigeProfil(
   const parsed = vervollstaendigenSchema.safeParse({
     full_name: formData.get("full_name"),
     company_name: formData.get("company_name"),
-    vat_id: formData.get("vat_id") || undefined,
+    vat_id: formData.get("vat_id") ?? "",
     billing_street: formData.get("billing_street"),
     billing_zip: formData.get("billing_zip"),
     billing_city: formData.get("billing_city"),
@@ -225,7 +245,7 @@ export async function vervollstaendigeProfil(
     .update({
       full_name: d.full_name,
       company_name: d.company_name,
-      vat_id: d.vat_id || null,
+      vat_id: d.vat_id,
       billing_street: d.billing_street,
       billing_zip: d.billing_zip,
       billing_city: d.billing_city,

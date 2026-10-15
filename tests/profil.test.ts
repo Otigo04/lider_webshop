@@ -8,6 +8,7 @@ const voll = {
   billing_street: "Hauptstr. 1",
   billing_zip: "10115",
   billing_city: "Berlin",
+  vat_id: "DE123456789",
 };
 
 test("vollständiges Profil hat keine Lücken", () => {
@@ -21,6 +22,21 @@ test("fehlende und leere Angaben werden benannt", () => {
   );
 });
 
-test("ganz leeres Profil: alle fünf Pflichtangaben", () => {
-  assert.equal(profilLuecken({}).length, 5);
+test("ohne USt-IdNr. / Steuernummer fehlt die Pflichtangabe", () => {
+  assert.deepEqual(profilLuecken({ ...voll, vat_id: null }), [
+    "USt-IdNr. / Steuernummer",
+  ]);
+  assert.deepEqual(profilLuecken({ ...voll, vat_id: "  " }), [
+    "USt-IdNr. / Steuernummer",
+  ]);
+});
+
+test("ungültiges Format zählt als Lücke", () => {
+  assert.deepEqual(profilLuecken({ ...voll, vat_id: "keine" }), [
+    "USt-IdNr. / Steuernummer",
+  ]);
+});
+
+test("ganz leeres Profil: alle sechs Pflichtangaben", () => {
+  assert.equal(profilLuecken({}).length, 6);
 });

@@ -73,7 +73,7 @@ export async function createOrder(
   if (user.role === "customer" && profilLuecken(user).length > 0) {
     return {
       error:
-        "Bitte ergänzen Sie zuerst Ihre Firmen- und Anschriftsdaten (Konto → Angaben vervollständigen).",
+        "Bitte ergänzen Sie zuerst Ihre Firmen- und Anschriftsdaten sowie Ihre USt-IdNr. oder Steuernummer (Konto → Angaben vervollständigen).",
     };
   }
 

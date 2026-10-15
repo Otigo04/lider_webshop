@@ -78,16 +78,17 @@ export function ProfileForm({ user }: { user: AppUser }) {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="vat_id">USt-IdNr.</Label>
+        <Label htmlFor="vat_id">USt-IdNr. / Steuernummer</Label>
         <Input
           id="vat_id"
           name="vat_id"
+          required={user.role === "customer"}
           defaultValue={user.vat_id ?? ""}
           maxLength={40}
-          placeholder="DE123456789"
+          placeholder="DE123456789 oder 30/123/45678"
         />
         <p className="text-xs text-muted-foreground">
-          Nur nötig für Rechnungen ins EU-Ausland. Kann leer bleiben.
+          Pflichtangabe für Bestellungen: USt-IdNr. oder Steuernummer.
         </p>
       </div>
 

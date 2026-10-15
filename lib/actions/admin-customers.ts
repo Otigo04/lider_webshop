@@ -6,6 +6,7 @@ import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { pruefeSteuernummer } from "@/lib/steuernummer";
 import { saveStartPassword } from "@/lib/start-password";
 import {
   createVerification,
@@ -88,7 +89,19 @@ const createSchema = z.object({
   full_name: z.string().trim().min(1, "Name fehlt").max(120),
   company_name: z.string().trim().max(120).optional(),
   // Ohne Formatprüfung, siehe Migration 028.
-  vat_id: z.string().trim().max(40).optional(),
+  // Beim Anlegen durch den Admin darf die Nummer noch fehlen (Telefonkunde);
+  // dann ergänzt sie der Kunde beim ersten Login (profilLuecken). Ist sie
+  // angegeben, muss sie im Format stimmen.
+  vat_id: z
+    .string()
+    .trim()
+    .max(40)
+    .optional()
+    .superRefine((wert, ctx) => {
+      if (!wert) return;
+      const r = pruefeSteuernummer(wert);
+      if (!r.ok) ctx.addIssue({ code: "custom", message: r.grund });
+    }),
   ...adressFelder,
 });
 
@@ -179,7 +192,19 @@ const updateSchema = z.object({
   id: z.string().uuid(),
   full_name: z.string().trim().min(1, "Name fehlt").max(120),
   company_name: z.string().trim().max(120).optional(),
-  vat_id: z.string().trim().max(40).optional(),
+  // Beim Anlegen durch den Admin darf die Nummer noch fehlen (Telefonkunde);
+  // dann ergänzt sie der Kunde beim ersten Login (profilLuecken). Ist sie
+  // angegeben, muss sie im Format stimmen.
+  vat_id: z
+    .string()
+    .trim()
+    .max(40)
+    .optional()
+    .superRefine((wert, ctx) => {
+      if (!wert) return;
+      const r = pruefeSteuernummer(wert);
+      if (!r.ok) ctx.addIssue({ code: "custom", message: r.grund });
+    }),
   ...adressFelder,
 });
 

@@ -18,7 +18,7 @@ export async function zielNachLogin(
 ): Promise<string> {
   const { data: profil } = await supabase
     .from("users")
-    .select("role, full_name, company_name, billing_street, billing_zip, billing_city")
+    .select("role, full_name, company_name, billing_street, billing_zip, billing_city, vat_id")
     .eq("id", userId)
     .maybeSingle();
   if (!profil || profil.role !== "customer") return ziel;
