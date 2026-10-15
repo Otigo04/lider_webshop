@@ -206,7 +206,7 @@ CREATE TABLE product_images (
 - `/admin/orders` – Bestellverwaltung
 - `/admin/categories` – Kategorien verwalten
 - `/admin/settings` – Einstellungen mit Menü links, je Thema eine Unterseite:
-  Firmendaten (inkl. Kassenvorgaben), `/hinweisleiste`, `/texte` (Sätze der
+  Firmendaten (inkl. Kassenvorgaben), `/hinweisleiste`, `/oeffnungszeiten`, `/texte` (Sätze der
   Sonderseiten, Migration 069), `/merkmale`, `/flags`, `/impressum`, `/wartung`
 
 ### **Kassenportal (Protected, nur für Admins):**
@@ -510,3 +510,8 @@ gelten.
 - **Datenbankänderungen** nur als neue, idempotente Migration mit der
   nächsten freien Nummer; bestehende Migrationen nicht ändern, wenn sie
   schon eingespielt sind. Ablauf und Backups: `docs/betrieb.md`.
+- **Auf Rechnung kaufen** darf nur, wer mindestens eine als bezahlt markierte
+  Rechnung hat (`darf_auf_rechnung()`, Migration 072). Erstbesteller zahlen
+  per Vorkasse oder bar bei Abholung; Vorkasse-Ware geht erst nach „bezahlt".
+- **Steuernummer** ist Pflicht für Bestellungen (`profilLuecken()`, Migration
+  073).

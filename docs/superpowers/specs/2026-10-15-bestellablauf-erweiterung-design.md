@@ -23,8 +23,8 @@ werden. Reihenfolge der Umsetzung: 4, 2, 1, 3 (aufsteigend nach Risiko).
   EU-USt-IdNr. **oder** eine deutsche Steuernummer auf. Label überall:
   „USt-IdNr. / Steuernummer".
 - Ohne gültige Angabe ist keine Bestellung möglich: Checkout sperrt den
-  Bestellknopf und verweist auf `/account`; `createOrder` und `create_order()`
-  lehnen ab.
+  Bestellknopf und verweist auf `/account`; `createOrder` und ein Trigger auf
+  `orders` lehnen ab.
 - Keine Online-Abfrage (VIES/BZSt). Nur Formatprüfung.
 
 ### Umsetzung
@@ -44,8 +44,12 @@ werden. Reihenfolge der Umsetzung: 4, 2, 1, 3 (aufsteigend nach Risiko).
 - Checkout: `app/checkout/page.tsx` lädt `vat_id` mit; fehlt sie oder ist sie
   ungültig, erscheint ein Hinweiskasten mit Link zu `/account`, der
   Bestellknopf ist deaktiviert.
-- Migration 073: `create_order()` prüft `users.vat_id` nicht leer und wirft
-  `Bitte hinterlegen Sie Ihre USt-IdNr. oder Steuernummer im Konto.`
+- Migration 073: Trigger `orders_steuernummer_pruefen()` (BEFORE INSERT auf
+  `orders`) prüft `users.vat_id` auf nicht leer und wirft
+  `Bitte hinterlegen Sie Ihre USt-IdNr. oder Steuernummer in Ihrem Konto.`
+  Er greift nur, wenn der Kunde selbst bestellt (`customer_id = auth.uid()`,
+  Rolle `customer`); Admin-Rechnungen und Kassenverkäufe bleiben unberührt.
+  `create_order()` bleibt dafür unverändert.
 
 ### Risiko
 
@@ -112,10 +116,13 @@ Action mit Zod-Schema: `open < close`, Format `HH:MM`.
 
 - Checkout: Terminfeld erlaubt nur Zeitpunkte innerhalb der Öffnung; ein
   Termin außerhalb zeigt den Grund und die nächste mögliche Zeit.
-- Migration 071 (gleiche Datei): `create_order()` prüft `p_pickup_at`
-  zusätzlich gegen `opening_hours` in Europe/Berlin und wirft
-  `Abholung nur zu unseren Öffnungszeiten möglich.` Aufbauend auf dem
-  Mindestvorlauf aus Migration 037; dieser bleibt unverändert.
+- Migration 071 (gleiche Datei): Trigger `orders_abholzeit_pruefen()` (BEFORE
+  INSERT auf `orders`) prüft `pickup_at` gegen `opening_hours` in
+  Europe/Berlin und wirft `Abholung nur zu unseren Öffnungszeiten …`. Er
+  greift nur, wenn der Kunde selbst bestellt. `create_order()` und der
+  Mindestvorlauf aus Migration 037 bleiben unverändert.
+- Besucher ohne Konto lesen die Zeiten über die RPC `public_opening_hours()`
+  (anon + authenticated); `public_company_contact()` bleibt unangetastet.
 
 ## 3. Zahlart und Erstbestellung
 
@@ -128,11 +135,11 @@ Migration 072:
   `orders_payment_method_check` wird ersetzt, das Constraint
   „außer transfer nur pickup" aus 029 wird auf `prepayment` ausgeweitet
   (`prepayment` und `transfer` sind auch bei Versand erlaubt).
-- `orders.paid_at TIMESTAMPTZ` (NULL = nicht bezahlt).
-- Funktion `public.darf_auf_rechnung(p_user UUID) RETURNS BOOLEAN`:
-  wahr, sobald für den Kunden mindestens eine Bestellung mit
-  `paid_at IS NOT NULL` existiert. `SECURITY DEFINER`, nur eigene ID oder
-  Admin.
+- Kein `orders.paid_at`: „bezahlt" heißt `invoices.status = 'paid'` der
+  Bestellung (vorhandenes `updateInvoiceStatus`).
+- Funktion `public.darf_auf_rechnung() RETURNS BOOLEAN` ohne Parameter:
+  liest `auth.uid()`, wahr, sobald der Kunde mindestens eine Rechnung mit
+  `status = 'paid'` hat. `SECURITY DEFINER`, nur `authenticated`.
 - Benennung im UI: `transfer` = „Auf Rechnung", `prepayment` = „Vorkasse –
   sofort überweisen", `cash` = „Bar bei Abholung", `card` = „Karte bei
   Abholung". Der Datenbankwert `transfer` bleibt, damit bestehende
@@ -140,8 +147,8 @@ Migration 072:
 
 ### Regeln in `create_order()`
 
-- `transfer` nur, wenn `darf_auf_rechnung(auth.uid())`. Sonst Fehler
-  `Auf Rechnung ist erst nach einer bezahlten Bestellung möglich.`
+- `transfer` nur, wenn `darf_auf_rechnung()`. Sonst Fehler
+  `Auf Rechnung ist erst nach einer bezahlten Bestellung möglich. …`
 - `cash` und `card` weiter nur bei Abholung.
 - `prepayment` immer erlaubt.
 - Standardwert bei fehlender Angabe bleibt kompatibel: Erstbesteller ohne
@@ -151,15 +158,16 @@ Migration 072:
 
 Trigger auf `orders` (`BEFORE UPDATE OF status`): Wechsel auf `ready`,
 `shipped` oder `delivered` wird abgelehnt, wenn `payment_method =
-'prepayment'` und `paid_at IS NULL`. Fehlertext:
-`Zahlung ausstehend – Ware erst nach Zahlungseingang freigeben.`
+'prepayment'` und keine Rechnung der Bestellung `status = 'paid'` hat
+(`orders_zahlung_vor_ware()`). Fehlertext:
+`Zahlung ausstehend – Ware erst nach Zahlungseingang freigeben. …`
 
 ### Admin
 
-- `/admin/orders/[id]`: Knopf „Zahlung eingegangen" (Server Action, nur
-  Admin) setzt `paid_at = now()`. Badge „Zahlung ausstehend" bei offenen
-  Vorkasse-Bestellungen, auch in der Bestellliste.
-- Barzahlung: Der Admin setzt `paid_at` bei Übergabe über denselben Knopf.
+- Kein neuer Knopf: „bezahlt" setzt der Admin am vorhandenen
+  `InvoiceStatusSelect` auf `/admin/orders/[id]`. Badge „Zahlung ausstehend"
+  bei offenen Vorkasse-Bestellungen.
+- Barzahlung: Der Admin setzt die Rechnung bei Übergabe auf „bezahlt".
 
 ### Checkout
 
@@ -168,7 +176,7 @@ Trigger auf `orders` (`BEFORE UPDATE OF status`): Wechsel auf `ready`,
   - Abholung: Bar, Karte, Vorkasse, Auf Rechnung.
 - „Auf Rechnung" ist für Erstbesteller ausgegraut mit Text „Erst nach Ihrer
   ersten bezahlten Bestellung verfügbar."
-- `app/checkout/page.tsx` lädt `darf_auf_rechnung` und reicht ein Boolean an
+- `app/checkout/page.tsx` ruft `darf_auf_rechnung()` auf und reicht ein Boolean an
   das Formular. Das Formular rechnet nichts, es zeigt nur an.
 
 ### Kunde und Dokumente
@@ -186,10 +194,9 @@ Trigger auf `orders` (`BEFORE UPDATE OF status`): Wechsel auf `ready`,
     Handy im Klappmenü (`mobile-nav.tsx`).
   - Auf der Startseite (`app/page.tsx`): großes Feld oberhalb der
     Kategorien.
-- Ziel `/shop?q=<Begriff>`. `app/shop/page.tsx` unterstützt die Suche bereits
-  über `loadShopPage` und `sucheWortweise`; es wird geprüft, dass `q` auch im
-  Besucher-Schaufenster (ohne Login, ohne Preise) wirkt, und ergänzt, falls
-  nicht.
+- Ziel `/shop?q=<Begriff>`. Das wirkt bereits (`parseShopFilters` →
+  `filters.search`, für Besucher und Kunden); es fehlten nur die
+  Einstiegspunkte in Kopfleiste, Klappmenü und Startseite.
 - Suchfelder: Name, Artikelnummer (SKU), Barcode, wie bei der übrigen
   wortweisen Suche (`lib/search.ts`).
 - Kein Autocomplete in der ersten Fassung (YAGNI).

@@ -769,3 +769,57 @@ bzw. „· B-Ware".
 
 **Reihenfolge beim Einspielen:** erst Migration 070, dann Deploy – wie bei 068
 fragen Shop und Artikelliste die Spalte ab und laufen ohne sie in Fehler.
+
+
+## 🕑 Öffnungszeiten
+
+`company_settings.opening_hours` (Migration 071): sieben Einträge, Index 0 =
+Montag, je `{open, close}` oder `null` (geschlossen). Gepflegt unter
+`/admin/settings/oeffnungszeiten`. Eine Rechenstelle für Anzeige und Prüfung im
+Browser: `lib/oeffnungszeiten.ts`; in der Datenbank prüft der Trigger
+`orders_abholzeit_pruefen()` (BEFORE INSERT auf `orders`) – Europe/Berlin
+(`pos_zeitzone()`), Öffnung und Schluss inklusive. Besucher ohne Konto lesen
+die Zeiten über `public_opening_hours()`.
+
+- **Angezeigt** auf `/kontakt`, in der Fußzeile, im Checkout bei
+  Selbstabholung und als `openingHoursSpecification` in den strukturierten
+  Daten der Startseite.
+- Der Trigger greift nur bei Abholung mit Termin und nur, wenn der Kunde selbst
+  bestellt (`customer_id = auth.uid()`); Admin-Rechnungen und Kassenverkäufe
+  bleiben unberührt. Der Mindestvorlauf (morgen 08:00) bleibt in
+  `create_order()`.
+
+## 💳 Zahlart und Erstbestellung
+
+Migration 072.
+
+- Zahlarten: `prepayment` (Vorkasse), `transfer` (**Auf Rechnung** – der Wert
+  blieb, damit Altbestellungen stimmen), `cash`, `card` (nur Abholung).
+- **Auf Rechnung** nur, wenn `darf_auf_rechnung()` wahr ist (ohne Parameter,
+  liest `auth.uid()`): der Kunde hat mindestens eine Rechnung mit
+  `status = 'paid'`. Entschieden in `create_order()`; der Checkout zeigt die
+  Kachel nur ausgegraut (`lib/zahlart.ts`).
+- **Zahlung vor Ware:** Trigger `orders_zahlung_vor_ware()` – eine
+  Vorkasse-Bestellung kann erst auf `ready`/`shipped`/`delivered`, wenn ihre
+  Rechnung `paid` ist. „Bezahlt" setzt der Admin wie bisher am
+  Bestelldetail (`InvoiceStatusSelect`); es gibt kein `orders.paid_at`.
+- Ein Bestandskunde ohne als bezahlt markierte Rechnung beginnt mit Vorkasse.
+- **Reihenfolge beim Einspielen:** Migration 072 gemeinsam mit dem Deploy des
+  Checkout-Codes einspielen – der Checkout des vorigen Stands kann
+  `prepayment` nicht senden.
+
+## 🧾 Steuernummer
+
+`users.vat_id` nimmt USt-IdNr. **oder** Steuernummer auf und ist Pflicht für
+Kunden, die selbst bestellen (`profilLuecken()`, Migration 073). Das Format
+prüft `lib/steuernummer.ts` beim Speichern und in `profilLuecken()`; es gibt
+keine Online-Abfrage (VIES/BZSt). Der Trigger `orders_steuernummer_pruefen()`
+lehnt eine Bestellung des Kunden selbst ab, wenn `vat_id` leer ist (nur auf
+Vorhandensein, das Format prüft der Code); Admin-Rechnungen und Kassenverkäufe
+bleiben unberührt.
+
+## 🔎 Suche
+
+`components/site-search.tsx` – GET-Formular auf `/shop?q=` in Kopfleiste,
+Klappmenü und Startseite. Gesucht wird wortweise (`lib/search.ts`), auch für
+Besucher (ohne Preise).
