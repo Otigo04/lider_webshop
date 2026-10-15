@@ -10,6 +10,11 @@ const EINTRAEGE: EinstellungenEintrag[] = [
     hinweis: "Absender, Steuer, Bank, Ladenkasse",
   },
   {
+    href: "/admin/settings/oeffnungszeiten",
+    label: "Öffnungszeiten",
+    hinweis: "Laden, Abholung",
+  },
+  {
     href: "/admin/settings/hinweisleiste",
     label: "Hinweisleiste",
     hinweis: "Farbige Leiste ganz oben im Shop",
