@@ -176,7 +176,7 @@ export function faqGruppen(versandFreiAb: number): FaqGruppe[] {
           frage: "Welche Zahlarten gibt es?",
           wichtig: true,
           antwort:
-            "Überweisung ist immer möglich. Bar- oder Kartenzahlung nur bei Selbstabholung – bezahlt wird dann bei der Übergabe.",
+            "Bei der ersten Bestellung zahlen Sie per Vorkasse (Überweisung vorab) oder bar bei Selbstabholung. Nach der ersten bezahlten Bestellung können Sie auch auf Rechnung kaufen. Kartenzahlung gibt es nur bei Selbstabholung – bezahlt wird dann bei der Übergabe.",
         },
         {
           frage: "Was gebe ich bei der Überweisung als Verwendungszweck an?",

@@ -68,6 +68,13 @@ export default async function AdminOrderDetailPage({
         <OrderStatusSelect orderId={order.id} status={order.status} />
       </div>
 
+      {order.payment_method === "prepayment" && invoice?.status !== "paid" ? (
+        <p className="mt-3 rounded-md border border-border bg-muted px-3 py-2 text-sm text-muted-foreground">
+          Vorkasse: „Abholbereit“, „Versendet“ und „Geliefert“ sind erst möglich,
+          wenn die Rechnung unten auf „bezahlt“ steht.
+        </p>
+      ) : null}
+
       <dl className="mt-6 grid gap-4 text-sm sm:grid-cols-3 lg:grid-cols-5">
         <div>
           <dt className="text-muted-foreground">Bestelldatum</dt>
@@ -99,7 +106,14 @@ export default async function AdminOrderDetailPage({
         </div>
         <div>
           <dt className="text-muted-foreground">Zahlung</dt>
-          <dd className="mt-1">{PAYMENT_METHOD_LABELS[order.payment_method]}</dd>
+          <dd className="mt-1">
+            {PAYMENT_METHOD_LABELS[order.payment_method]}
+            {order.payment_method === "prepayment" && invoice?.status !== "paid" ? (
+              <span className="ml-2 rounded-full bg-signal px-2 py-0.5 text-xs font-semibold text-signal-foreground">
+                Zahlung ausstehend
+              </span>
+            ) : null}
+          </dd>
         </div>
         <div>
           <dt className="text-muted-foreground">Lieferung</dt>

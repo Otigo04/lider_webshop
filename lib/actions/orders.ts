@@ -31,7 +31,7 @@ const checkoutSchema = z
       )
       .min(1, "Der Warenkorb ist leer."),
     deliveryMethod: z.enum(["pickup", "shipping"]).default("shipping"),
-    paymentMethod: z.enum(["transfer", "cash", "card"]).default("transfer"),
+    paymentMethod: z.enum(["transfer", "prepayment", "cash", "card"]).default("prepayment"),
     /** true = abweichende Anschrift im Formular, false = die hinterlegte */
     differentAddress: z.boolean().default(false),
     delivery_name: z.string().trim().max(160).optional(),
@@ -55,7 +55,10 @@ const checkoutSchema = z
     },
   )
   .refine(
-    (data) => data.paymentMethod === "transfer" || data.deliveryMethod === "pickup",
+    (data) =>
+      data.paymentMethod === "transfer" ||
+      data.paymentMethod === "prepayment" ||
+      data.deliveryMethod === "pickup",
     {
       message: "Bar- und Kartenzahlung gibt es nur bei Selbstabholung.",
       path: ["paymentMethod"],
@@ -87,7 +90,7 @@ export async function createOrder(
   const parsed = checkoutSchema.safeParse({
     items: rawItems,
     deliveryMethod: formData.get("deliveryMethod") ?? "shipping",
-    paymentMethod: formData.get("paymentMethod") ?? "transfer",
+    paymentMethod: formData.get("paymentMethod") ?? "prepayment",
     differentAddress: formData.get("differentAddress") === "1",
     delivery_name: formData.get("delivery_name") ?? undefined,
     delivery_street: formData.get("delivery_street") ?? undefined,

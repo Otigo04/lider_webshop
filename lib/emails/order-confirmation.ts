@@ -4,6 +4,7 @@ import type { CompanySettings, Order } from "@/lib/types";
 import { PAYMENT_METHOD_LABELS } from "@/lib/types";
 import { formatDateTime, formatPrice, formatQuantity, toNumber } from "@/lib/format";
 import { steuer } from "@/lib/vat";
+import { istUeberweisung } from "@/lib/zahlart";
 import { buttonHtml, siteUrl, wrapEmail } from "@/lib/emails/layout";
 
 const ZELLE = "padding:8px 0;border-bottom:1px solid #f3f4f6;font-size:14px;";
@@ -54,11 +55,15 @@ export function orderConfirmationEmail(
   ].filter(Boolean);
 
   const zahlung =
-    order.payment_method === "transfer"
+    istUeberweisung(order.payment_method)
       ? `<p style="font-size:14px;color:#374151;margin-top:20px;">
            Bitte überweisen Sie <strong>${formatPrice(betraege.brutto)}</strong>.
-           Die Rechnung mit allen Angaben folgt in einer eigenen E-Mail; wir
-           beginnen mit der Bearbeitung, sobald die Zahlung bei uns eingegangen ist.
+           ${
+             order.payment_method === "prepayment"
+               ? "Wir beginnen mit der Bearbeitung, sobald die Zahlung bei uns eingegangen ist."
+               : "Die Zahlung ist innerhalb des auf der Rechnung genannten Zahlungsziels fällig."
+           }
+           Die Rechnung mit allen Angaben folgt in einer eigenen E-Mail.
          </p>
          ${
            bankzeilen.length > 0

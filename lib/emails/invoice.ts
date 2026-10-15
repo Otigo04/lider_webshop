@@ -2,6 +2,7 @@ import "server-only";
 import type { CompanySettings, Order } from "@/lib/types";
 import { formatPrice, toNumber } from "@/lib/format";
 import { steuer } from "@/lib/vat";
+import { istUeberweisung } from "@/lib/zahlart";
 import { buttonHtml, siteUrl, wrapEmail } from "@/lib/emails/layout";
 
 export function invoiceEmail(
@@ -10,7 +11,7 @@ export function invoiceEmail(
   company?: CompanySettings,
 ): { subject: string; html: string } {
   const betraege = steuer(toNumber(order.total_amount), toNumber(order.vat_rate));
-  const ueberweisung = order.payment_method === "transfer";
+  const ueberweisung = istUeberweisung(order.payment_method);
 
   const bankzeilen = [
     company?.bank_name ? `Bank: ${company.bank_name}` : null,

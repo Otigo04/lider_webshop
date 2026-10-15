@@ -26,6 +26,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import type { DeliveryMethod, PaymentMethod } from "@/lib/types";
+import { erlaubteZahlarten, vorgabeZahlart } from "@/lib/zahlart";
 import { cn } from "@/lib/utils";
 
 /** Anschrift, wie sie im Konto hinterlegt ist. */
@@ -43,23 +44,27 @@ function Auswahlkachel({
   icon,
   title,
   text,
+  disabled = false,
 }: {
   aktiv: boolean;
   onSelect: () => void;
   icon: React.ReactNode;
   title: string;
   text: string;
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onSelect}
+      disabled={disabled}
       aria-pressed={aktiv}
       className={cn(
         "flex gap-3 rounded-md border p-4 text-left transition-colors",
         aktiv
           ? "border-foreground bg-secondary"
           : "border-border hover:border-foreground/30",
+        disabled && "cursor-not-allowed opacity-50 hover:border-border",
       )}
     >
       <span className="mt-0.5 text-muted-foreground">{icon}</span>
@@ -110,6 +115,7 @@ export function CheckoutForm({
   versandFreiAb,
   kundenSatz = 0,
   oeffnungszeiten,
+  darfRechnung,
 }: {
   adresse: HinterlegteAdresse;
   /** Steuersatz aus den Firmendaten – nur Anzeige, gerechnet wird in der DB */
@@ -120,11 +126,15 @@ export function CheckoutForm({
   kundenSatz?: number;
   /** Öffnungszeiten – Abholtermine außerhalb werden gesperrt (die DB prüft nochmals) */
   oeffnungszeiten: Oeffnungszeiten;
+  /** Kauf auf Rechnung erst nach einer bezahlten Rechnung (darf_auf_rechnung()) */
+  darfRechnung: boolean;
 }) {
   const { items, ready, total, clear } = useCart();
   const bilder = useCartImages(items);
   const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>("shipping");
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("transfer");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(
+    vorgabeZahlart(darfRechnung),
+  );
   const [abweichend, setAbweichend] = useState(false);
   const [abholung, setAbholung] = useState("");
   const [gutschein, setGutschein] = useState<GutscheinKern | null>(null);
@@ -142,8 +152,10 @@ export function CheckoutForm({
    * Effekt geschrieben, rendert das Formular nach jedem Umschalten zweimal.
    */
   const abweichendEffektiv = abweichend || !adresseVollstaendig;
-  const zahlart: PaymentMethod =
-    deliveryMethod === "shipping" ? "transfer" : paymentMethod;
+  const erlaubt = erlaubteZahlarten(deliveryMethod, darfRechnung);
+  const zahlart: PaymentMethod = erlaubt.includes(paymentMethod)
+    ? paymentMethod
+    : vorgabeZahlart(darfRechnung);
 
   // Erst nach erfolgreicher Antwort leeren – sonst wäre der Warenkorb bei
   // einem Fehler (z. B. Bestand reicht nicht mehr) weg.
@@ -382,13 +394,25 @@ export function CheckoutForm({
         <section>
           <h2 className="font-medium">Zahlung</h2>
 
-          <div className="mt-3 grid gap-3 sm:grid-cols-3">
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <Auswahlkachel
+              aktiv={zahlart === "prepayment"}
+              onSelect={() => setPaymentMethod("prepayment")}
+              icon={<Landmark className="size-5" aria-hidden />}
+              title="Vorkasse – sofort überweisen"
+              text="Sie überweisen vorab, wir liefern bzw. halten die Ware nach Zahlungseingang bereit."
+            />
             <Auswahlkachel
               aktiv={zahlart === "transfer"}
               onSelect={() => setPaymentMethod("transfer")}
+              disabled={!darfRechnung}
               icon={<Landmark className="size-5" aria-hidden />}
-              title="Überweisung"
-              text="Rechnung kommt per E-Mail, Bearbeitung nach Zahlungseingang."
+              title="Auf Rechnung"
+              text={
+                darfRechnung
+                  ? "Rechnung kommt per E-Mail, Zahlung innerhalb des Zahlungsziels."
+                  : "Erst nach Ihrer ersten bezahlten Bestellung verfügbar."
+              }
             />
             {versand ? null : (
               <>
@@ -413,6 +437,12 @@ export function CheckoutForm({
           {versand ? (
             <p className="mt-3 text-xs text-muted-foreground">
               Bar- und Kartenzahlung gibt es nur bei Selbstabholung.
+            </p>
+          ) : null}
+          {!darfRechnung ? (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Bei der ersten Bestellung zahlen Sie vorab per Überweisung oder bar
+              bei Abholung. Danach steht Ihnen der Kauf auf Rechnung offen.
             </p>
           ) : null}
         </section>

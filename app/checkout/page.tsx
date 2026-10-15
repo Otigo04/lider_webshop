@@ -6,6 +6,7 @@ import { profilLuecken } from "@/lib/profil";
 import { getOeffnungszeiten } from "@/lib/queries/oeffnungszeiten";
 import { getCompanySettings } from "@/lib/queries/settings";
 import { getMeineKondition } from "@/lib/queries/vouchers";
+import { getDarfAufRechnung } from "@/lib/queries/zahlart";
 
 /*
  * „Bestellung aufgeben", nicht „Kasse": in diesem Projekt heißt so das
@@ -22,10 +23,11 @@ export default async function CheckoutPage() {
   }
   // Nur für die Anzeige der Bruttosumme. Verbindlich rechnet create_order()
   // mit dem Satz, den es selbst aus den Firmendaten festschreibt.
-  const [company, kondition, zeiten] = await Promise.all([
+  const [company, kondition, zeiten, darfRechnung] = await Promise.all([
     getCompanySettings(),
     getMeineKondition(),
     getOeffnungszeiten(),
+    getDarfAufRechnung(),
   ]);
 
   return (
@@ -48,6 +50,7 @@ export default async function CheckoutPage() {
           versandFreiAb={company.free_shipping_threshold}
           kundenSatz={kondition}
           oeffnungszeiten={zeiten}
+          darfRechnung={darfRechnung}
         />
       </div>
     </div>

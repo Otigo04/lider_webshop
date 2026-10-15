@@ -3,6 +3,7 @@ import type { CompanySettings, Order } from "@/lib/types";
 import { PAYMENT_METHOD_LABELS } from "@/lib/types";
 import { formatDateTime, formatPrice, toNumber } from "@/lib/format";
 import { steuer } from "@/lib/vat";
+import { istUeberweisung } from "@/lib/zahlart";
 import { buttonHtml, siteUrl, wrapEmail } from "@/lib/emails/layout";
 
 /**
@@ -40,7 +41,7 @@ export function orderReadyEmail(
     : "";
 
   const zahlung =
-    order.payment_method === "transfer"
+    istUeberweisung(order.payment_method)
       ? `<p style="font-size:14px;color:#374151;margin-top:12px;">
            Der Rechnungsbetrag von <strong>${formatPrice(betraege.brutto)}</strong>
            ist per Überweisung zu begleichen.

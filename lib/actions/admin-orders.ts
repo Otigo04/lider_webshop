@@ -102,8 +102,15 @@ export async function updateOrderStatus(
         .single();
 
   if (error) {
-    console.error("[admin] Status ändern:", error.message);
-    return { error: "Der Status konnte nicht geändert werden." };
+    console.error("[admin] Status ändern:", error.code, error.message);
+    // Die Sperre „Zahlung vor Ware" (Migration 072) ist eine eigene,
+    // verständliche Meldung (P0001) und gehört auf den Bildschirm.
+    return {
+      error:
+        error.code === "P0001"
+          ? error.message
+          : "Der Status konnte nicht geändert werden.",
+    };
   }
 
   revalidatePath("/admin/orders");

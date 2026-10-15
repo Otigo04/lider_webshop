@@ -338,14 +338,17 @@ export function buildOrderInvoicePdfData(
   /*
    * Bar und Karte werden bei der Abholung kassiert. Der Vermerk ersetzt das
    * Zahlungsziel – ein Fälligkeitsdatum auf einer Rechnung, die am Tresen
-   * beglichen wird, läse sich wie eine offene Forderung.
+   * beglichen wird, läse sich wie eine offene Forderung. Vorkasse ist zahlbar
+   * vor Lieferung; ein Fälligkeitsdatum hätte hier keinen Sinn.
    */
   const zahlvermerk =
     order.payment_method === "cash"
       ? "Zahlung bar bei Abholung."
       : order.payment_method === "card"
         ? "Zahlung per Karte bei Abholung."
-        : null;
+        : order.payment_method === "prepayment"
+          ? "Zahlbar vor Lieferung per Überweisung (Vorkasse). Die Ware wird nach Zahlungseingang versendet bzw. bereitgestellt."
+          : null;
 
   const lieferanschrift = lieferanschriftZeilen(order);
 

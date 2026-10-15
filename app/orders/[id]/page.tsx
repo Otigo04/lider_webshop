@@ -27,6 +27,7 @@ import { steuer } from "@/lib/vat";
 import { DELIVERY_METHOD_LABELS } from "@/lib/shipping";
 import { INVOICE_STATUS_LABELS, PAYMENT_METHOD_LABELS } from "@/lib/types";
 import { toNumber } from "@/lib/format";
+import { istUeberweisung } from "@/lib/zahlart";
 
 export async function generateMetadata({
   params,
@@ -77,7 +78,8 @@ export default async function OrderDetailPage({
   const abzuege = abzugszeilen(order);
   const frischBestellt = query.neu !== undefined;
   const abholung = order.delivery_method === "pickup";
-  const ueberweisung = order.payment_method === "transfer";
+  const ueberweisung = istUeberweisung(order.payment_method);
+  const vorkasse = order.payment_method === "prepayment";
   const storniert = invoice?.status === "cancelled" || order.status === "cancelled";
   const stornoUrl = await getInvoiceUrl(invoice?.storno_file_path);
   const offen = invoice?.status !== "paid";
@@ -105,7 +107,9 @@ export default async function OrderDetailPage({
             <p className="mt-1 text-sm text-success/90">
               Bestätigung und Rechnung sind unterwegs an Ihre E-Mail-Adresse.
               {ueberweisung
-                ? " Nach Zahlungseingang gehen wir in die Bearbeitung."
+                ? vorkasse
+                  ? " Bitte überweisen Sie jetzt. Nach Zahlungseingang gehen wir in die Bearbeitung."
+                  : " Die Rechnung ist unterwegs; bitte überweisen Sie innerhalb des Zahlungsziels."
                 : " Abholbar in der Regel am selben oder am nächsten Werktag. Rufen Sie dafür gerne kurz durch."}
             </p>
           </div>
@@ -326,8 +330,9 @@ export default async function OrderDetailPage({
               offen ? (
                 <>
                   <p className="mt-3 text-sm text-muted-foreground">
-                    Bitte überweisen Sie den Gesamtbetrag. Die Bearbeitung
-                    startet mit dem Zahlungseingang.
+                    {vorkasse
+                      ? "Bitte überweisen Sie den Gesamtbetrag jetzt. Wir bearbeiten und versenden Ihre Bestellung nach Zahlungseingang."
+                      : "Bitte überweisen Sie den Gesamtbetrag bis zum unten genannten Datum."}
                   </p>
                   <dl className="mt-3">
                     {company.iban ? (
