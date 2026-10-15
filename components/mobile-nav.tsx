@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ArrowRight, Menu, X } from "lucide-react";
+import { SiteSearch } from "@/components/site-search";
 import { cn } from "@/lib/utils";
 
 export interface NavLink {
@@ -120,6 +121,10 @@ export function MobileNav({
               >
                 <X className="size-5" aria-hidden />
               </button>
+            </div>
+
+            <div className="border-b border-surface-dark-border px-4 py-3">
+              <SiteSearch variant="menue" />
             </div>
 
             <nav className="px-2 py-2">

@@ -22,6 +22,7 @@ import { FaqListe } from "@/components/faq-liste";
 import { HomeSlider } from "@/components/home-slider";
 import { ProductRail } from "@/components/product-rail";
 import { RabattBadge } from "@/components/sale-price";
+import { SiteSearch } from "@/components/site-search";
 import { Schnellleiste } from "@/components/schnellleiste";
 import { Reveal } from "@/components/reveal";
 import { SortimentTabs, type SortimentReiter } from "@/components/sortiment-tabs";
@@ -225,6 +226,8 @@ export default async function HomePage() {
       <Schnellleiste
         warengruppen={gelistet.map(({ slug, name }) => ({ slug, name }))}
       />
+
+      <SiteSearch variant="gross" />
 
       {/* ---------------------------------------------------------------- Hero */}
       <section className="relative isolate overflow-hidden bg-surface-dark text-surface-dark-foreground">

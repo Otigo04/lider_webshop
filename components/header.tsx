@@ -6,6 +6,7 @@ import { CartLink } from "@/components/cart-link";
 import { MainNav } from "@/components/main-nav";
 import { MerklisteLink } from "@/components/merkliste-link";
 import { MobileNav, type NavLink } from "@/components/mobile-nav";
+import { SiteSearch } from "@/components/site-search";
 import { UserMenu } from "@/components/user-menu";
 
 export async function Header() {
@@ -70,6 +71,11 @@ export async function Header() {
         </Link>
 
         <MainNav links={links} />
+
+        <SiteSearch
+          variant="leiste"
+          className={isAdmin ? "hidden w-48 xl:block" : "hidden w-44 lg:block xl:w-56"}
+        />
 
         <div className="flex shrink-0 items-center gap-1">
           {/* Auf dem Handy nur im Klappmenü – die Leiste ist dort voll. */}
