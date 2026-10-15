@@ -441,8 +441,9 @@ export function CheckoutForm({
           ) : null}
           {!darfRechnung ? (
             <p className="mt-2 text-xs text-muted-foreground">
-              Bei der ersten Bestellung zahlen Sie vorab per Überweisung oder bar
-              bei Abholung. Danach steht Ihnen der Kauf auf Rechnung offen.
+              {versand
+                ? "Bei der ersten Bestellung zahlen Sie vorab per Überweisung. Danach steht Ihnen der Kauf auf Rechnung offen."
+                : "Bei der ersten Bestellung zahlen Sie vorab per Überweisung oder bar bei Abholung. Danach steht Ihnen der Kauf auf Rechnung offen."}
             </p>
           ) : null}
         </section>

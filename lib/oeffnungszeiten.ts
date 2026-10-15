@@ -72,7 +72,9 @@ function gueltigesFenster(wert: unknown): Zeitfenster | null {
  * Zeitfenster erfunden.
  */
 export function parseOeffnungszeiten(roh: unknown): Oeffnungszeiten {
-  if (!Array.isArray(roh) || roh.length !== 7) return STANDARD_OEFFNUNGSZEITEN;
+  if (!Array.isArray(roh) || roh.length !== 7) {
+    return STANDARD_OEFFNUNGSZEITEN.map((tag) => (tag ? { ...tag } : null));
+  }
   return roh.map((tag) => gueltigesFenster(tag));
 }
 

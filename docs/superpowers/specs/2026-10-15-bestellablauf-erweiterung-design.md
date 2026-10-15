@@ -151,8 +151,10 @@ Migration 072:
   `Auf Rechnung ist erst nach einer bezahlten Bestellung möglich. …`
 - `cash` und `card` weiter nur bei Abholung.
 - `prepayment` immer erlaubt.
-- Standardwert bei fehlender Angabe bleibt kompatibel: Erstbesteller ohne
-  Angabe bekommen `prepayment`, berechtigte `transfer`.
+- Die Vorauswahl `prepayment` / `transfer` geschieht im Checkout
+  (`vorgabeZahlart` in `lib/zahlart.ts`). `create_order()` setzt keinen
+  Ersatzwert ein; der Parameter-Default bleibt `'transfer'`, ein Erstbesteller,
+  der keine Zahlart sendet, bekommt also die Fehlermeldung.
 
 ### Sperre
 

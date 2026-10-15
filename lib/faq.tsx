@@ -181,12 +181,12 @@ export function faqGruppen(versandFreiAb: number): FaqGruppe[] {
         {
           frage: "Was gebe ich bei der Überweisung als Verwendungszweck an?",
           antwort:
-            "Die Rechnungsnummer. Sie steht nach dem Absenden direkt auf der Bestellseite, zusammen mit Betrag, Bankverbindung und Zahlungsziel.",
+            "Die Rechnungsnummer – bei Vorkasse ebenso wie bei Kauf auf Rechnung. Sie steht nach dem Absenden direkt auf der Bestellseite, zusammen mit Betrag, Bankverbindung und Zahlungsziel.",
         },
         {
           frage: "Kann ich auf Rechnung mit Zahlungsziel kaufen?",
           antwort:
-            "Das Zahlungsziel steht auf jeder Rechnung. Wer regelmäßig bestellt und andere Konditionen braucht, spricht uns an – das klären wir persönlich, nicht über ein Formular.",
+            "Kauf auf Rechnung steht Ihnen nach der ersten bezahlten Bestellung offen; davor zahlen Sie per Vorkasse oder bar bei Abholung. Das Zahlungsziel steht auf jeder Rechnung. Wer regelmäßig bestellt und andere Konditionen braucht, spricht uns an – das klären wir persönlich, nicht über ein Formular.",
         },
       ],
     },

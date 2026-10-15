@@ -115,10 +115,10 @@ export function CustomerForm({
           name="vat_id"
           defaultValue={customer?.vat_id ?? ""}
           maxLength={40}
-          placeholder="DE123456789"
+          placeholder="DE123456789 oder 30/123/45678"
         />
         <p className="text-xs text-muted-foreground">
-          Nur nötig für Rechnungen ins EU-Ausland. Kann leer bleiben.
+          Kann beim Anlegen leer bleiben; der Kunde ergänzt sie vor der ersten Bestellung.
         </p>
       </div>
 

@@ -94,3 +94,9 @@ test("openingHoursSpecification: ein Eintrag je Zeitfenster, englische Tage", ()
   assert.equal(spec[0].closes, "18:30");
   assert.deepEqual(spec[1].dayOfWeek, ["Saturday", "Sunday"]);
 });
+
+test("parseOeffnungszeiten: Rückfall liefert eine Kopie, nicht die Vorbelegung", () => {
+  const kopie = parseOeffnungszeiten(null);
+  kopie[0] = null;
+  assert.deepEqual(STANDARD_OEFFNUNGSZEITEN[0], { open: "11:00", close: "18:30" });
+});

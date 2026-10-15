@@ -770,7 +770,6 @@ bzw. „· B-Ware".
 **Reihenfolge beim Einspielen:** erst Migration 070, dann Deploy – wie bei 068
 fragen Shop und Artikelliste die Spalte ab und laufen ohne sie in Fehler.
 
-
 ## 🕑 Öffnungszeiten
 
 `company_settings.opening_hours` (Migration 071): sieben Einträge, Index 0 =
@@ -798,7 +797,9 @@ Migration 072.
 - **Auf Rechnung** nur, wenn `darf_auf_rechnung()` wahr ist (ohne Parameter,
   liest `auth.uid()`): der Kunde hat mindestens eine Rechnung mit
   `status = 'paid'`. Entschieden in `create_order()`; der Checkout zeigt die
-  Kachel nur ausgegraut (`lib/zahlart.ts`).
+  Kachel nur ausgegraut (`disabled={!darfRechnung}` in
+  `components/forms/checkout-form.tsx`; `erlaubteZahlarten()` in
+  `lib/zahlart.ts` entscheidet nur über die Liste).
 - **Zahlung vor Ware:** Trigger `orders_zahlung_vor_ware()` – eine
   Vorkasse-Bestellung kann erst auf `ready`/`shipped`/`delivered`, wenn ihre
   Rechnung `paid` ist. „Bezahlt" setzt der Admin wie bisher am
