@@ -27,15 +27,23 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
 export type DeliveryMethod = "pickup" | "shipping";
 
 /**
- * Wie der Kunde bezahlt. "transfer" ist die Vorgabe und die einzige Zahlart
- * beim Versand; bar und Karte gibt es nur am Tresen, deshalb erlaubt die
- * Datenbank sie ausschließlich zusammen mit Selbstabholung
- * (supabase/migrations/029_bestellablauf.sql).
+ * Wie der Kunde bezahlt.
+ *
+ *   prepayment – Vorkasse: überweisen, bevor Ware raus geht. Für Erstbesteller
+ *                die einzige Überweisungsart (siehe lib/zahlart.ts).
+ *   transfer   – Auf Rechnung: Zahlungsziel nach Rechnung. Erst nach einer
+ *                bezahlten Rechnung wählbar (public.darf_auf_rechnung()).
+ *   cash/card  – am Tresen, nur zusammen mit Selbstabholung.
+ *
+ * Der Datenbankwert `transfer` bleibt unverändert, damit bestehende
+ * Bestellungen und Rechnungen weiter stimmen
+ * (supabase/migrations/029_bestellablauf.sql, 072_zahlart_vorkasse.sql).
  */
-export type PaymentMethod = "transfer" | "cash" | "card";
+export type PaymentMethod = "transfer" | "prepayment" | "cash" | "card";
 
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
-  transfer: "Überweisung",
+  transfer: "Auf Rechnung",
+  prepayment: "Vorkasse (Überweisung)",
   cash: "Bar bei Abholung",
   card: "Karte bei Abholung",
 };
