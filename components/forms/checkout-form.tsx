@@ -373,8 +373,9 @@ export function CheckoutForm({
                 className="h-9 w-full max-w-xs rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
               />
               <p className="text-xs text-muted-foreground">
-                Abholbar in der Regel am selben oder am nächsten Werktag.
-                Rufen Sie dafür gerne kurz durch.
+                {zahlart === "prepayment"
+                  ? "Die Ware halten wir nach Zahlungseingang für Sie bereit. Rufen Sie dafür gerne kurz durch."
+                  : "Abholbar in der Regel am selben oder am nächsten Werktag. Rufen Sie dafür gerne kurz durch."}
               </p>
               <ul className="text-xs text-muted-foreground">
                 {formatOeffnungszeiten(oeffnungszeiten).map((zeile) => (

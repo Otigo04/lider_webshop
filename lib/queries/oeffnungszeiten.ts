@@ -1,10 +1,6 @@
 import "server-only";
 import { createPublicClient } from "@/lib/supabase/public";
-import {
-  parseOeffnungszeiten,
-  STANDARD_OEFFNUNGSZEITEN,
-  type Oeffnungszeiten,
-} from "@/lib/oeffnungszeiten";
+import { parseOeffnungszeiten, type Oeffnungszeiten } from "@/lib/oeffnungszeiten";
 
 /**
  * Öffnungszeiten für jede Seite, auch ohne Sitzung (RPC aus Migration 071).
@@ -15,7 +11,7 @@ export async function getOeffnungszeiten(): Promise<Oeffnungszeiten> {
   const { data, error } = await createPublicClient().rpc("public_opening_hours");
   if (error) {
     console.error("[einstellungen] Öffnungszeiten:", error.message);
-    return STANDARD_OEFFNUNGSZEITEN;
+    return parseOeffnungszeiten(null);
   }
   return parseOeffnungszeiten(data);
 }

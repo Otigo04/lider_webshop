@@ -41,7 +41,11 @@ export function orderReadyEmail(
     : "";
 
   const zahlung =
-    istUeberweisung(order.payment_method)
+    order.payment_method === "prepayment"
+      ? `<p style="font-size:14px;color:#374151;margin-top:12px;">
+           Ihre Zahlung ist bei uns eingegangen. Es ist nichts weiter zu zahlen.
+         </p>`
+      : istUeberweisung(order.payment_method)
       ? `<p style="font-size:14px;color:#374151;margin-top:12px;">
            Der Rechnungsbetrag von <strong>${formatPrice(betraege.brutto)}</strong>
            ist per Überweisung zu begleichen.
