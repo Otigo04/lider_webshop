@@ -229,7 +229,6 @@ export default async function HomePage() {
         warengruppen={gelistet.map(({ slug, name }) => ({ slug, name }))}
       />
 
-      <SiteSearch variant="gross" />
 
       {/* ---------------------------------------------------------------- Hero */}
       <section className="relative isolate overflow-hidden bg-surface-dark text-surface-dark-foreground">
@@ -403,6 +402,11 @@ export default async function HomePage() {
 
       {/* ------------------------------------------------------- Katalogband */}
       <CatalogTicker items={ticker} />
+
+      {/* ------------------------------------------------------------- Suche */}
+      {/* Direkt unter dem Katalogband, in dessen Farben: Band und Suche lesen
+          sich als ein dunkler Block, bevor die helle Neuheiten-Fläche beginnt. */}
+      <SiteSearch variant="gross" />
 
       {/* --------------------------------------------------------- Neuheiten */}
       {/* Vor den Warengruppen: was hereingekommen ist, ist der erste Grund,
