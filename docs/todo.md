@@ -1,15 +1,21 @@
 # To-do – Livegang
 
-Stand: 2026-10-07. Der Stand der Produktiv-Datenbank steht nirgends sonst –
+Stand: 2026-10-16. Der Stand der Produktiv-Datenbank steht nirgends sonst –
 hier abhaken, was eingespielt ist.
 
 ## Migrationen (Supabase SQL Editor, der Reihe nach, vorher Backup)
 
-Alle idempotent. Eingespielt bis: **offen – bitte eintragen**
+Alle idempotent. Eingespielt bis: **`073_steuernummer_pflicht.sql`** (Stand 2026-10-16,
+Produktiv-Datenbank; 057 bis 073 anhand der Tabellen und Spalten geprüft)
 
-- [ ] `057_kassenbuch.sql`
-- [ ] `058_email_bestaetigung.sql`
-- [ ] `059_gutschein_warengruppen.sql` (auf Branch `feat/gutschein-warengruppen`)
+- [x] `057_kassenbuch.sql`
+- [x] `058_email_bestaetigung.sql`
+- [x] `059_gutschein_warengruppen.sql`
+- [x] `060` bis `070` (Katalog-Bestand, Papierkorb, Startpasswort, Altrechnungen, Storno,
+      Newsletter, Vorbestellung, Restposten, Shop-Texte)
+- [x] `071_oeffnungszeiten.sql`
+- [x] `072_zahlart_vorkasse.sql`
+- [x] `073_steuernummer_pflicht.sql`
 
 ## Vercel – Environment Variables (Production **und** Preview)
 
