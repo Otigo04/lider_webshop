@@ -7,6 +7,11 @@ const supabaseHost = process.env.NEXT_PUBLIC_SUPABASE_URL
 
 const nextConfig: NextConfig = {
   images: {
+    // Die Bildoptimierung von Vercel (Hobby) hat ein Monatskontingent. Ist es
+    // aufgebraucht, antwortet /_next/image mit 402
+    // (OPTIMIZED_IMAGE_REQUEST_PAYMENT_REQUIRED) und kein Foto lädt mehr. Die
+    // Bilder gehen deshalb direkt an den Browser; die Signed URLs bleiben.
+    unoptimized: true,
     // Passend zur Gültigkeit der Signed URLs (lib/storage.ts): länger
     // vorzuhalten bringt nichts, weil die Bildadresse danach ohnehin wechselt.
     minimumCacheTTL: 12 * 60 * 60,
