@@ -25,7 +25,7 @@ import type { AppUser, Invoice, InvoiceItem, Order } from "@/lib/types";
 export async function generateAndSendOrderInvoice(
   orderId: string,
   customer: AppUser,
-  options: { sendOrderConfirmation?: boolean } = {},
+  options: { sendOrderConfirmation?: boolean; paymentNote?: string | null } = {},
 ): Promise<void> {
   const order = await getOrder(orderId);
   if (!order) return;
@@ -59,8 +59,22 @@ export async function generateAndSendOrderInvoice(
   }
 
   const invoice = invoiceData as { id: string; invoice_number: string };
+  const zahlungsvermerk = options.paymentNote?.trim() || null;
+  if (zahlungsvermerk) {
+    const { error: noteError } = await createAdminClient()
+      .from("invoices")
+      .update({ payment_note: zahlungsvermerk })
+      .eq("id", invoice.id);
+    if (noteError) console.error("[rechnung] Zahlungsvermerk:", noteError.message);
+  }
   const pdfBytes = await generateInvoicePdf(
-    buildOrderInvoicePdfData(fullOrder, invoice.invoice_number, company),
+    buildOrderInvoicePdfData(
+      fullOrder,
+      invoice.invoice_number,
+      company,
+      undefined,
+      zahlungsvermerk,
+    ),
   );
   const filePath = `${orderId}/${invoice.invoice_number}.pdf`;
 

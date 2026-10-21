@@ -363,6 +363,8 @@ export interface Invoice {
   status: InvoiceStatus;
   /** Nur bei freien Rechnungen gepflegt (z. B. "Beratung März 2026") */
   notes: string | null;
+  /** Zahlungsvermerk statt Zahlungsziel (Migration 074); null = Standard */
+  payment_note: string | null;
   /** Nur bei freien Rechnungen und Kassen-Rechnungen befüllt – Bestellungs-Rechnungen nutzen order.total_amount (netto) */
   net_amount: number | null;
   vat_amount: number;

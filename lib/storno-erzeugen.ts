@@ -82,6 +82,7 @@ export async function erzeugeStornoRechnung(
         invoice.invoice_number,
         company,
         invoice.issued_at,
+        invoice.payment_note,
       );
     }
   }

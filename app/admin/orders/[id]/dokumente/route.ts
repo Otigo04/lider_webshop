@@ -130,6 +130,7 @@ async function rechnungsPdf(
       invoice.invoice_number,
       company,
       invoice.issued_at,
+      invoice.payment_note,
     ),
   );
 }

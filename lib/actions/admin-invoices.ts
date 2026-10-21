@@ -9,7 +9,19 @@ import {
   generateAndSendOrderInvoice,
 } from "@/lib/actions/invoicing";
 import type { AdminFormState } from "@/lib/actions/admin-categories";
+import {
+  isZahlungsvermerkKey,
+  zahlungsvermerkText,
+} from "@/lib/zahlungsvermerk";
 import type { AppUser } from "@/lib/types";
+
+/** Zahlungsvermerk aus Auswahl und Freitext des Formulars (null = Standard). */
+function zahlungsvermerkAusForm(formData: FormData): string | null {
+  const key = formData.get("payment_key");
+  if (!isZahlungsvermerkKey(key)) return null;
+  const frei = String(formData.get("payment_free") ?? "").slice(0, 500);
+  return zahlungsvermerkText(key, frei);
+}
 
 export interface InvoiceActionState {
   error?: string;
@@ -95,7 +107,9 @@ export async function createCatalogInvoiceOrder(
     console.error("[admin] Kunde laden:", customerError?.message);
   } else {
     try {
-      await generateAndSendOrderInvoice(order.id, customerRow as AppUser);
+      await generateAndSendOrderInvoice(order.id, customerRow as AppUser, {
+        paymentNote: zahlungsvermerkAusForm(formData),
+      });
     } catch (err) {
       console.error("[admin] Rechnung/Mailversand fehlgeschlagen:", err);
     }
@@ -208,6 +222,15 @@ export async function createManualInvoice(
   }
 
   const invoice = data as { id: string };
+
+  const zahlungsvermerk = zahlungsvermerkAusForm(formData);
+  if (zahlungsvermerk) {
+    const { error: noteError } = await supabase
+      .from("invoices")
+      .update({ payment_note: zahlungsvermerk })
+      .eq("id", invoice.id);
+    if (noteError) console.error("[admin] Zahlungsvermerk:", noteError.message);
+  }
 
   try {
     await generateAndSendManualInvoice(invoice.id);

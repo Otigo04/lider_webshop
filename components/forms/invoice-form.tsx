@@ -20,6 +20,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { formatPrice } from "@/lib/format";
 import { resolveTier } from "@/lib/pricing";
 import type { AdminProductRow } from "@/lib/queries/admin";
+import {
+  ZAHLUNGSVERMERK_OPTIONEN,
+  type ZahlungsvermerkKey,
+} from "@/lib/zahlungsvermerk";
 import type { AppUser } from "@/lib/types";
 
 type Mode = "catalog" | "manual";
@@ -84,6 +88,40 @@ export function InvoiceForm({
     emptyManualRow("zeile-1"),
   ]);
   const [notes, setNotes] = useState("");
+  const [zahlKey, setZahlKey] = useState<ZahlungsvermerkKey>("ziel");
+  const [zahlFrei, setZahlFrei] = useState("");
+
+  const zahlungsfeld = (
+    <section className="max-w-md space-y-2">
+      <Label htmlFor="payment_key">Zahlung</Label>
+      <select
+        id="payment_key"
+        name="payment_key"
+        value={zahlKey}
+        onChange={(event) => setZahlKey(event.target.value as ZahlungsvermerkKey)}
+        className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+      >
+        {ZAHLUNGSVERMERK_OPTIONEN.map((option) => (
+          <option key={option.key} value={option.key}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      {zahlKey === "frei" ? (
+        <Textarea
+          name="payment_free"
+          value={zahlFrei}
+          onChange={(event) => setZahlFrei(event.target.value)}
+          rows={2}
+          maxLength={500}
+          placeholder="Text, der auf der Rechnung unter den Summen steht"
+        />
+      ) : null}
+      <p className="text-xs text-muted-foreground">
+        Steht auf der Rechnung anstelle des Zahlungsziels.
+      </p>
+    </section>
+  );
 
   const [catalogState, catalogAction] = useActionState<InvoiceActionState, FormData>(
     createCatalogInvoiceOrder,
@@ -326,6 +364,8 @@ export function InvoiceForm({
             <Textarea id="notes" name="notes" rows={3} maxLength={2000} />
           </section>
 
+          {zahlungsfeld}
+
           <div className="space-y-2 rounded-md border border-border p-4">
             {kundenSatzWert > 0 ? (
               <>
@@ -509,6 +549,8 @@ export function InvoiceForm({
               placeholder="z. B. Beratung März 2026"
             />
           </section>
+
+          {zahlungsfeld}
 
           <div className="space-y-2 rounded-md border border-border p-4">
             <div className="flex items-center justify-between text-sm">

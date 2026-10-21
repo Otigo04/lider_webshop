@@ -329,6 +329,8 @@ export function buildOrderInvoicePdfData(
    * Datum wäre ein anderes Dokument unter derselben Nummer.
    */
   issuedAt?: string,
+  /** Bei der Rechnung gespeicherter Zahlungsvermerk (Migration 074), hat Vorrang */
+  zahlungsvermerk?: string | null,
 ): InvoicePdfData {
   const customer = order.customer;
   const netto = toNumber(order.total_amount);
@@ -342,13 +344,14 @@ export function buildOrderInvoicePdfData(
    * vor Lieferung; ein Fälligkeitsdatum hätte hier keinen Sinn.
    */
   const zahlvermerk =
-    order.payment_method === "cash"
+    zahlungsvermerk?.trim() ||
+    (order.payment_method === "cash"
       ? "Zahlung bar bei Abholung."
       : order.payment_method === "card"
         ? "Zahlung per Karte bei Abholung."
         : order.payment_method === "prepayment"
           ? "Zahlbar vor Lieferung per Überweisung (Vorkasse). Die Ware wird nach Zahlungseingang versendet bzw. bereitgestellt."
-          : null;
+          : null);
 
   const lieferanschrift = lieferanschriftZeilen(order);
 
@@ -502,6 +505,7 @@ export function buildManualInvoicePdfData(
     vatBreakdown: [...breakdown.entries()]
       .sort((a, b) => b[0] - a[0])
       .map(([rate, sums]) => ({ rate, net: sums.net, vat: sums.vat })),
+    paymentNote: invoice.payment_note?.trim() || null,
     company,
   };
 }
