@@ -1,5 +1,8 @@
 import "server-only";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { Resend } from "resend";
+import { LOGO_CID } from "@/lib/emails/layout";
 
 /**
  * E-Mail-Versand darf nie eine bereits abgeschlossene Aktion (Bestellung,
@@ -25,10 +28,25 @@ export interface SendEmailOptions {
   to: string;
   subject: string;
   html: string;
-  attachments?: { filename: string; content: Buffer }[];
+  attachments?: { filename: string; content: Buffer; contentId?: string }[];
 }
 
-export async function sendEmail(options: SendEmailOptions): Promise<void> {
+/** `true` = Resend hat die Mail angenommen; `false` = übersprungen oder fehlgeschlagen. */
+/**
+ * Logo für Mails, die `cid:lider-logo` verwenden. Druckfassung (weißer Grund,
+ * 600 px): auf dem weißen Briefblatt sauber, und klein genug für den Anhang.
+ */
+function logoAnhang(html: string): { filename: string; content: Buffer; contentId: string }[] {
+  if (!html.includes(`cid:${LOGO_CID}`)) return [];
+  try {
+    const datei = path.join(process.cwd(), "public", "logo", "logo-print.png");
+    return [{ filename: "lider-logo.png", content: readFileSync(datei), contentId: LOGO_CID }];
+  } catch {
+    return [];
+  }
+}
+
+export async function sendEmail(options: SendEmailOptions): Promise<boolean> {
   const resend = getClient();
   if (!resend) {
     console.warn(
@@ -37,7 +55,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<void> {
       "an",
       options.to,
     );
-    return;
+    return false;
   }
 
   const from = process.env.EMAIL_FROM || "LIDER <onboarding@resend.dev>";
@@ -47,10 +65,12 @@ export async function sendEmail(options: SendEmailOptions): Promise<void> {
     to: options.to,
     subject: options.subject,
     html: options.html,
-    attachments: options.attachments,
+    attachments: [...(options.attachments ?? []), ...logoAnhang(options.html)],
   });
 
   if (error) {
     console.error("[email] Versand fehlgeschlagen:", options.subject, error.message);
+    return false;
   }
+  return true;
 }

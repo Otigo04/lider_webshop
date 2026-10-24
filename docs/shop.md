@@ -546,13 +546,20 @@ Konten sind bis zum Klick auf den Bestätigungslink gesperrt
   (`email_confirm: true`, Supabase blockt nie selbst), sperrt es und schickt
   die Bestätigungsmail über Resend. Die Supabase-Bestätigungsmails sind damit
   nicht mehr im Spiel.
-- **Vom Admin angelegt:** Passwort wie bisher sichtbar beim Anlegen. Die Mail
-  geht erst auf den Knopf „Bestätigungsmail senden“ in der Kundenakte raus.
-  Das Passwort liegt bis zum Klick AES-256-GCM-verschlüsselt in
-  `email_verifications.temp_password_enc` (Schlüssel abgeleitet aus
-  `SUPABASE_SERVICE_KEY`) und geht nach dem Klick als Zugangsmail raus.
-  Wird der Service-Key gedreht, sind offene Passwörter nicht mehr lesbar –
-  dann „Passwort“ in der Kundenakte neu erzeugen.
+- **Vom Admin angelegt:** kein Bestätigungsschritt mehr. `createCustomer()`
+  legt das Konto aktiv an (`verified_at` gesetzt) und schickt sofort die
+  Willkommensmail mit Anmeldename und Einmalpasswort (`welcomeEmail`). Das
+  Passwort steht zusätzlich einmal im Formular, falls der Versand scheitert
+  (Meldung sagt es). „Passwort neu“ in der Kundenakte schickt bei bestätigten
+  Konten ebenfalls sofort eine Mail (`newPasswordEmail`).
+  Altbestand: Konten, die noch gesperrt auf den Knopf „Bestätigungsmail
+  senden“ warten, laufen den alten Weg – Passwort AES-256-GCM-verschlüsselt in
+  `email_verifications.temp_password_enc` (Schlüssel aus `SUPABASE_SERVICE_KEY`),
+  Zugangsmail nach dem Klick (`credentialsEmail`).
+- **Mail-Rahmen:** alle Transaktionsmails laufen über `wrapEmail()` in
+  `lib/emails/layout.ts` – gleicher Aufbau und gleiche Farben wie der
+  Newsletter (Wappenblau, Goldlinie, Logo). Bausteine: `absatz`, `kasten`,
+  `feld`, `schritte`, `buttonHtml`, `kleingedrucktes`.
 - **Der Link führt auf eine Seite mit Knopf**, nicht direkt auf die Aktion:
   Mail-Scanner (Outlook!) rufen Links vorab per GET ab und würden das Token
   sonst verbrauchen. Token: 48 h gültig, einmalig, nur als Hash gespeichert.

@@ -8,12 +8,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { pruefeSteuernummer } from "@/lib/steuernummer";
 import { saveStartPassword } from "@/lib/start-password";
-import {
-  createVerification,
-  markUnverified,
-  sendVerification,
-  updatePendingPassword,
-} from "@/lib/verification";
+import { sendEmail } from "@/lib/email";
+import { newPasswordEmail, welcomeEmail } from "@/lib/emails/verification";
+import { sendVerification, updatePendingPassword } from "@/lib/verification";
 import type { AdminFormState } from "@/lib/actions/admin-categories";
 
 export interface CustomerFormState extends AdminFormState {
@@ -109,10 +106,11 @@ const createSchema = z.object({
  * Legt Konto und Profil an. Braucht den Service-Key, weil auth.admin nur damit
  * erreichbar ist – deshalb steht requireAdmin() zwingend davor.
  *
- * Es wird bewusst keine E-Mail verschickt: der Standard-SMTP von Supabase ist
- * stark limitiert und nur für Teammitglieder gedacht. Das Startpasswort wird
- * einmal angezeigt und vom Admin weitergegeben. Sobald ein eigener
- * SMTP-Anbieter hinterlegt ist, lässt sich das auf inviteUserByEmail umstellen.
+ * Die Zugangsdaten gehen sofort per Resend an den Kunden (welcomeEmail) – der
+ * Admin muss nichts weitergeben. Das Konto ist gleich aktiv: die Adresse hat
+ * der Admin selbst eingetragen, und kommt die Mail an, ist sie damit zugleich
+ * erprobt. Das Startpasswort wird zusätzlich einmal angezeigt, falls der
+ * Versand scheitert oder der Kunde am Telefon sitzt.
  */
 export async function createCustomer(
   _prevState: CustomerFormState,
@@ -157,12 +155,15 @@ export async function createCustomer(
 
   // Der Trigger handle_new_user hat das Profil bereits erzeugt. Hier werden
   // nur noch die Felder nachgezogen, falls die Metadaten nicht durchkamen.
+  // verified_at/is_active: kein Bestätigungsschritt für Admin-Konten.
   const { error: profileError } = await supabaseAdmin
     .from("users")
     .update({
       full_name,
       company_name: company_name || null,
       vat_id: vat_id || null,
+      is_active: true,
+      verified_at: new Date().toISOString(),
       ...adresseSchreiben(parsed.data),
     })
     .eq("id", data.user.id);
@@ -173,16 +174,16 @@ export async function createCustomer(
 
   await saveStartPassword(data.user.id, password);
 
-  // Konto bleibt gesperrt, bis der Kunde den Link klickt. Die Mail geht erst
-  // auf Knopfdruck in der Kundenakte raus; das Startpasswort liegt bis dahin
-  // verschlüsselt in email_verifications und geht nach dem Klick per Mail raus.
-  if (await markUnverified(data.user.id)) {
-    await createVerification(data.user.id, "admin", password);
-  }
+  const gesendet = await sendEmail({
+    to: email,
+    ...welcomeEmail(email, password, full_name),
+  });
 
   revalidatePath("/admin/customers");
   return {
-    success: `Konto für ${email} angelegt. Es ist gesperrt, bis der Kunde seine Adresse bestätigt – den Versand der Bestätigungsmail löst du in der Kundenakte aus.`,
+    success: gesendet
+      ? `Konto für ${email} angelegt. Die Zugangsdaten sind per E-Mail unterwegs.`
+      : `Konto für ${email} angelegt – die E-Mail mit den Zugangsdaten konnte aber nicht gesendet werden. Gib das Startpasswort unten selbst weiter.`,
     temporaryPassword: password,
     temporaryPasswordEmail: email,
   };
@@ -308,10 +309,30 @@ export async function resetCustomerPassword(
   // Noch unbestätigtes Konto: die spätere Zugangsmail soll das neue Passwort nennen.
   await updatePendingPassword(id, password);
 
+  // Bestätigte Konten bekommen das neue Passwort sofort per Mail. Unbestätigte
+  // (Altbestand) nicht: dort kommt es mit der Zugangsmail nach dem Klick.
+  const adresse = data.user?.email ?? undefined;
+  let gesendet = false;
+  if (adresse) {
+    const { data: profil } = await supabaseAdmin
+      .from("users")
+      .select("full_name, verified_at")
+      .eq("id", id)
+      .maybeSingle();
+    if (profil?.verified_at) {
+      gesendet = await sendEmail({
+        to: adresse,
+        ...newPasswordEmail(adresse, password, profil.full_name),
+      });
+    }
+  }
+
   return {
-    success: "Neues Startpasswort gesetzt.",
+    success: gesendet
+      ? "Neues Startpasswort gesetzt und dem Kunden per E-Mail geschickt."
+      : "Neues Startpasswort gesetzt.",
     temporaryPassword: password,
-    temporaryPasswordEmail: data.user?.email ?? undefined,
+    temporaryPasswordEmail: adresse,
   };
 }
 
