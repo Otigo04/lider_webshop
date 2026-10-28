@@ -26,7 +26,7 @@ export function zustand(s: SlideMitBild, jetzt: number): { text: string; stil: s
 
 /**
  * Vorschau, Liste und Editor für Bilder, die oben auf einer Seite laufen:
- * Werbebilder der Startseite (3:1) und Banner einer Warengruppe (5:1). Beide
+ * Werbebilder der Startseite und Banner einer Warengruppe (beide 3:1). Beide
  * Verwaltungen sehen gleich aus und bedienen sich gleich – nur Ziel, Aktionen
  * und Texte unterscheiden sich.
  */
@@ -116,10 +116,7 @@ export function SlideVerwaltung({
                       oben={index === 0}
                       unten={index === slides.length - 1}
                     />
-                    <div
-                      className="relative w-40 shrink-0 overflow-hidden rounded border border-border bg-muted"
-                      style={{ aspectRatio: gruppe ? "5 / 1" : "3 / 1" }}
-                    >
+                    <div className="relative aspect-[3/1] w-40 shrink-0 overflow-hidden rounded border border-border bg-muted">
                       {s.imageUrl ? (
                         <Image src={s.imageUrl} alt="" fill sizes="160px" className="object-cover" />
                       ) : (

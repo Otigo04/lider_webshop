@@ -50,9 +50,9 @@ export function HomeSlider({
 }: {
   slides: Slide[];
   /**
-   * "start": 3:1 ganz oben auf der Startseite. "gruppe": flacheres 5:1 für das
-   * Banner einer Warengruppe, kleinere Schrift – die Artikel sollen direkt
-   * darunter sichtbar bleiben.
+   * "start": ganz oben auf der Startseite, randlos. "gruppe": Banner einer
+   * Warengruppe, gleiches Format (3:1), aber kleinere Schrift – der Shop setzt
+   * es in Inhaltsbreite, damit es nicht wie das Startseitenbanner wirkt.
    */
   format?: "start" | "gruppe";
 }) {
@@ -120,13 +120,7 @@ export function HomeSlider({
       <div
         className={cn(
           "relative mx-auto w-full max-w-[1920px]",
-          gruppe
-            ? telefonHoch
-              ? "aspect-[5/2] sm:aspect-[5/1]"
-              : "aspect-[5/1]"
-            : telefonHoch
-              ? "aspect-[6/5] sm:aspect-[3/1]"
-              : "aspect-[3/1]",
+          telefonHoch ? "aspect-[6/5] sm:aspect-[3/1]" : "aspect-[3/1]",
         )}
       >
         {slides.map((slide, index) => {

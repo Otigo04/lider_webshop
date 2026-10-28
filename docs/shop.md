@@ -553,8 +553,9 @@ Migration 075, Tabelle `category_banners` (Aufbau wie `home_slides`, dazu
   an/aus, Reihenfolge (nur innerhalb der Warengruppe). Ohne laufendes Banner
   fällt der Block ganz weg – kein Platzhalter, kein leerer Rahmen.
 - **Ein Slider für beide**: `HomeSlider` hat die Prop `format`. `"gruppe"`
-  ist 5:1 (Telefon 5:2, wenn ein Telefonbild oder Text da ist), kleinere
-  Schrift, im Shop in Inhaltsbreite mit Rand statt randlos. Kein zweiter
+  hat dasselbe Format 3:1 (Telefon 6:5 wie auf der Startseite), aber kleinere
+  Schrift und steht im Shop in Inhaltsbreite mit Rand statt randlos. Ein erstes
+  Format 5:1 wirkte wie ein Hauptseitenbanner und wurde verworfen. Kein zweiter
   Slider daneben.
 - **Ein Editor, eine Verwaltung**: `SlideEditor` (Prop `ziel`) und
   `SlideVerwaltung` bedienen Startseite und Warengruppen. Prüfung und

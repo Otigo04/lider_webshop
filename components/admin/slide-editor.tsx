@@ -53,7 +53,7 @@ function berlinTag(iso: string | null, minusEinTag = false): string {
   return new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Berlin" }).format(t);
 }
 
-/** Wohin ein Bild gehört: Startseite (3:1) oder Banner einer Warengruppe (5:1). */
+/** Wohin ein Bild gehört: Startseite oder Banner einer Warengruppe, beide 3:1. */
 export type SlideZiel =
   | { art: "start" }
   | { art: "gruppe"; categoryId: string; slug: string };
@@ -72,10 +72,10 @@ const EINSTELLUNG = {
   },
   gruppe: {
     ordner: "kategorien-banner",
-    verhaeltnis: 5,
-    format: "5:1",
-    beispiel: "z. B. 1920 × 384 px",
-    telefon: "Etwa 1080 × 432 px (5:2).",
+    verhaeltnis: 3,
+    format: "3:1",
+    beispiel: "z. B. 1920 × 640 px",
+    telefon: "Etwa 1080 × 900 px (6:5).",
     ort: "der Warengruppe",
     zeigen: "Auf der Seite der Warengruppe zeigen",
     anlegen: "Banner anlegen",
@@ -121,7 +121,7 @@ function BildFeld({
       toast.error("Das Bild ist größer als 5 MB.");
       return;
     }
-    // Die Fläche ist 3:1 bzw. 5:1. Ein anderes Format wird
+    // Die Fläche ist 3:1. Ein anderes Format wird
     // beschnitten – das soll man beim Hochladen erfahren, nicht erst dort.
     if (!hochformat) {
       try {
