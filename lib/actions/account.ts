@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth";
+import { schickeNewsletterGutschein } from "@/lib/newsletter-abo";
 import { clearMustChangePassword } from "@/lib/password-flag";
 import { createClient } from "@/lib/supabase/server";
 import { pruefeSteuernummer } from "@/lib/steuernummer";
@@ -317,6 +318,35 @@ export async function setNewsletter(
     return { error: "Die Einstellung konnte nicht gespeichert werden." };
   }
 
+  // Willkommensgutschein (Migration 076): höchstens einmal je Konto. Der Code
+  // steht danach auch im Konto – ein Mailfehler lässt ihn nicht verschwinden.
+  if (an) await schickeNewsletterGutschein(user.id);
+
   revalidatePath("/account");
+  revalidatePath("/");
   return { success: an ? "Sie erhalten jetzt unseren Newsletter." : "Newsletter abbestellt." };
+}
+
+/**
+ * Newsletter abonnieren per Knopf, z. B. auf der Startseite. Gleiche Wirkung
+ * wie das Häkchen im Konto (setNewsletter), nur ohne Formularfeld: der Klick
+ * auf den Knopf mit dem Einwilligungstext daneben ist die Einwilligung.
+ */
+export async function abonniereNewsletter(): Promise<NewsletterState> {
+  const user = await requireUser("/");
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("users")
+    .update({ newsletter_abo: true, newsletter_abo_at: new Date().toISOString() })
+    .eq("id", user.id);
+  if (error) {
+    console.error("[konto] Newsletter:", error.message);
+    return { error: "Die Anmeldung konnte nicht gespeichert werden." };
+  }
+
+  await schickeNewsletterGutschein(user.id);
+
+  revalidatePath("/account");
+  revalidatePath("/");
+  return { success: "Sie erhalten jetzt unseren Newsletter." };
 }

@@ -20,6 +20,7 @@ import { CatalogTicker } from "@/components/catalog-ticker";
 import { CategoryGrid } from "@/components/category-grid";
 import { FaqListe } from "@/components/faq-liste";
 import { HomeSlider } from "@/components/home-slider";
+import { NewsletterBox } from "@/components/newsletter-box";
 import { ProductRail } from "@/components/product-rail";
 import { RabattBadge } from "@/components/sale-price";
 import { SiteSearch } from "@/components/site-search";
@@ -36,6 +37,7 @@ import { formatPrice } from "@/lib/format";
 import { hatPreisspanne, reduzierung } from "@/lib/pricing";
 import { getLandingData } from "@/lib/queries/products";
 import { getOeffnungszeiten } from "@/lib/queries/oeffnungszeiten";
+import { getNewsletterAngebot, getNewsletterStand } from "@/lib/queries/newsletter-gutschein";
 import { getPublicContact } from "@/lib/queries/settings";
 import { getActiveSlides } from "@/lib/queries/slides";
 import { formatThreshold } from "@/lib/shipping";
@@ -95,13 +97,18 @@ const leistungen = (versandFreiAb: number) => [
 ];
 
 export default async function HomePage() {
-  const [daten, user, firma, slides, zeiten] = await Promise.all([
+  const [daten, user, firma, slides, zeiten, newsletterAngebot] = await Promise.all([
     getLandingData(),
     getCurrentUser(),
     getPublicContact(),
     getActiveSlides(),
     getOeffnungszeiten(),
+    getNewsletterAngebot(),
   ]);
+  // Kunden sehen, ob sie schon angemeldet sind (und ihren Code); Admins gar
+  // keinen Newsletter-Abschnitt – sie sind kein Empfänger.
+  const newsletterStand =
+    user && user.role === "customer" ? await getNewsletterStand(user.id) : null;
   // Werbeangabe, deshalb auch ohne Anmeldung sichtbar: public_company_contact()
   // gibt die Grenze mit heraus (Migration 037).
   const versandFreiAb = firma.free_shipping_threshold;
@@ -731,6 +738,12 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* ------------------------------------------------------- Newsletter */}
+      {/* Anreiz aus dem Gutschein mit fuer_newsletter (Migration 076). */}
+      {user?.role === "admin" ? null : (
+        <NewsletterBox angebot={newsletterAngebot} stand={newsletterStand} />
+      )}
 
       {/* --------------------------------------------------------------- FAQ */}
       <section id="faq" className="border-t border-border bg-background">

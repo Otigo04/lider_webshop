@@ -77,6 +77,7 @@ export function VoucherForm({
   const [nurKunde, setNurKunde] = useState(Boolean(voucher?.customer_id ?? vorgabeKunde));
   const [gruppen, setGruppen] = useState<string[]>(voucher?.category_ids ?? []);
   const [nurGruppen, setNurGruppen] = useState((voucher?.category_ids ?? []).length > 0);
+  const [fuerNewsletter, setFuerNewsletter] = useState(Boolean(voucher?.fuer_newsletter));
 
   // Nur beim Prozent-Gutschein: ein fester Betrag verteilt sich auf den
   // ganzen Korb und lässt sich keinem Artikel zurechnen.
@@ -320,6 +321,41 @@ export function VoucherForm({
             onChange={setKunde}
           />
         ) : null}
+      </div>
+
+      <div className="space-y-2 rounded-md border border-border p-3">
+        <label className="flex items-center gap-2 text-sm font-medium">
+          <input
+            type="checkbox"
+            name="nur_erstbestellung"
+            defaultChecked={voucher?.nur_erstbestellung ?? false}
+            className="size-4 accent-[var(--brand)]"
+          />
+          Nur für die erste Bestellung
+        </label>
+        <p className="text-xs text-muted-foreground">
+          Wer schon bestellt hat, kann den Code nicht mehr einlösen. Stornierte
+          Bestellungen zählen nicht.
+        </p>
+      </div>
+
+      <div className="space-y-2 rounded-md border border-border p-3">
+        <label className="flex items-center gap-2 text-sm font-medium">
+          <input
+            type="checkbox"
+            name="fuer_newsletter"
+            checked={fuerNewsletter && !nurKunde}
+            disabled={nurKunde}
+            onChange={(e) => setFuerNewsletter(e.target.checked)}
+            className="size-4 accent-[var(--brand)]"
+          />
+          Willkommensgutschein für neue Newsletter-Abonnenten
+        </label>
+        <p className="text-xs text-muted-foreground">
+          Der Code geht einmal je Konto an neue Abonnenten (Mail und Konto), und
+          Startseite sowie Registrierung bewerben ihn mit seinen Bedingungen.
+          Es gibt nur einen; ein neuer löst den bisherigen ab.
+        </p>
       </div>
 
       <div className="space-y-1.5">

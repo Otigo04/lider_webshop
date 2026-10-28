@@ -495,6 +495,13 @@ Grundlage: `supabase/migrations/054_kundenrabatt_und_gutscheine.sql`.
   Der Einkaufspreis geht dabei nur an die Verwaltung, nie an eine
   Kundenseite. Beim festen Betrag gibt es keine Prüfung – er lässt sich
   keinem Artikel zurechnen.
+- **Nur für die Erstbestellung** (Migration 076, `vouchers.nur_erstbestellung`):
+  `gutschein_pruefen()` lehnt den Code ab, sobald der Kunde eine Bestellung
+  hat, die nicht Entwurf oder storniert ist. Beim Bestellen liegt die neue
+  Bestellung schon in `orders` – sie zählt nicht mit, weil sie `created_at =
+  now()` trägt (Beginn der Transaktion) und frühere strikt älter sind. Die
+  Prüfung steht an der einen Stelle, die `create_order()` und die Vorschau im
+  Warenkorb gemeinsam nutzen.
 - **Eingelöste Gutscheine** lassen sich nicht löschen (`ON DELETE RESTRICT`),
   nur deaktivieren – sonst zählten ihre Einlösungen nicht mehr.
 - **Rechnung/Mail/Bestellseite** zeigen die Abzüge als eigene Zeilen
@@ -716,6 +723,35 @@ den Newsletter aus Bausteinen und schickt ihn über Resend an alle Abonnenten.
   übersprungen – auch später beim Versand an alle (gleiche Zeile in
   `newsletter_deliveries`). Die Oberfläche warnt bei Nicht-Abonnenten: Werbung
   braucht Einwilligung oder einen persönlichen Anlass.
+
+### Willkommensgutschein für neue Abonnenten (Migration 076)
+
+Der Gutschein mit `vouchers.fuer_newsletter` (höchstens einer, eindeutiger
+Index) geht an neue Newsletter-Abonnenten. Mitgeliefert wird `NEWSLETTER5`:
+5 € fest, Mindestwert 50 € netto, einmal je Kunde, nur Erstbestellung. Im
+Gutschein-Formular unter `/admin/gutscheine` änderbar; ein anderer Gutschein
+mit dem Häkchen löst den bisherigen ab.
+
+- **Alle Texte kommen aus dem Gutschein**, nichts steht fest im Quelltext
+  (`lib/newsletter-angebot.ts`, getestet in `tests/newsletter-angebot.test.ts`).
+  `newsletter_angebot()` gibt Art, Wert und Bedingungen heraus – **nie den
+  Code** – und ist für Besucher lesbar. Läuft kein Newsletter-Gutschein, zeigen
+  Startseite und Registrierung nur „Newsletter" ohne Versprechen.
+- **Abschnitt auf der Startseite** (`components/newsletter-box.tsx`, vor der
+  FAQ). Besucher: Knopf „Konto anlegen"; das Newsletter-Häkchen dort bleibt
+  freiwillig und nie vorangekreuzt. Angemeldeter Kunde: ein Klick
+  (`abonniereNewsletter()`, der Text daneben ist die Einwilligung). Angemeldeter
+  Abonnent: sieht seinen Code. Admins sehen den Abschnitt nicht.
+- **Eine Stelle vergibt den Code**: `schickeNewsletterGutschein()` in
+  `lib/newsletter-abo.ts`, aufgerufen von Startseite, Konto-Häkchen und – bei
+  der Registrierung – erst **nach der Bestätigung der E-Mail-Adresse**
+  (`redeemVerification()`), damit keine Werbung an unbestätigte Adressen geht.
+  `users.newsletter_gutschein_at` wird atomar gesetzt: höchstens eine Mail je
+  Konto. Scheitert der Versand, wird er zurückgenommen.
+- **Der Code steht auch im Konto** (`mein_newsletter_gutschein()`), solange
+  `gutschein_pruefen()` ihn für diesen Kunden durchließe. Bestandsabonnenten
+  vor Migration 076 bekommen weder Mail noch Anzeige.
+- Mail: `lib/emails/newsletter-gutschein.ts`, Briefbogen-Layout.
 
 ---
 

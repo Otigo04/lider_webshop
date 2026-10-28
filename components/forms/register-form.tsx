@@ -19,7 +19,7 @@ function SubmitButton() {
   );
 }
 
-export function RegisterForm() {
+export function RegisterForm({ newsletterAnreiz }: { newsletterAnreiz?: string | null }) {
   const [state, formAction] = useActionState<SignUpState, FormData>(signUp, {});
   const [abweichend, setAbweichend] = useState(false);
 
@@ -141,6 +141,15 @@ export function RegisterForm() {
         <Label htmlFor="newsletter" className="font-normal leading-relaxed">
           Newsletter mit Neuheiten und Angeboten per E-Mail erhalten (freiwillig,
           jederzeit abbestellbar).
+          {newsletterAnreiz ? (
+            <>
+              {" "}
+              <strong className="font-medium text-foreground">
+                Dazu: {newsletterAnreiz}.
+              </strong>{" "}
+              Den Gutscheincode schicken wir nach der Bestätigung Ihrer E-Mail-Adresse.
+            </>
+          ) : null}
         </Label>
       </div>
 

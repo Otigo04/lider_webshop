@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { AuthShell } from "@/components/auth-shell";
 import { RegisterForm } from "@/components/forms/register-form";
 import { getCurrentUser } from "@/lib/auth";
+import { angebotSatz } from "@/lib/newsletter-angebot";
+import { getNewsletterAngebot } from "@/lib/queries/newsletter-gutschein";
 
 export const metadata: Metadata = {
   title: "Registrieren",
@@ -15,6 +17,8 @@ export default async function RegisterPage() {
   if (user?.is_active) {
     redirect(user.role === "admin" ? "/admin" : "/shop");
   }
+
+  const angebot = await getNewsletterAngebot();
 
   return (
     <AuthShell
@@ -34,7 +38,7 @@ export default async function RegisterPage() {
       </p>
 
       <div className="mt-6">
-        <RegisterForm />
+        <RegisterForm newsletterAnreiz={angebot ? angebotSatz(angebot) : null} />
       </div>
 
       <p className="mt-6 text-sm text-muted-foreground">

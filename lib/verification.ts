@@ -2,6 +2,7 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
 import { credentialsEmail, verificationEmail } from "@/lib/emails/verification";
+import { schickeNewsletterGutschein } from "@/lib/newsletter-abo";
 import {
   VERIFICATION_TTL_HOURS,
   decryptSecret,
@@ -122,6 +123,10 @@ export async function redeemVerification(token: string): Promise<boolean> {
     console.error("[verification] aktivieren:", error?.message);
     return false;
   }
+
+  // Wer sich bei der Registrierung für den Newsletter angemeldet hat, bekommt
+  // den Willkommensgutschein erst jetzt: die Adresse ist bestätigt (Migration 076).
+  await schickeNewsletterGutschein(row.user_id);
 
   if (row.kind === "admin" && row.temp_password_enc) {
     try {

@@ -240,6 +240,10 @@ export interface Voucher {
   customer_id: string | null;
   /** Warengruppen, für die er gilt; leer = alle (Migration 059) */
   category_ids: string[];
+  /** Gilt nur, solange der Kunde noch keine Bestellung hat (Migration 076) */
+  nur_erstbestellung: boolean;
+  /** Geht an neue Newsletter-Abonnenten; höchstens einer (Migration 076) */
+  fuer_newsletter: boolean;
   is_active: boolean;
   created_at: string;
 }

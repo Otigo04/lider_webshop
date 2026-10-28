@@ -11,6 +11,8 @@ import { accentIndex } from "@/lib/accent-colors";
 import { signOut } from "@/lib/actions/auth";
 import { requireUser } from "@/lib/auth";
 import { formatDate } from "@/lib/format";
+import { angebotSatz } from "@/lib/newsletter-angebot";
+import { getMeinNewsletterGutschein, getNewsletterAngebot } from "@/lib/queries/newsletter-gutschein";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Konto" };
@@ -24,6 +26,11 @@ export default async function AccountPage() {
     .select("newsletter_abo")
     .eq("id", user.id)
     .maybeSingle();
+
+  const [angebot, code] = await Promise.all([
+    getNewsletterAngebot(),
+    newsletter?.newsletter_abo ? getMeinNewsletterGutschein() : Promise.resolve(null),
+  ]);
 
   const name = user.company_name || user.full_name || user.email;
   const initialen = name
@@ -104,7 +111,11 @@ export default async function AccountPage() {
             <h2 className="font-medium">Newsletter</h2>
           </div>
           <div className="mt-4">
-            <NewsletterForm abonniert={Boolean(newsletter.newsletter_abo)} />
+            <NewsletterForm
+              abonniert={Boolean(newsletter.newsletter_abo)}
+              code={code}
+              anreiz={angebot ? angebotSatz(angebot) : null}
+            />
           </div>
         </section>
       ) : null}

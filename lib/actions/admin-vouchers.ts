@@ -54,7 +54,14 @@ const voucherSchema = z
     ),
     /** Leer = gilt für alle Warengruppen (Migration 059) */
     category_ids: z.array(z.string().uuid()).max(200),
+    /** Migration 076 */
+    nur_erstbestellung: z.boolean(),
+    fuer_newsletter: z.boolean(),
     is_active: z.boolean(),
+  })
+  .refine((d) => !d.fuer_newsletter || !d.customer_id, {
+    message: "Ein Newsletter-Gutschein gilt für alle neuen Abonnenten, nicht für einen einzelnen Kunden.",
+    path: ["fuer_newsletter"],
   })
   .refine((d) => d.kind !== "percent" || d.value <= 100, {
     message: "Ein Prozentrabatt kann höchstens 100 % betragen.",
@@ -119,6 +126,8 @@ export async function saveVoucher(
     max_per_customer: formData.get("max_per_customer"),
     customer_id: formData.get("customer_id"),
     category_ids: formData.getAll("category_ids").filter((v) => v !== ""),
+    nur_erstbestellung: formData.get("nur_erstbestellung") === "on",
+    fuer_newsletter: formData.get("fuer_newsletter") === "on",
     is_active: formData.get("is_active") === "on" || formData.get("is_active") === "true",
   });
 
@@ -137,10 +146,23 @@ export async function saveVoucher(
     max_per_customer: d.max_per_customer ?? null,
     customer_id: d.customer_id ?? null,
     category_ids: [...new Set(d.category_ids)],
+    nur_erstbestellung: d.nur_erstbestellung,
+    fuer_newsletter: d.fuer_newsletter,
     is_active: d.is_active,
   };
 
   const supabase = await createClient();
+
+  // Es gibt höchstens einen Newsletter-Gutschein (eindeutiger Index): wer einen
+  // anderen dazu macht, löst den bisherigen ab.
+  if (d.fuer_newsletter) {
+    const frei = supabase.from("vouchers").update({ fuer_newsletter: false }).eq("fuer_newsletter", true);
+    const { error: freiFehler } = await (d.id ? frei.neq("id", d.id) : frei);
+    if (freiFehler) {
+      console.error("[gutscheine] Newsletter-Gutschein ablösen:", freiFehler.message);
+      return { error: "Der Gutschein konnte nicht gespeichert werden." };
+    }
+  }
   const { error } = d.id
     ? await supabase.from("vouchers").update(zeile).eq("id", d.id)
     : await supabase.from("vouchers").insert({ ...zeile, created_by: admin.id });
@@ -152,6 +174,10 @@ export async function saveVoucher(
   }
 
   revalidate(d.customer_id);
+  // Startseite, Registrierung und Konto zeigen das Angebot aus diesem Gutschein.
+  revalidatePath("/");
+  revalidatePath("/register");
+  revalidatePath("/account");
   return { success: d.id ? "Gutschein gespeichert." : `Gutschein ${d.code} angelegt.` };
 }
 
