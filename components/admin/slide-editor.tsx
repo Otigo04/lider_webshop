@@ -12,6 +12,7 @@ import type { AdminFormState } from "@/lib/actions/admin-categories";
 import { createClient } from "@/lib/supabase/client";
 import { ALLOWED_IMAGE_TYPES, MAX_IMAGE_BYTES, PRODUCT_BUCKET } from "@/lib/constants";
 import { HomeSlider } from "@/components/home-slider";
+import { KONTAKT_LINK } from "@/lib/slide-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -400,6 +401,18 @@ export function SlideEditor({
                 onChange={(e) => setLink(e.target.value)}
                 placeholder="/shop/reduziert"
               />
+              <button
+                type="button"
+                onClick={() => setLink(KONTAKT_LINK)}
+                className="text-xs text-brand underline-offset-2 hover:underline"
+              >
+                Neue Mail an die Firmenadresse
+              </button>
+              <p className="text-xs text-muted-foreground">
+                {link === KONTAKT_LINK
+                  ? "Ein Klick öffnet das Mailprogramm mit einer neuen Mail an die Kontaktadresse aus den Firmendaten."
+                  : "Auch mailto:adresse@… ist möglich."}
+              </p>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="cta_label">Knopftext</Label>

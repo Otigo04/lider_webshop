@@ -533,6 +533,13 @@ angezeigt von `components/home-slider.tsx` ganz oben auf der Startseite.
   eigenes Telefonbild oder Text hat; reine Werbebilder bleiben 3:1 bzw.
   werden in der hohen Fläche ganz gezeigt (`object-contain`). Der Editor
   warnt beim Hochladen, wenn das Bild mehr als 5 % von 3:1 abweicht.
+- **Link „Neue Mail"**: der Wert `@kontakt` im Linkfeld (Knopf „Neue Mail an
+  die Firmenadresse" im Editor) öffnet beim Klick eine neue Mail an die
+  Kontaktadresse aus den Firmendaten, Betreff „Anfrage: <Titel>". Aufgelöst
+  erst beim Anzeigen (`slideLink()` in `lib/slide-form.ts`): ändert sich die
+  Adresse in `/admin/settings`, stimmt das Banner mit. Fehlt die Adresse,
+  entfällt der Link. Gilt auch für Banner der Warengruppen; `mailto:adresse`
+  ist als fester Link ebenfalls erlaubt.
 - Bildtyp und Endung kommen aus den ersten Bytes der Datei, nicht aus Name
   oder Browser-Angabe (`.jfif` von Windows).
 - Text optional – viele Werbebilder tragen ihn schon. Textfarbe hell/dunkel

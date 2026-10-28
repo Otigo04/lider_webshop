@@ -5,6 +5,8 @@ import { ShopView } from "@/components/shop-view";
 import { getActiveCategoryBanners } from "@/lib/queries/category-banners";
 import { getCategoryBySlug } from "@/lib/queries/products";
 import { loadShopPage } from "@/lib/queries/shop-page";
+import { getPublicContact } from "@/lib/queries/settings";
+import { slideLink } from "@/lib/slide-form";
 
 export async function generateMetadata({
   params,
@@ -39,12 +41,13 @@ export default async function CategoryPage({
   const category = await getCategoryBySlug(slug);
   if (!category) notFound();
 
-  const [daten, banner] = await Promise.all([
+  const [daten, banner, firma] = await Promise.all([
     loadShopPage({
       searchParams: await searchParams,
       categoryId: category.id,
     }),
     getActiveCategoryBanners(category.id),
+    getPublicContact(),
   ]);
 
   // In der Kategorie zählt die Kategorie, nicht der Gesamtkatalog.
@@ -67,7 +70,7 @@ export default async function CategoryPage({
                 title: b.title,
                 subtitle: b.subtitle,
                 ctaLabel: b.cta_label,
-                href: b.link_url,
+                href: slideLink(b.link_url, firma.email, b.title),
                 imageUrl: b.imageUrl!,
                 mobileImageUrl: b.mobileImageUrl,
                 tone: b.tone,

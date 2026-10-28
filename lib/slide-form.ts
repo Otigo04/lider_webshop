@@ -15,14 +15,26 @@ export const bildPfad = (ordner: string) =>
       "Ungültiger Bildpfad",
     );
 
-// Wie bei der Hinweisleiste: eigener Pfad oder volle http(s)-Adresse.
+/**
+ * Sonderwert für den Link: öffnet beim Klick eine neue Mail an die
+ * Kontaktadresse aus den Firmendaten (/admin/settings). Aufgelöst wird er erst
+ * beim Anzeigen (`slideLink`), damit sich die Adresse an einer Stelle ändert.
+ */
+export const KONTAKT_LINK = "@kontakt";
+
+// Wie bei der Hinweisleiste: eigener Pfad oder volle http(s)-Adresse; dazu die
+// Firmenadresse (@kontakt) und eine feste Mailadresse (mailto:).
 const linkSchema = z
   .string()
   .trim()
   .max(300)
   .refine(
-    (wert) => /^\/(?!\/)/.test(wert) || /^https?:\/\//i.test(wert),
-    "Link muss mit / oder https:// beginnen",
+    (wert) =>
+      /^\/(?!\/)/.test(wert) ||
+      /^https?:\/\//i.test(wert) ||
+      wert === KONTAKT_LINK ||
+      /^mailto:[^\s@]+@[^\s@]+\.[^\s@]+$/i.test(wert),
+    "Link muss mit /, https:// oder mailto: beginnen – oder @kontakt sein",
   );
 
 // Leer oder gar nicht mitgeschickt = nicht gesetzt. Ein deaktiviertes Feld
@@ -116,4 +128,21 @@ export function slideAusFormular(formData: FormData) {
     valid_from: formData.get("valid_from"),
     valid_until: formData.get("valid_until"),
   };
+}
+
+/**
+ * Der Link, wie er im Browser steht. `@kontakt` wird zu einer neuen Mail an die
+ * Firmenadresse, mit dem Titel des Bildes als Betreff; fehlt die Adresse,
+ * entfällt der Link ganz (kein toter Knopf). Alles andere bleibt unverändert.
+ */
+export function slideLink(
+  link: string | null,
+  firmenMail: string | null | undefined,
+  betreff?: string | null,
+): string | null {
+  if (link !== KONTAKT_LINK) return link;
+  const adresse = firmenMail?.trim();
+  if (!adresse || /[\s,;<>]/.test(adresse)) return null;
+  const thema = betreff?.trim();
+  return `mailto:${adresse}${thema ? `?subject=${encodeURIComponent(`Anfrage: ${thema}`)}` : "?subject=Anfrage"}`;
 }

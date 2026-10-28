@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { slideAusFormular, slideSchema, slideZeile } from "@/lib/slide-form";
+import { KONTAKT_LINK, slideAusFormular, slideLink, slideSchema, slideZeile } from "@/lib/slide-form";
 
 const UUID = "123e4567-e89b-12d3-a456-426614174000";
 
@@ -86,4 +86,28 @@ test("„Bis“ vor „Ab“ wird abgewiesen", () => {
     ),
   );
   assert.equal(r.success, false);
+});
+
+test("@kontakt wird zur neuen Mail an die Firmenadresse", () => {
+  assert.equal(
+    slideLink(KONTAKT_LINK, "info@lider.example", "Weblösungen"),
+    "mailto:info@lider.example?subject=Anfrage%3A%20Webl%C3%B6sungen",
+  );
+  assert.equal(slideLink(KONTAKT_LINK, "info@lider.example", null), "mailto:info@lider.example?subject=Anfrage");
+});
+
+test("Ohne Firmenadresse entfällt der Mail-Link, andere Links bleiben", () => {
+  assert.equal(slideLink(KONTAKT_LINK, null, "x"), null);
+  assert.equal(slideLink(KONTAKT_LINK, "a b@c.de", "x"), null);
+  assert.equal(slideLink("/shop/reduziert", null), "/shop/reduziert");
+  assert.equal(slideLink(null, "info@lider.example"), null);
+});
+
+test("@kontakt und mailto: sind als Link erlaubt", () => {
+  const schema = slideSchema("startseite");
+  const mit = (link: string) =>
+    schema.safeParse(slideAusFormular(formular({ image_path: `startseite/${UUID}.jpg`, link_url: link }))).success;
+  assert.equal(mit("@kontakt"), true);
+  assert.equal(mit("mailto:info@lider.example"), true);
+  assert.equal(mit("mailto:"), false);
 });

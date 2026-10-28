@@ -41,6 +41,7 @@ import { getNewsletterAngebot, getNewsletterStand } from "@/lib/queries/newslett
 import { getPublicContact } from "@/lib/queries/settings";
 import { getActiveSlides } from "@/lib/queries/slides";
 import { formatThreshold } from "@/lib/shipping";
+import { slideLink } from "@/lib/slide-form";
 import { cn } from "@/lib/utils";
 
 /**
@@ -224,7 +225,7 @@ export default async function HomePage() {
           title: slide.title,
           subtitle: slide.subtitle,
           ctaLabel: slide.cta_label,
-          href: slide.link_url,
+          href: slideLink(slide.link_url, firma.email, slide.title),
           imageUrl: slide.imageUrl!,
           mobileImageUrl: slide.mobileImageUrl,
           tone: slide.tone,
