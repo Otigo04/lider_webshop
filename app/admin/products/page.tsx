@@ -88,12 +88,12 @@ export default async function AdminProductsPage({
 }: PageProps<"/admin/products">) {
   const params = await searchParams;
   const filter = leseArtikelFilter(params);
-  const { q: search, ohneBild, inaktiv, lager: lagerFilter, sort } = filter;
+  const { q: search, bild, inaktiv, lager: lagerFilter, sort } = filter;
 
   const [alle, categories, customFlags, gruppen, imPapierkorb] = await Promise.all([
     getAdminProducts({
       search,
-      ohneBild,
+      bild,
       inaktiv,
       flagIds: filter.flags,
       sort: abfrageSort(sort),
@@ -158,7 +158,9 @@ export default async function AdminProductsPage({
   /** Ein Chip je gesetztem Filter; Klick auf das × nimmt genau diesen heraus. */
   const chips: { label: string; href: string }[] = [
     ...(search ? [{ label: `Suche: ${search}`, href: hrefMit({ q: "" }) }] : []),
-    ...(ohneBild ? [{ label: "Ohne Bild", href: hrefMit({ ohneBild: false }) }] : []),
+    ...(bild !== "alle"
+      ? [{ label: bild === "mit" ? "Mit Bild" : "Ohne Bild", href: hrefMit({ bild: "alle" }) }]
+      : []),
     ...(inaktiv ? [{ label: "Ausgeblendet", href: hrefMit({ inaktiv: false }) }] : []),
     ...filter.flags.map((id) => ({
       label: `Flag: ${flagNamen.get(id) ?? "?"}`,
@@ -239,14 +241,16 @@ export default async function AdminProductsPage({
             </div>
 
             <label className="flex items-center gap-1.5 text-sm text-muted-foreground">
-              <input
-                type="checkbox"
+              <span className="sr-only">Bild</span>
+              <select
                 name="bild"
-                value="ohne"
-                defaultChecked={ohneBild}
-                className="size-4 rounded border-input"
-              />
-              Ohne Bild
+                defaultValue={bild}
+                className="h-9 rounded-md border border-input bg-transparent px-2 text-sm"
+              >
+                <option value="alle">Alle Artikel</option>
+                <option value="mit">Mit Bild</option>
+                <option value="ohne">Ohne Bild</option>
+              </select>
             </label>
 
             <label className="flex items-center gap-1.5 text-sm text-muted-foreground">

@@ -78,7 +78,7 @@ test("Filter überleben die Rundreise Bauen → Lesen", () => {
   const f = {
     ...STANDARD_FILTER,
     q: "ball rot",
-    ohneBild: true,
+    bild: "mit" as const,
     flags: ["is_new", "abc"],
     lager: ["knapp" as const],
     kat: ["a", "b"],
@@ -195,4 +195,12 @@ test("Warengruppen werden gezählt", () => {
   ]);
   assert.equal(z.get("k1"), 2);
   assert.equal(z.get("k2"), 1);
+});
+
+test("Bildfilter: mit, ohne, sonst alle", () => {
+  assert.equal(leseArtikelFilter({ bild: "mit" }).bild, "mit");
+  assert.equal(leseArtikelFilter({ bild: "ohne" }).bild, "ohne");
+  assert.equal(leseArtikelFilter({ bild: "quatsch" }).bild, "alle");
+  assert.equal(leseArtikelFilter({}).bild, "alle");
+  assert.equal(baueArtikelQuery(STANDARD_FILTER), "");
 });

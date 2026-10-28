@@ -187,8 +187,11 @@ const FIXED_FLAGS = ["is_new", "is_topseller"] as const;
 
 export interface AdminProductFilter {
   search?: string;
-  /** Nur Artikel ohne Foto (= automatisch nicht im Shop, Migration 020). */
-  ohneBild?: boolean;
+  /**
+   * "ohne": nur Artikel ohne Foto (= automatisch nicht im Shop, Migration 020),
+   * "mit": nur Artikel mit Foto. Fehlt der Wert oder ist er "alle", gilt kein Filter.
+   */
+  bild?: "alle" | "mit" | "ohne";
   /** Nur ausgeblendete Artikel (is_active = false). */
   inaktiv?: boolean;
   /**
@@ -253,8 +256,8 @@ export async function getAdminProducts(
     query = sucheWortweise(query, ["name", "sku"], term);
   }
 
-  if (filter?.ohneBild) {
-    query = query.eq("has_image", false);
+  if (filter?.bild === "ohne" || filter?.bild === "mit") {
+    query = query.eq("has_image", filter.bild === "mit");
   }
   if (filter?.inaktiv) {
     query = query.eq("is_active", false);

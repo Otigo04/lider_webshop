@@ -144,9 +144,12 @@ export const ARTIKEL_SORT_LABELS: Record<ArtikelSort, string> = {
 /** Sonderwert bei `gruppe`: alle Artikel, die Ausführung eines Angebots sind. */
 export const ALLE_AUSFUEHRUNGEN = "alle";
 
+/** Foto-Filter der Artikelliste: alle, nur mit Foto, nur ohne Foto. */
+export type BildFilter = "alle" | "mit" | "ohne";
+
 export interface ArtikelFilter {
   q: string;
-  ohneBild: boolean;
+  bild: BildFilter;
   inaktiv: boolean;
   /** feste Flags („is_new", „is_topseller") und UUIDs freier Flags */
   flags: string[];
@@ -166,7 +169,7 @@ export interface ArtikelFilter {
 
 export const STANDARD_FILTER: ArtikelFilter = {
   q: "",
-  ohneBild: false,
+  bild: "alle",
   inaktiv: false,
   flags: [],
   lager: [],
@@ -204,7 +207,7 @@ function istArtikelSort(wert: unknown): wert is ArtikelSort {
 export function leseArtikelFilter(params: Params): ArtikelFilter {
   return {
     q: typeof params.q === "string" ? params.q : "",
-    ohneBild: params.bild === "ohne",
+    bild: params.bild === "ohne" || params.bild === "mit" ? params.bild : "alle",
     inaktiv: params.status === "inaktiv",
     flags: liste(params.flag),
     lager: liste(params.lager).filter(istLagerFilter),
@@ -225,7 +228,7 @@ export function leseArtikelFilter(params: Params): ArtikelFilter {
 export function baueArtikelQuery(filter: ArtikelFilter): string {
   const suche = new URLSearchParams();
   if (filter.q) suche.set("q", filter.q);
-  if (filter.ohneBild) suche.set("bild", "ohne");
+  if (filter.bild !== "alle") suche.set("bild", filter.bild);
   if (filter.inaktiv) suche.set("status", "inaktiv");
   for (const flag of filter.flags) suche.append("flag", flag);
   for (const eintrag of filter.lager) suche.append("lager", eintrag);
