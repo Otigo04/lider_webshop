@@ -25,6 +25,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { PREIS_ANFRAGE_STANDARDTEXT } from "@/lib/preisanfrage";
 import type {
   Category,
   ProductAttributeGroup,
@@ -72,6 +73,7 @@ interface ProductFormProps {
     is_preorder: boolean;
     preorder_note: string | null;
     price_on_request?: boolean;
+    price_on_request_note?: string;
     stock_available: number;
     retail_price: number | null;
     /** Einkaufspreis aus product_costs (Migration 047); nur für Admins */
@@ -128,6 +130,7 @@ export function ProductForm({
   // nach dem ersten Upload befüllen kann (siehe handleUpload).
   const [name, setName] = useState(product?.name ?? "");
   const [description, setDescription] = useState(product?.description ?? "");
+  const [aufAnfrage, setAufAnfrage] = useState(product?.price_on_request ?? false);
   const [categoryId, setCategoryId] = useState(
     product?.category_id ?? zuletztKategorieId ?? "",
   );
@@ -274,6 +277,7 @@ export function ProductForm({
     is_preorder: false,
     preorder_note: "",
     price_on_request: false,
+    price_on_request_note: "",
     stock_available: 0,
     retail_price: retailPrice.trim(),
     cost_price: costPrice.trim(),
@@ -306,7 +310,10 @@ export function ProductForm({
             : null) as "A" | "B" | null,
           is_preorder: formData.get("is_preorder") === "on",
           preorder_note: String(formData.get("preorder_note") ?? ""),
-          price_on_request: formData.get("price_on_request") === "on",
+          price_on_request: aufAnfrage,
+          price_on_request_note: aufAnfrage
+            ? String(formData.get("price_on_request_note") ?? "")
+            : "",
           stock_available: String(formData.get("stock_available") ?? "0"),
         };
         formData.set("payload", JSON.stringify(merged));
@@ -500,8 +507,8 @@ export function ProductForm({
           <div className="flex items-center gap-2">
             <Checkbox
               id="price_on_request"
-              name="price_on_request"
-              defaultChecked={product?.price_on_request ?? false}
+              checked={aufAnfrage}
+              onCheckedChange={(an) => setAufAnfrage(an === true)}
             />
             <Label htmlFor="price_on_request" className="font-normal">
               Preis auf Anfrage
@@ -512,6 +519,27 @@ export function ProductForm({
             eine Mail an euch öffnet. Der Artikel lässt sich nicht bestellen. Die
             Preisstaffeln oben bleiben für Kasse und Rechnung erhalten.
           </p>
+          {/* Klappt auf, sobald „Preis auf Anfrage" gewählt ist. Leer lassen
+              heißt: der Standardtext steht auf der Artikelseite. */}
+          {aufAnfrage ? (
+            <div className="space-y-1 pl-6 pt-1">
+              <Label htmlFor="price_on_request_note" className="text-xs font-normal text-muted-foreground">
+                Eigener Text unter „Preis auf Anfrage“ (optional)
+              </Label>
+              <Textarea
+                id="price_on_request_note"
+                name="price_on_request_note"
+                defaultValue={product?.price_on_request_note ?? ""}
+                maxLength={500}
+                rows={3}
+                placeholder={PREIS_ANFRAGE_STANDARDTEXT}
+              />
+              <p className="text-xs text-muted-foreground">
+                Leer lassen, dann steht der Text aus dem Feld darüber (grau) auf der
+                Artikelseite.
+              </p>
+            </div>
+          ) : null}
         </div>
       </section>
 

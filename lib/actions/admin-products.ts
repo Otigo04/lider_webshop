@@ -38,6 +38,8 @@ const productSchema = z.object({
   preorder_note: z.string().trim().max(120, "Hinweis ist zu lang").optional(),
   /** Preis auf Anfrage (Migration 077): im Shop kein Preis, nicht bestellbar */
   price_on_request: z.boolean().optional(),
+  /** Eigener Text unter „Preis auf Anfrage" (Migration 078); leer = Standardtext */
+  price_on_request_note: z.string().trim().max(500, "Der Text unter „Preis auf Anfrage“ ist zu lang (höchstens 500 Zeichen).").optional(),
   stock_available: z.coerce.number().int().min(0),
   /** Ladenpreis für Privatkunden an der Kasse. Leer = nicht gepflegt. */
   retail_price: z.preprocess(
@@ -183,6 +185,23 @@ export async function saveProduct(
         error:
           "Der Artikel ist gespeichert, „Preis auf Anfrage“ ließ sich aber nicht setzen. Ist Migration 077 eingespielt?",
       };
+    }
+
+    // Eigener Text (Migration 078), ebenfalls getrennt: ohne die Spalte soll
+    // nur ein tatsächlich eingegebener Text eine Meldung auslösen.
+    if (!anfrageFehler && data.price_on_request_note !== undefined) {
+      const text = data.price_on_request ? data.price_on_request_note || null : null;
+      const { error: textFehler } = await supabase
+        .from("products")
+        .update({ price_on_request_note: text })
+        .eq("id", data.id);
+      if (textFehler && text) {
+        console.error("[admin] Text Preis auf Anfrage:", textFehler.message);
+        return {
+          error:
+            "Der Artikel ist gespeichert, der Text unter „Preis auf Anfrage“ ließ sich aber nicht speichern. Ist Migration 078 eingespielt?",
+        };
+      }
     }
   }
 

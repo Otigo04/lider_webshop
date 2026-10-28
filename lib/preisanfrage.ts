@@ -26,3 +26,13 @@ export function preisAnfrageLink(
   ].join("\r\n");
   return `mailto:${adresse}?subject=${encodeURIComponent(betreff)}&body=${encodeURIComponent(text)}`;
 }
+
+/** Text unter „Preis auf Anfrage", wenn am Artikel keiner steht. */
+export const PREIS_ANFRAGE_STANDARDTEXT =
+  "Für diesen Artikel nennen wir den Preis persönlich. Schreiben Sie uns kurz Ihre gewünschte Menge – wir melden uns mit Ihrem Preis.";
+
+/** Der Text des Artikels, sonst der Standard. Leer und nur Leerzeichen zählen als leer. */
+export function preisAnfrageText(eigener: string | null | undefined): string {
+  const text = eigener?.trim();
+  return text ? text : PREIS_ANFRAGE_STANDARDTEXT;
+}

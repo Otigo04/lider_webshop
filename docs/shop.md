@@ -920,6 +920,14 @@ Artikel.
   Vorher-Preis an, die Karten zeigen dann ihren „kein Preis"-Fall. Ebenso
   Newsletter-Artikel (Text „Preis auf Anfrage") und „Erneut bestellen"
   (landet unter „nicht mehr lieferbar").
+- **Eigener Text je Artikel** (Migration 078, `products.price_on_request_note`):
+  im Artikelformular klappt unter dem Haken „Preis auf Anfrage" ein Textfeld auf
+  (höchstens 500 Zeichen). Er ersetzt auf der Artikelseite den Absatz unter
+  „Preis auf Anfrage". Leer = Standardtext (`PREIS_ANFRAGE_STANDARDTEXT` in
+  `lib/preisanfrage.ts`, `preisAnfrageText()`). Gelesen über
+  `preis_auf_anfrage_text(id)` (`lib/queries/preis-anfrage-text.ts`), nur für
+  sichtbare Artikel mit Flag. Ohne 078 gilt der Standardtext; ein Text lässt sich
+  dann nicht speichern (Meldung im Formular).
 - **Nicht bestellbar, auch nicht per alten Warenkorb**: BEFORE-INSERT-Trigger
   auf `order_items` (wie bei der Vorbestellung); `create_order()` bleibt
   unverändert. Admins (Rechnung aus Katalog) sind ausgenommen.

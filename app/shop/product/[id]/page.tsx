@@ -22,6 +22,7 @@ import {
   getProductAttributes,
 } from "@/lib/queries/attributes";
 import { getGroupSiblings } from "@/lib/queries/groups";
+import { getPreisAnfrageText } from "@/lib/queries/preis-anfrage-text";
 import { baueAuswahlfelder } from "@/lib/product-groups";
 import {
   firstImagePath,
@@ -99,13 +100,14 @@ export default async function ProductPage({
 
     // Merkmale stehen auch ohne Anmeldung da: Farbe und Größe sind das, wonach
     // im Schaufenster gesucht wird, und keine Preisauskunft.
-    const [merkmale, gesetzteWerte, geschwister, kontakt, kategorieArtikel] =
+    const [merkmale, gesetzteWerte, geschwister, kontakt, kategorieArtikel, anfrageText] =
       await Promise.all([
         getProductAttributes(),
         getProductAttributeValueIds(product.id),
         product.group_id ? getGroupSiblings(product.group_id) : [],
         getPublicContact(),
         getPublicProducts({ categoryId: product.category_id }),
+        product.price_on_request ? getPreisAnfrageText(product.id) : null,
       ]);
     const aehnliche = kategorieArtikel
       .filter((p) => p.id !== product.id && p.group_id !== product.group_id)
@@ -216,6 +218,7 @@ export default async function ProductPage({
                   sku={product.sku}
                   email={kontakt.email}
                   phone={kontakt.phone}
+                  text={anfrageText}
                 />
               ) : (
                 <PublicPurchaseCta
@@ -273,7 +276,7 @@ export default async function ProductPage({
 
   const free = freeStock(product);
   const vorbestellbar = istVorbestellbar(product);
-  const [company, merkmale, gesetzteWerte, geschwister, kategorieArtikel, gekauft] =
+  const [company, merkmale, gesetzteWerte, geschwister, kategorieArtikel, gekauft, anfrageText] =
     await Promise.all([
       getCompanySettings(),
       getProductAttributes(),
@@ -283,6 +286,7 @@ export default async function ProductPage({
         ? getProducts({ categoryId: product.category_id })
         : [],
       getKundenKauftenAuch(product.id, AEHNLICHE),
+      product.price_on_request ? getPreisAnfrageText(product.id) : null,
     ]);
   // Echte Kaufdaten gehen vor; ohne sie (neuer Artikel, noch keine
   // Bestellungen) zeigt die Reihe Artikel derselben Kategorie.
@@ -393,6 +397,7 @@ export default async function ProductPage({
                 sku={product.sku}
                 email={company.email}
                 phone={company.phone}
+                text={anfrageText}
               />
             ) : (
               <ProductPurchase

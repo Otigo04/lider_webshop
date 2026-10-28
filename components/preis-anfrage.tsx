@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Mail, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { preisAnfrageLink } from "@/lib/preisanfrage";
+import { preisAnfrageLink, preisAnfrageText } from "@/lib/preisanfrage";
 
 /**
  * Kaufbereich eines Artikels mit „Preis auf Anfrage" (Migration 077), statt
@@ -13,9 +13,12 @@ export function PreisAnfrage({
   sku,
   email,
   phone,
+  text,
 }: {
   name: string;
   sku: string;
+  /** Eigener Text des Artikels; leer = Standardtext */
+  text?: string | null;
   email: string | null | undefined;
   phone?: string | null;
 }) {
@@ -28,9 +31,8 @@ export function PreisAnfrage({
         <p className="mt-2 text-2xl font-bold">Preis auf Anfrage</p>
       </div>
       <div className="p-5">
-        <p className="text-sm text-muted-foreground">
-          Für diesen Artikel nennen wir den Preis persönlich. Schreiben Sie uns kurz
-          Ihre gewünschte Menge – wir melden uns mit Ihrem Preis.
+        <p className="whitespace-pre-line text-sm text-muted-foreground">
+          {preisAnfrageText(text)}
         </p>
         <div className="mt-4 flex flex-wrap gap-3">
           <Button asChild>
