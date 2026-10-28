@@ -109,3 +109,39 @@ test("Zeile unter der Bezeichnung: Artikelnummer und/oder Strichcode", () => {
   );
   assert.equal(positionsZusatz({ sku: "" }), null);
 });
+
+test("Lieferschein mit Preisen: Preise je Position, Nettosumme, keine Steuer", () => {
+  const o = bestellung({ customer_id: "c1", customer_discount_percent: 0, customer_discount_amount: 0 } as Partial<Order>);
+  const pdf = buildDeliveryNotePdfData(o, firma, null, { mitPreisen: true });
+  assert.equal(pdf.documentTitle, "Lieferschein");
+  assert.equal(pdf.hidePrices, false);
+  assert.equal(pdf.nurNetto, true);
+  assert.equal(pdf.items[0].unitPrice, 10);
+  assert.equal(pdf.items[0].subtotal, 30);
+  assert.equal(pdf.netTotal, 30);
+  assert.equal(pdf.vatTotal, 0);
+  assert.equal(pdf.grossTotal, 30, "Gesamtsumme ist die Nettosumme");
+  assert.equal(pdf.vatBreakdown, undefined);
+  assert.match(pdf.paymentNote ?? "", /ohne Umsatzsteuer/);
+});
+
+test("Lieferschein mit Preisen: die Sonderkondition steht als Abzugszeile, die Summe bleibt netto", () => {
+  const o = bestellung({
+    total_amount: 27,
+    subtotal_amount: 30,
+    customer_discount_percent: 10,
+    customer_discount_amount: 3,
+  } as Partial<Order>);
+  const pdf = buildDeliveryNotePdfData(o, firma, null, { mitPreisen: true });
+  const abzug = pdf.items.find((i) => i.abzug);
+  assert.equal(abzug?.subtotal, -3);
+  assert.equal(pdf.netTotal, 27);
+});
+
+test("Lieferschein ohne Preise bleibt ohne Beträge", () => {
+  const pdf = buildDeliveryNotePdfData(bestellung(), firma, null);
+  assert.equal(pdf.hidePrices, true);
+  assert.equal(pdf.nurNetto, false);
+  assert.equal(pdf.items[0].unitPrice, 0);
+  assert.equal(pdf.netTotal, 0);
+});

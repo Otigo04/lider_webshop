@@ -49,6 +49,8 @@ export async function GET(
   const { id } = await params;
   const roh = new URL(request.url).searchParams.get("art");
   const art: Art = istArt(roh) ? roh : "beides";
+  // ?preise=1: Lieferschein mit Preisen und Nettosumme, ohne Steuer.
+  const mitPreisen = new URL(request.url).searchParams.get("preise") === "1";
 
   const order = await getOrderWithCustomer(id);
   if (!order) {
@@ -79,7 +81,7 @@ export async function GET(
   if (art !== "rechnung") {
     teile.push(
       await generateInvoicePdf(
-        buildDeliveryNotePdfData(bestellung, company, invoice?.invoice_number),
+        buildDeliveryNotePdfData(bestellung, company, invoice?.invoice_number, { mitPreisen }),
       ),
     );
   }
@@ -89,7 +91,7 @@ export async function GET(
     art === "rechnung"
       ? `${invoice?.invoice_number ?? order.order_number}.pdf`
       : art === "lieferschein"
-        ? `Lieferschein-${order.order_number}.pdf`
+        ? `Lieferschein-${order.order_number}${mitPreisen ? "-mit-Preisen" : ""}.pdf`
         : `${order.order_number}-Rechnung-und-Lieferschein.pdf`;
 
   return new NextResponse(new Uint8Array(pdf), {

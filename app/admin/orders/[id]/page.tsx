@@ -274,6 +274,16 @@ export default async function AdminOrderDetailPage({
               Nur Lieferschein
             </a>
           </Button>
+          <Button asChild size="sm" variant="outline">
+            <a
+              href={`/admin/orders/${order.id}/dokumente?art=lieferschein&preise=1`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <FileText className="size-4" aria-hidden />
+              Lieferschein mit Preisen
+            </a>
+          </Button>
           {invoice ? (
             <Button asChild size="sm" variant="outline">
               <a
@@ -292,7 +302,8 @@ export default async function AdminOrderDetailPage({
 
         <p className="mt-2 text-xs text-muted-foreground">
           Der Lieferschein trägt Positionen und Mengen, aber keine Preise – er
-          reist mit der Ware.
+          reist mit der Ware. „Mit Preisen“ zeigt zusätzlich Stückpreis, Summen
+          und die Nettosumme, ohne Steuer.
         </p>
 
         {invoice?.status === "cancelled" ? (

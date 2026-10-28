@@ -101,6 +101,8 @@ export function InvoiceForm({
   // Rechnung oder Lieferschein (ohne Preise), Kunde mit Konto oder nur mit Namen.
   const [beleg, setBeleg] = useState<"rechnung" | "lieferschein">("rechnung");
   const [kundeArt, setKundeArt] = useState<"konto" | "frei">("konto");
+  // Lieferschein mit Preisen: Stückpreise, Summen und Nettosumme, ohne Steuer.
+  const [mitPreisen, setMitPreisen] = useState(false);
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [gast, setGast] = useState({ name: "", strasse: "", plz: "", ort: "" });
   const [konditionAn, setKonditionAn] = useState(true);
@@ -123,11 +125,16 @@ export function InvoiceForm({
     if (state.beleg === "lieferschein") {
       toast.success("Lieferschein angelegt.");
       // Der Lieferschein ist eine Datei zum Drucken: gleich in einem eigenen Tab auf.
-      window.open(`/admin/orders/${state.orderId}/dokumente?art=lieferschein`, "_blank");
+      window.open(
+        `/admin/orders/${state.orderId}/dokumente?art=lieferschein${mitPreisen ? "&preise=1" : ""}`,
+        "_blank",
+      );
     } else {
       toast.success("Rechnung angelegt.");
     }
     router.push(`/admin/orders/${state.orderId}`);
+    // mitPreisen bewusst nicht in den Abhängigkeiten: nur das Ergebnis löst aus.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.orderId, state.beleg, router]);
 
   // Cursor nach dem Hinzufügen dorthin, wo es weitergeht.
@@ -227,10 +234,12 @@ export function InvoiceForm({
   }
 
   const lieferschein = beleg === "lieferschein";
-  // Sonderkondition gibt es nur mit Konto und nur auf der Rechnung.
+  // Preise zeigen Rechnung und Lieferschein mit Preisen; der Lieferschein ohne nicht.
+  const preiseSichtbar = !lieferschein || mitPreisen;
+  // Sonderkondition gibt es nur mit Konto und nur, wo Preise stehen.
   const kundenSatz = kundeArt === "konto" && customerId ? (konditionen[customerId] ?? 0) : 0;
   const summen = belegSummen(positionen, konditionAn ? kundenSatz : 0);
-  const fehler = positionsFehler(positionen, { ohnePreise: lieferschein });
+  const fehler = positionsFehler(positionen, { ohnePreise: !preiseSichtbar });
   const kundeFehlt = kundeArt === "konto" ? !customerId : !gast.name.trim();
 
   return (
@@ -249,10 +258,27 @@ export function InvoiceForm({
           />
           <p className="text-xs text-muted-foreground">
             {lieferschein
-              ? "Der Lieferschein trägt Positionen und Mengen, keine Preise. Bestand wird abgebucht, die Rechnung lässt sich später aus der Bestellung erzeugen."
+              ? "Bestand wird abgebucht, die Rechnung lässt sich später aus der Bestellung erzeugen."
               : "Rechnung mit Preisen und Steuer; sie wird dem Kunden per Mail geschickt, wenn er ein Konto hat."}
           </p>
         </div>
+        {lieferschein ? (
+          <label className="flex items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={mitPreisen}
+              onChange={(event) => setMitPreisen(event.target.checked)}
+              className="mt-0.5 size-4 accent-[var(--brand)]"
+            />
+            <span>
+              Mit Preisen
+              <span className="block text-xs text-muted-foreground">
+                Stückpreis und Summe je Position, am Ende die Nettosumme – ohne Steuer. Ohne Häkchen
+                trägt der Lieferschein keine Preise.
+              </span>
+            </span>
+          </label>
+        ) : null}
       </section>
 
       <section className="max-w-2xl space-y-2">
@@ -338,7 +364,7 @@ export function InvoiceForm({
           formData.set("customer_zip", kundeArt === "frei" ? gast.plz.trim() : "");
           formData.set("customer_city", kundeArt === "frei" ? gast.ort.trim() : "");
           formData.set("items", JSON.stringify(positionenPayload(positionen)));
-          formData.set("apply_condition", konditionAn && !lieferschein ? "1" : "0");
+          formData.set("apply_condition", konditionAn && preiseSichtbar ? "1" : "0");
           formData.set("delivery_address", deliveryAddress);
           formData.set("delivery_method", deliveryAddress.trim() ? "shipping" : "pickup");
           formAction(formData);
@@ -492,12 +518,12 @@ export function InvoiceForm({
                         })
                       }
                       onEnter={() =>
-                        document.getElementById(lieferschein ? EINGABE_ID : id("preis"))?.focus()
+                        document.getElementById(preiseSichtbar ? id("preis") : EINGABE_ID)?.focus()
                       }
                     />
                   </div>
-                  {/* Ein Lieferschein trägt keine Preise: Feld und Summe entfallen. */}
-                  {lieferschein ? null : (
+                  {/* Ein Lieferschein ohne Preise: Feld und Summe entfallen. */}
+                  {!preiseSichtbar ? null : (
                   <div className="w-32 space-y-1">
                     <Label htmlFor={id("preis")} className="text-xs">
                       Preis / Stück (€)
@@ -519,7 +545,7 @@ export function InvoiceForm({
                     />
                   </div>
                   )}
-                  {lieferschein ? null : (
+                  {!preiseSichtbar ? null : (
                     <p className="w-24 pb-2 text-right text-sm font-medium tabular">
                       {formatPrice(positionSumme(position))}
                     </p>
@@ -593,7 +619,7 @@ export function InvoiceForm({
         </section>
         )}
 
-        {lieferschein ? null : (
+        {!preiseSichtbar ? null : (
         <div className="space-y-2 rounded-md border border-border p-4">
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">Warenwert netto</span>
@@ -623,7 +649,9 @@ export function InvoiceForm({
             <span className="text-xl font-semibold tabular">{formatPrice(summen.netto)}</span>
           </div>
           <p className="text-xs text-muted-foreground">
-            Die Umsatzsteuer wird beim Anlegen auf die Summe gerechnet.
+            {lieferschein
+              ? "Der Lieferschein zeigt nur die Nettosumme, ohne Umsatzsteuer."
+              : "Die Umsatzsteuer wird beim Anlegen auf die Summe gerechnet."}
           </p>
         </div>
         )}

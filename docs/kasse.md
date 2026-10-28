@@ -143,6 +143,14 @@ Oben im Formular stehen zwei Wahlen:
   in einem neuen Tab. Eine **eigene Nummer gibt es nicht**: es gilt die
   Bestellnummer `LG-…`, wie bisher. Die Rechnung dazu lässt sich später auf der
   Bestellseite erzeugen („Rechnung erzeugen"), mit den dann gespeicherten Preisen.
+- **Lieferschein mit Preisen**: Häkchen „Mit Preisen" beim Lieferschein (oder auf
+  der Bestellseite der Knopf „Lieferschein mit Preisen", `?art=lieferschein&preise=1`).
+  Das PDF zeigt Stückpreis und Summe je Position und unten eine **Nettosumme ohne
+  Steuer** (`nurNetto` in `InvoicePdfData`, `buildDeliveryNotePdfData(…, { mitPreisen })`);
+  eine Sonderkondition steht als Abzugszeile. Es wird nichts gespeichert – die
+  Preise kommen beim Zeichnen aus der Bestellung, beide Fassungen lassen sich
+  jederzeit neu öffnen. Vermerk: „Preise netto, ohne Umsatzsteuer. Dieser
+  Lieferschein ist keine Rechnung."
 - **Kunde**: *mit Konto* (Auswahl wie bisher) oder *ohne Konto, nur Name* mit
   optionaler Anschrift (Straße, PLZ, Ort). Ohne Konto sind `orders.customer_id`
   und `invoices.customer_id` NULL, Name und Anschrift stehen als Text an der

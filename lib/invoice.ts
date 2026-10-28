@@ -109,6 +109,12 @@ export interface InvoicePdfData {
    * Positionszahl, Gesamtmenge und zwei Linien zum Quittieren.
    */
   hidePrices?: boolean;
+  /**
+   * Nur die Nettosumme, ohne Steuer und Bruttobetrag: der Lieferschein mit
+   * Preisen. Gezeichnet wird ein Balken „Summe netto"; eine Steuerzeile gibt es
+   * nicht, die Rechnung folgt gesondert.
+   */
+  nurNetto?: boolean;
   /** Freie Schlusszeile, z. B. die Bon-Fußzeile aus den Einstellungen */
   footerNote?: string | null;
   /** Ersetzt das Zahlungsziel, wenn schon bezahlt wurde ("Bar bezahlt") */
@@ -451,8 +457,14 @@ export function buildDeliveryNotePdfData(
   company: CompanySettings,
   /** Rechnungsnummer, falls schon gestellt – als Verweis in der Bezugszeile. */
   invoiceNumber?: string | null,
+  /**
+   * Mit Preisen: Stückpreis und Summe je Position, am Ende die Nettosumme, keine
+   * Steuer. Sonst (Vorgabe) ohne jeden Betrag.
+   */
+  options: { mitPreisen?: boolean } = {},
 ): InvoicePdfData {
   const kunde = belegKunde(order);
+  const mitPreisen = options.mitPreisen === true;
   const abholung = order.delivery_method === "pickup";
   const lieferanschrift = lieferanschriftZeilen(order, { immer: true });
   const empfaenger = (lieferanschrift ?? "").split("\n");
@@ -476,25 +488,40 @@ export function buildDeliveryNotePdfData(
     customerNumber: kunde.number,
     customerStreet: empfaenger[1] ?? null,
     customerCity: empfaenger[2] ?? null,
-    items: (order.items ?? []).map((item) => ({
-      description: item.product_name,
-      sku: item.product_sku,
-      barcode: item.barcode?.trim() || undefined,
-      quantity: toNumber(item.quantity),
-      // Preise stehen im Lieferschein nicht, die Felder bleiben aber Teil der
-      // gemeinsamen Form – hidePrices entscheidet, ob sie gezeichnet werden.
-      unitPrice: 0,
-      subtotal: 0,
-    })),
-    netTotal: 0,
+    items: [
+      ...(order.items ?? []).map((item): InvoicePdfLineItem => ({
+        description: item.product_name,
+        sku: item.product_sku,
+        barcode: item.barcode?.trim() || undefined,
+        quantity: toNumber(item.quantity),
+        // Ohne Preise stehen die Felder auf 0, sie bleiben aber Teil der
+        // gemeinsamen Form – hidePrices entscheidet, ob sie gezeichnet werden.
+        unitPrice: mitPreisen ? toNumber(item.unit_price) : 0,
+        subtotal: mitPreisen ? toNumber(item.subtotal) : 0,
+      })),
+      // Sonderkondition als eigene Zeile, damit die Zeilen zur Summe passen.
+      ...(mitPreisen
+        ? abzugszeilen(order).map((zeile) => ({
+            description: zeile.label,
+            quantity: 1,
+            unitPrice: zeile.betrag,
+            subtotal: zeile.betrag,
+            abzug: true,
+          }))
+        : []),
+    ],
+    netTotal: mitPreisen ? toNumber(order.total_amount) : 0,
     vatTotal: 0,
-    grossTotal: 0,
-    hidePrices: true,
+    grossTotal: mitPreisen ? toNumber(order.total_amount) : 0,
+    hidePrices: !mitPreisen,
+    nurNetto: mitPreisen,
     // Der Lieferschein ist keine Zahlungsaufforderung: ohne diesen Vermerk
     // stünde im Eckdatenkasten ein Fälligkeitsdatum.
     paymentNote: invoiceNumber
       ? `Die Abrechnung erfolgt mit Rechnung ${invoiceNumber}. Dieser Lieferschein ist keine Rechnung.`
-      : "Dieser Lieferschein ist keine Rechnung; die Abrechnung erfolgt gesondert.",
+      : mitPreisen
+        ? "Preise netto, ohne Umsatzsteuer. Dieser Lieferschein ist keine Rechnung; die Rechnung folgt gesondert."
+        : "Dieser Lieferschein ist keine Rechnung; die Abrechnung erfolgt gesondert.",
     company,
   };
 }
@@ -1276,7 +1303,7 @@ export async function generateInvoicePdf(data: InvoicePdfData): Promise<Buffer> 
       text(formatPrice(row.vat), wertR, { size: 9.5, rechts: true });
       y -= 15;
     }
-  } else {
+  } else if (!data.nurNetto) {
     // Der Katalog rechnet durchweg netto – dann gibt es keine Steuerzeile,
     // die etwas hinzufügt, und "Zwischensumme" wäre irreführend.
     text("Summe netto", beschriftungR, { size: 9.5, color: MUTED, rechts: true });
@@ -1299,7 +1326,14 @@ export async function generateInvoicePdf(data: InvoicePdfData): Promise<Buffer> 
       height: 26,
       color: BRAND,
     });
-    text(data.vatTotal > 0 ? "Gesamtbetrag brutto" : "Gesamtbetrag", balkenX + 14, {
+    text(
+      data.nurNetto
+        ? "Summe netto"
+        : data.vatTotal > 0
+          ? "Gesamtbetrag brutto"
+          : "Gesamtbetrag",
+      balkenX + 14,
+      {
       size: 10,
       useFont: bold,
       color: WEISS,

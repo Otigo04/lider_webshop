@@ -149,8 +149,9 @@ export async function createInvoiceOrder(
     p_notes: d.notes ?? null,
     p_delivery_address: d.delivery_address ?? null,
     p_delivery_method: d.delivery_method,
-    // Ohne Konto und im Lieferschein gibt es keine Sonderkondition.
-    p_apply_condition: !ohneKonto && d.beleg === "rechnung" && d.apply_condition,
+    // Ohne Konto gibt es keine Sonderkondition; beim Lieferschein ohne Preise
+    // schickt das Formular „0" (es gibt keine Beträge, die sie senken könnte).
+    p_apply_condition: !ohneKonto && d.apply_condition,
     // Die Angaben ohne Konto nur dann mitschicken, wenn es sie gibt: so läuft
     // ein Aufruf für ein Konto auch, solange Migration 080 noch fehlt.
     ...(ohneKonto
