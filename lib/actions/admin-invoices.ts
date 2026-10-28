@@ -4,10 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import {
-  generateAndSendManualInvoice,
-  generateAndSendOrderInvoice,
-} from "@/lib/actions/invoicing";
+import { generateAndSendOrderInvoice } from "@/lib/actions/invoicing";
 import type { AdminFormState } from "@/lib/actions/admin-categories";
 import {
   isZahlungsvermerkKey,
@@ -29,17 +26,46 @@ export interface InvoiceActionState {
   invoiceId?: string;
 }
 
+/** Katalogartikel: Preis aus der Staffel, es sei denn, `unit_price` überschreibt ihn. */
 const catalogItemSchema = z.object({
   product_id: z.string().uuid(),
   quantity: z.number().int().positive().max(1_000_000),
   // Überschreibt die Staffel-Auflösung, wenn gesetzt – siehe create_admin_order
-  // in supabase/migrations/016_firmendaten_und_rechnungen.sql.
+  // in supabase/migrations/079_rechnung_freie_positionen.sql.
   unit_price: z.number().min(0).max(1_000_000).optional(),
+});
+
+/** Freie Position (Migration 079): kein Artikel, Beschreibung und Preis vom Admin. */
+const freeItemSchema = z.object({
+  description: z.string().trim().min(1, "Beschreibung fehlt.").max(500),
+  quantity: z.number().int("Die Menge muss eine ganze Zahl sein.").positive().max(1_000_000),
+  unit_price: z.number().min(0).max(1_000_000),
+  /** Gescannter oder getippter Strichcode; leer = keiner */
+  barcode: z
+    .string()
+    .trim()
+    .max(64, "Barcode ist zu lang (höchstens 64 Zeichen).")
+    .optional()
+    .transform((wert) => wert || undefined),
+});
+
+/**
+ * Positionen einzeln prüfen: Katalog oder frei, je nachdem, ob `product_id`
+ * dabeisteht. Eine Union meldete bei einem Fehler nur „ungültig", hier steht
+ * die Meldung der Position, die gemeint ist („Beschreibung fehlt.").
+ */
+const itemSchema = z.unknown().transform((wert, ctx) => {
+  const katalog =
+    typeof wert === "object" && wert !== null && "product_id" in wert && wert.product_id;
+  const ergebnis = (katalog ? catalogItemSchema : freeItemSchema).safeParse(wert);
+  if (ergebnis.success) return ergebnis.data;
+  ctx.addIssue({ code: "custom", message: ergebnis.error.issues[0].message });
+  return z.NEVER;
 });
 
 const catalogSchema = z.object({
   customer_id: z.string().uuid("Kein Kunde ausgewählt."),
-  items: z.array(catalogItemSchema).min(1, "Mindestens eine Position angeben."),
+  items: z.array(itemSchema).min(1, "Mindestens eine Position angeben."),
   notes: z.string().trim().max(2000).optional(),
   delivery_address: z.string().trim().max(500).optional(),
   delivery_method: z.enum(["pickup", "shipping"]).default("pickup"),
@@ -48,11 +74,11 @@ const catalogSchema = z.object({
 });
 
 /**
- * Admin legt eine Bestellung aus dem Katalog für einen Kunden an (z. B.
- * Telefonbestellung). Läuft danach in dieselbe Rechnungs-Pipeline wie der
- * normale Checkout.
+ * Admin legt eine Rechnung für einen Kunden an: Bestellung plus Rechnung, mit
+ * Katalogartikeln und/oder freien Positionen in einer Liste. Läuft danach in
+ * dieselbe Rechnungs-Pipeline wie der normale Checkout.
  */
-export async function createCatalogInvoiceOrder(
+export async function createInvoiceOrder(
   _prevState: InvoiceActionState,
   formData: FormData,
 ): Promise<InvoiceActionState> {
@@ -165,79 +191,4 @@ export async function createOrderInvoice(
   revalidatePath("/admin/orders");
   revalidatePath("/kasse/rechnungen");
   return { success: "Rechnung erzeugt und verschickt." };
-}
-
-const manualItemSchema = z.object({
-  description: z.string().trim().min(1, "Beschreibung fehlt.").max(500),
-  quantity: z.number().positive().max(1_000_000),
-  unit_price: z.number().min(0).max(1_000_000),
-  vat_rate: z.union([z.literal(0), z.literal(7), z.literal(19)]),
-});
-
-const manualSchema = z.object({
-  customer_id: z.string().uuid("Kein Kunde ausgewählt."),
-  notes: z.string().trim().max(2000).optional(),
-  items: z.array(manualItemSchema).min(1, "Mindestens eine Position angeben."),
-});
-
-/**
- * Freie Rechnung ohne Bestellbezug – Dienstleistung oder Ware außerhalb des
- * Webshop-Katalogs. Summen kommen aus create_manual_invoice, nie vom Client.
- */
-export async function createManualInvoice(
-  _prevState: InvoiceActionState,
-  formData: FormData,
-): Promise<InvoiceActionState> {
-  await requireAdmin();
-
-  let rawItems: unknown;
-  try {
-    rawItems = JSON.parse(String(formData.get("items") ?? "[]"));
-  } catch {
-    return { error: "Die Positionen konnten nicht gelesen werden." };
-  }
-
-  const parsed = manualSchema.safeParse({
-    customer_id: formData.get("customer_id"),
-    notes: formData.get("notes") || undefined,
-    items: rawItems,
-  });
-
-  if (!parsed.success) {
-    return { error: parsed.error.issues[0].message };
-  }
-
-  const supabase = await createClient();
-  const { data, error } = await supabase.rpc("create_manual_invoice", {
-    p_customer_id: parsed.data.customer_id,
-    p_notes: parsed.data.notes ?? null,
-    p_items: parsed.data.items,
-  });
-
-  if (error || !data) {
-    console.error("[admin] create_manual_invoice:", error?.message);
-    return {
-      error: error?.message || "Die Rechnung konnte nicht angelegt werden.",
-    };
-  }
-
-  const invoice = data as { id: string };
-
-  const zahlungsvermerk = zahlungsvermerkAusForm(formData);
-  if (zahlungsvermerk) {
-    const { error: noteError } = await supabase
-      .from("invoices")
-      .update({ payment_note: zahlungsvermerk })
-      .eq("id", invoice.id);
-    if (noteError) console.error("[admin] Zahlungsvermerk:", noteError.message);
-  }
-
-  try {
-    await generateAndSendManualInvoice(invoice.id);
-  } catch (err) {
-    console.error("[admin] Rechnung/Mailversand fehlgeschlagen:", err);
-  }
-
-  revalidatePath("/kasse/rechnungen");
-  return { invoiceId: invoice.id };
 }

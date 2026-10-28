@@ -274,6 +274,8 @@ export interface OrderItem {
   subtotal: number;
   /** Position war bei der Bestellung eine Vorbestellung (Migration 066) */
   is_preorder: boolean;
+  /** Strichcode einer freien Position (Migration 079), nur Anzeige und PDF */
+  barcode?: string | null;
   created_at: string;
 }
 

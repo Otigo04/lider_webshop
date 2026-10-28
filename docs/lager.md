@@ -108,9 +108,10 @@ Wer den Bestand anfasst und wie:
 | Kassenverkauf (`create_pos_sale`) | `stock_available` −Menge, nach unten bei 0 begrenzt (Migration 048) |
 | Wareneingang (`record_stock_entries`) | `stock_available` ±Menge, Journalzeile in `stock_entries` |
 
-Freie Rechnungen (`create_manual_invoice`) rühren den Bestand **nicht** an:
-ihre Positionen sind Freitext ohne Artikelbezug. Wer Ware abbuchen will, legt
-die Rechnung über „Aus Katalog" an.
+Freie Positionen einer neuen Rechnung (Migration 079) rühren den Bestand
+**nicht** an: sie sind Freitext ohne Artikelbezug. Die Katalogzeilen derselben
+Rechnung buchen ab. Alte freie Rechnungen (`create_manual_invoice`, Typ
+`manual`) bleiben als Belege erhalten, neue entstehen so nicht mehr.
 
 **Kein Bestand ist kein Verkaufsverbot.** Bis Migration 048 lehnte
 `create_pos_sale()` eine Zeile ab, sobald die Menge den freien Bestand

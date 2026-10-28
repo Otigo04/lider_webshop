@@ -28,8 +28,8 @@ export default async function NewInvoicePage() {
         Neue Rechnung
       </h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        Aus dem Katalog für eine echte Bestellung, oder frei für
-        Dienstleistungen und Ware außerhalb des Sortiments.
+        Codes scannen oder Artikel suchen: was im Katalog steht, kommt als
+        Katalogposition, alles andere tippst du als freie Position.
       </p>
 
       <div className="mt-8">

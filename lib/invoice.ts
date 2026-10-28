@@ -28,11 +28,25 @@ import { getLogoPrintFile } from "@/lib/logo";
 export interface InvoicePdfLineItem {
   description: string;
   sku?: string;
+  /** Strichcode einer freien Position (Migration 079), gedruckt als „EAN …" */
+  barcode?: string;
   quantity: number;
   unitPrice: number;
   subtotal: number;
   /** Rabattzeile: ohne Positionsnummer, Menge und Stückpreis (Migration 054) */
   abzug?: boolean;
+}
+
+/**
+ * Zeile unter der Bezeichnung: Artikelnummer und/oder Strichcode, null wenn
+ * beides fehlt. Steht im PDF und in der Zeilenhöhe der Position.
+ */
+export function positionsZusatz(item: Pick<InvoicePdfLineItem, "sku" | "barcode">): string | null {
+  const teile = [
+    item.sku ? `Art.-Nr. ${item.sku}` : null,
+    item.barcode ? `EAN ${item.barcode}` : null,
+  ].filter((t): t is string => t !== null);
+  return teile.length > 0 ? teile.join(" · ") : null;
 }
 
 export interface InvoicePdfVatBreakdown {
@@ -369,6 +383,7 @@ export function buildOrderInvoicePdfData(
     items: (order.items ?? []).map((item): InvoicePdfLineItem => ({
       description: item.product_name,
       sku: item.product_sku,
+      barcode: item.barcode?.trim() || undefined,
       quantity: toNumber(item.quantity),
       unitPrice: toNumber(item.unit_price),
       subtotal: toNumber(item.subtotal),
@@ -447,6 +462,7 @@ export function buildDeliveryNotePdfData(
     items: (order.items ?? []).map((item) => ({
       description: item.product_name,
       sku: item.product_sku,
+      barcode: item.barcode?.trim() || undefined,
       quantity: toNumber(item.quantity),
       // Preise stehen im Lieferschein nicht, die Felder bleiben aber Teil der
       // gemeinsamen Form – hidePrices entscheidet, ob sie gezeichnet werden.
@@ -1127,7 +1143,7 @@ export async function generateInvoicePdf(data: InvoicePdfData): Promise<Buffer> 
 
   data.items.forEach((item, index) => {
     const zeilen = umbrechen(item.description, nameBreite, 9, font);
-    const zusatz = item.sku ? `Art.-Nr. ${item.sku}` : null;
+    const zusatz = positionsZusatz(item);
     const hoehe = zeilen.length * 11 + (zusatz ? 9 : 0) + 7;
 
     if (platzPruefen(hoehe + 30)) tabellenkopf();

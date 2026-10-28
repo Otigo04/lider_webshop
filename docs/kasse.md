@@ -102,6 +102,38 @@ bringen ihre Quelle vorher auf dieselbe `InvoicePdfData`-Form.
 
 ---
 
+## 🧾 Neue Rechnung: Katalog und freie Positionen in einer Liste
+
+`/kasse/rechnungen/new`, `components/forms/invoice-form.tsx`, Rechenstelle
+`lib/rechnung-positionen.ts` (`tests/rechnung-positionen.test.ts`). Es gibt nur
+noch **einen** Weg: Bestellung + Rechnung (`create_admin_order`, Migration 079).
+Früher gab es „Aus Katalog" und „Freie Rechnung" getrennt.
+
+- **Der Admin entscheidet beim Erfassen, nicht vorab.** Ins Scanfeld kommt ein
+  Code oder ein Suchbegriff: ein **genauer Treffer auf Strichcode oder
+  Artikelnummer** wird eine Katalogposition (derselbe Code noch einmal erhöht
+  die Menge). Kennt der Katalog den Code nicht, wird es eine **freie Position**
+  mit dem Code im Barcodefeld; ein getipptes Wort wird die Beschreibung.
+  „Freie Position" legt von Anfang an eine leere freie Zeile an. Treffer beim
+  Tippen (Name, Nummer, Code) lassen sich anklicken und sind Katalogzeilen.
+- **Enter schickt nie die Rechnung ab.** Ein Scanner sendet nach dem Code Enter;
+  auf dem Formular ist das abgefangen. Enter springt Feld für Feld
+  (Barcode → Beschreibung → Menge → Preis → zurück ins Scanfeld).
+- **Katalogzeile**: bucht Bestand ab (wie bisher), Preis aus der Staffel zur
+  Menge; ändert man den Preis von Hand, zieht eine neue Menge keine andere
+  Staffel mehr nach.
+- **Freie Zeile**: Beschreibung, Menge (ganze Zahl), Preis, optional Barcode;
+  `order_items.product_variant_id` ist NULL, der Name steht als Snapshot an der
+  Position. Der Barcode steht im PDF und im Lieferschein als „EAN …" unter der
+  Bezeichnung, gerechnet wird damit nichts.
+- **Sonderkondition nur auf Katalogzeilen** (wie an der Kasse), freie Zeilen
+  kommen voll dazu. **Ein Steuersatz für alle Zeilen** (aus den Firmendaten); die
+  Wahl 7 % / 0 % je Zeile der alten freien Rechnung gibt es nicht mehr.
+- Alte freie Rechnungen (Typ `manual`, `invoice_items`) bleiben unverändert
+  ansehenbar und stornierbar.
+
+---
+
 ## 📄 Lieferschein
 
 `buildDeliveryNotePdfData()` in `lib/invoice.ts`, ausgeliefert über
