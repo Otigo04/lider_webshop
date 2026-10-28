@@ -62,13 +62,26 @@ export async function getOrders(options?: {
   return (data ?? []) as unknown as OrderWithItems[];
 }
 
-export async function getOrder(id: string): Promise<OrderWithItems | null> {
+/**
+ * Angaben zu einem Kunden ohne Konto (Migration 080). Eigene Spaltenliste, die
+ * nur angehängt wird, wenn es die Spalten gibt: der Checkout liest Bestellungen
+ * über dieselbe Funktion, und eine fehlende Migration darf ihn nicht kippen.
+ */
+const GAST_SPALTEN = "customer_label, customer_street, customer_zip, customer_city";
+
+async function ladeBestellung(id: string, zusatz = "") {
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("orders")
-    .select(ORDER_COLUMNS)
-    .eq("id", id)
-    .maybeSingle();
+  const abfrage = (spalten: string) =>
+    supabase.from("orders").select(`${spalten}${zusatz}`).eq("id", id).maybeSingle();
+
+  let ergebnis = await abfrage(`${ORDER_COLUMNS}, ${GAST_SPALTEN}`);
+  // 42703: Spalte unbekannt, Migration 080 fehlt – dann ohne die Gast-Angaben.
+  if (ergebnis.error?.code === "42703") ergebnis = await abfrage(ORDER_COLUMNS);
+  return ergebnis;
+}
+
+export async function getOrder(id: string): Promise<OrderWithItems | null> {
+  const { data, error } = await ladeBestellung(id);
 
   if (error) {
     console.error("[bestellungen] Detail:", error.message);
@@ -192,19 +205,14 @@ export async function getNachbestellung(items: OrderItem[]): Promise<Nachbestell
  * nach dem Checkout gedruckt.
  */
 export interface OrderWithCustomer extends Omit<OrderWithItems, "customer"> {
-  /** null, wenn das Profil gelöscht wurde – Order selbst hat es optional. */
+  /** null, wenn das Profil gelöscht wurde oder es keins gibt (Beleg ohne Konto). */
   customer: AppUser | null;
 }
 
 export async function getOrderWithCustomer(
   id: string,
 ): Promise<OrderWithCustomer | null> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("orders")
-    .select(`${ORDER_COLUMNS}, customer:users (*)`)
-    .eq("id", id)
-    .maybeSingle();
+  const { data, error } = await ladeBestellung(id, ", customer:users (*)");
 
   if (error) {
     console.error("[bestellungen] Detail mit Kunde:", error.message);

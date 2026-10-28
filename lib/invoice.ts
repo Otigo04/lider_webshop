@@ -288,6 +288,27 @@ export function buildPosSaleInvoicePdfData(
 }
 
 /**
+ * Wer auf dem Beleg steht: das Konto mit seinem Profil oder, bei einem Beleg
+ * ohne Konto (Migration 080), die Angaben, die an der Bestellung stehen.
+ */
+export function belegKunde(
+  order: Pick<
+    Order,
+    "customer" | "customer_label" | "customer_street" | "customer_zip" | "customer_city"
+  >,
+) {
+  const konto = order.customer;
+  return {
+    name: konto?.company_name || konto?.full_name || order.customer_label || null,
+    number: konto?.customer_number ?? null,
+    street: konto ? konto.billing_street : (order.customer_street ?? null),
+    zip: konto ? konto.billing_zip : (order.customer_zip ?? null),
+    city: konto ? konto.billing_city : (order.customer_city ?? null),
+    vatId: konto?.vat_id ?? null,
+  };
+}
+
+/**
  * Anschrift, an die die Ware geht – mehrzeilig, oder null, wenn sie sich mit
  * der Rechnungsanschrift deckt.
  *
@@ -300,15 +321,15 @@ function lieferanschriftZeilen(
   order: Order,
   options: { immer?: boolean } = {},
 ): string | null {
-  const customer = order.customer;
+  const kunde = belegKunde(order);
   const abholung = order.delivery_method === "pickup";
 
   const abweichend =
     !abholung &&
     Boolean(order.delivery_street) &&
-    (order.delivery_street !== customer?.billing_street ||
-      order.delivery_zip !== customer?.billing_zip ||
-      order.delivery_city !== customer?.billing_city);
+    (order.delivery_street !== kunde.street ||
+      order.delivery_zip !== kunde.zip ||
+      order.delivery_city !== kunde.city);
 
   if (!abweichend && !options.immer) return null;
 
@@ -322,11 +343,7 @@ function lieferanschriftZeilen(
           ? order.delivery_country
           : null,
       ]
-    : [
-        customer?.company_name || customer?.full_name,
-        customer?.billing_street,
-        [customer?.billing_zip, customer?.billing_city].filter(Boolean).join(" "),
-      ];
+    : [kunde.name, kunde.street, [kunde.zip, kunde.city].filter(Boolean).join(" ")];
 
   const gesetzt = zeilen.filter(Boolean) as string[];
   return gesetzt.length > 0 ? gesetzt.join("\n") : null;
@@ -346,7 +363,7 @@ export function buildOrderInvoicePdfData(
   /** Bei der Rechnung gespeicherter Zahlungsvermerk (Migration 074), hat Vorrang */
   zahlungsvermerk?: string | null,
 ): InvoicePdfData {
-  const customer = order.customer;
+  const kunde = belegKunde(order);
   const netto = toNumber(order.total_amount);
   const satz = toNumber(order.vat_rate);
   const betraege = steuer(netto, satz);
@@ -373,12 +390,12 @@ export function buildOrderInvoicePdfData(
     invoiceNumber,
     issuedAt: issuedAt ?? new Date().toISOString(),
     reference: `Bestellung ${order.order_number}`,
-    customerName: customer?.company_name || customer?.full_name || "–",
-    customerNumber: customer?.customer_number ?? null,
-    customerStreet: customer?.billing_street,
-    customerZip: customer?.billing_zip,
-    customerCity: customer?.billing_city,
-    customerVatId: customer?.vat_id,
+    customerName: kunde.name ?? "–",
+    customerNumber: kunde.number,
+    customerStreet: kunde.street,
+    customerZip: kunde.zip,
+    customerCity: kunde.city,
+    customerVatId: kunde.vatId,
     deliveryAddress: lieferanschrift,
     items: (order.items ?? []).map((item): InvoicePdfLineItem => ({
       description: item.product_name,
@@ -435,7 +452,7 @@ export function buildDeliveryNotePdfData(
   /** Rechnungsnummer, falls schon gestellt – als Verweis in der Bezugszeile. */
   invoiceNumber?: string | null,
 ): InvoicePdfData {
-  const customer = order.customer;
+  const kunde = belegKunde(order);
   const abholung = order.delivery_method === "pickup";
   const lieferanschrift = lieferanschriftZeilen(order, { immer: true });
   const empfaenger = (lieferanschrift ?? "").split("\n");
@@ -453,10 +470,10 @@ export function buildDeliveryNotePdfData(
     invoiceNumber: order.order_number,
     issuedAt: new Date().toISOString(),
     reference: bezug,
-    customerName: empfaenger[0] || customer?.company_name || customer?.full_name || "–",
+    customerName: empfaenger[0] || kunde.name || "–",
     // Auch auf dem Lieferschein: beim Auspacken wird die Lieferung dem Konto
     // zugeordnet, und der Zettel trägt sonst keine Kennung des Kunden.
-    customerNumber: customer?.customer_number ?? null,
+    customerNumber: kunde.number,
     customerStreet: empfaenger[1] ?? null,
     customerCity: empfaenger[2] ?? null,
     items: (order.items ?? []).map((item) => ({

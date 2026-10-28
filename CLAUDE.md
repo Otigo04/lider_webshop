@@ -231,7 +231,7 @@ steht „Kasse" als goldener Knopf.
 - `/kasse/verkaeufe` – Verkaufshistorie der Kasse
 - `/kasse/umsaetze` – Umsätze nach Zeitraum, je Tag oder je Monat
 - `/kasse/tagesabschluss` – Z-Abschlüsse, ein Monat je Seite
-- `/kasse/rechnungen` – Rechnungen; „Neue Rechnung" mit Katalog- und freien Positionen in einer Liste (Migration 079)
+- `/kasse/rechnungen` – Rechnungen; „Neue Rechnung" mit Katalog- und freien Positionen in einer Liste, als Rechnung oder Lieferschein, für Kunden mit oder ohne Konto (Migration 079, 080)
 
 ### **Shared Components:**
 - `Header` (Navbar mit Logo, Nav-Links, User-Menu)

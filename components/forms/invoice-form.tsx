@@ -29,12 +29,44 @@ import { ZAHLUNGSVERMERK_OPTIONEN, type ZahlungsvermerkKey } from "@/lib/zahlung
 import type { AppUser } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-function SubmitButton({ disabled }: { disabled: boolean }) {
+function SubmitButton({ disabled, label }: { disabled: boolean; label: string }) {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" size="lg" disabled={disabled || pending}>
-      {pending ? "Wird gespeichert …" : "Rechnung anlegen"}
+      {pending ? "Wird gespeichert …" : label}
     </Button>
+  );
+}
+
+/** Zwei Knöpfe, einer davon gewählt – für Belegart und Kundenart. */
+function Wahl<T extends string>({
+  wert,
+  onChange,
+  optionen,
+  name,
+}: {
+  wert: T;
+  onChange: (neu: T) => void;
+  optionen: { wert: T; label: string }[];
+  name: string;
+}) {
+  return (
+    <div role="group" aria-label={name} className="inline-flex rounded-md border border-border p-0.5">
+      {optionen.map((o) => (
+        <button
+          key={o.wert}
+          type="button"
+          aria-pressed={wert === o.wert}
+          onClick={() => onChange(o.wert)}
+          className={cn(
+            "rounded px-3 py-1.5 text-sm font-medium transition-colors",
+            wert === o.wert ? "bg-brand text-brand-foreground" : "text-muted-foreground hover:bg-muted",
+          )}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -66,7 +98,11 @@ export function InvoiceForm({
   konditionen?: Record<string, number>;
 }) {
   const router = useRouter();
+  // Rechnung oder Lieferschein (ohne Preise), Kunde mit Konto oder nur mit Namen.
+  const [beleg, setBeleg] = useState<"rechnung" | "lieferschein">("rechnung");
+  const [kundeArt, setKundeArt] = useState<"konto" | "frei">("konto");
   const [customerId, setCustomerId] = useState<string | null>(null);
+  const [gast, setGast] = useState({ name: "", strasse: "", plz: "", ort: "" });
   const [konditionAn, setKonditionAn] = useState(true);
   const [positionen, setPositionen] = useState<Position[]>([]);
   const [eingabe, setEingabe] = useState("");
@@ -84,9 +120,15 @@ export function InvoiceForm({
 
   useEffect(() => {
     if (!state.orderId) return;
-    toast.success("Rechnung angelegt und wird verschickt.");
+    if (state.beleg === "lieferschein") {
+      toast.success("Lieferschein angelegt.");
+      // Der Lieferschein ist eine Datei zum Drucken: gleich in einem eigenen Tab auf.
+      window.open(`/admin/orders/${state.orderId}/dokumente?art=lieferschein`, "_blank");
+    } else {
+      toast.success("Rechnung angelegt.");
+    }
     router.push(`/admin/orders/${state.orderId}`);
-  }, [state.orderId, router]);
+  }, [state.orderId, state.beleg, router]);
 
   // Cursor nach dem Hinzufügen dorthin, wo es weitergeht.
   useEffect(() => {
@@ -184,22 +226,119 @@ export function InvoiceForm({
     }
   }
 
-  const kundenSatz = customerId ? (konditionen[customerId] ?? 0) : 0;
+  const lieferschein = beleg === "lieferschein";
+  // Sonderkondition gibt es nur mit Konto und nur auf der Rechnung.
+  const kundenSatz = kundeArt === "konto" && customerId ? (konditionen[customerId] ?? 0) : 0;
   const summen = belegSummen(positionen, konditionAn ? kundenSatz : 0);
-  const fehler = positionsFehler(positionen);
+  const fehler = positionsFehler(positionen, { ohnePreise: lieferschein });
+  const kundeFehlt = kundeArt === "konto" ? !customerId : !gast.name.trim();
 
   return (
     <div className="space-y-8">
-      <div className="max-w-md space-y-2">
+      <section className="space-y-2">
+        <Label>Was soll angelegt werden?</Label>
+        <div className="flex flex-wrap items-center gap-3">
+          <Wahl
+            name="Belegart"
+            wert={beleg}
+            onChange={setBeleg}
+            optionen={[
+              { wert: "rechnung", label: "Rechnung" },
+              { wert: "lieferschein", label: "Lieferschein" },
+            ]}
+          />
+          <p className="text-xs text-muted-foreground">
+            {lieferschein
+              ? "Der Lieferschein trägt Positionen und Mengen, keine Preise. Bestand wird abgebucht, die Rechnung lässt sich später aus der Bestellung erzeugen."
+              : "Rechnung mit Preisen und Steuer; sie wird dem Kunden per Mail geschickt, wenn er ein Konto hat."}
+          </p>
+        </div>
+      </section>
+
+      <section className="max-w-2xl space-y-2">
         <Label>Kunde</Label>
-        <CustomerCombobox customers={customers} value={customerId} onChange={setCustomerId} />
-      </div>
+        <Wahl
+          name="Kundenart"
+          wert={kundeArt}
+          onChange={setKundeArt}
+          optionen={[
+            { wert: "konto", label: "Kunde mit Konto" },
+            { wert: "frei", label: "Ohne Konto, nur Name" },
+          ]}
+        />
+        {kundeArt === "konto" ? (
+          <div className="max-w-md pt-1">
+            <CustomerCombobox customers={customers} value={customerId} onChange={setCustomerId} />
+          </div>
+        ) : (
+          <div className="grid gap-3 pt-1 sm:grid-cols-[2fr_2fr_1fr_2fr]">
+            <div className="space-y-1 sm:col-span-4">
+              <Label htmlFor="gast-name" className="text-xs">
+                Name / Firma
+              </Label>
+              <Input
+                id="gast-name"
+                value={gast.name}
+                maxLength={120}
+                autoComplete="off"
+                onChange={(event) => setGast((g) => ({ ...g, name: event.target.value }))}
+              />
+            </div>
+            <div className="space-y-1 sm:col-span-2">
+              <Label htmlFor="gast-strasse" className="text-xs">
+                Straße (optional)
+              </Label>
+              <Input
+                id="gast-strasse"
+                value={gast.strasse}
+                maxLength={120}
+                autoComplete="off"
+                onChange={(event) => setGast((g) => ({ ...g, strasse: event.target.value }))}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="gast-plz" className="text-xs">
+                PLZ
+              </Label>
+              <Input
+                id="gast-plz"
+                value={gast.plz}
+                maxLength={12}
+                autoComplete="off"
+                onChange={(event) => setGast((g) => ({ ...g, plz: event.target.value }))}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="gast-ort" className="text-xs">
+                Ort
+              </Label>
+              <Input
+                id="gast-ort"
+                value={gast.ort}
+                maxLength={80}
+                autoComplete="off"
+                onChange={(event) => setGast((g) => ({ ...g, ort: event.target.value }))}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground sm:col-span-4">
+              Ohne Registrierung: der Beleg trägt nur diese Angaben, es gibt keine Mail und keine
+              Sonderkondition.
+            </p>
+          </div>
+        )}
+      </section>
 
       <form
         action={(formData) => {
-          formData.set("customer_id", customerId ?? "");
+          formData.set("beleg", beleg);
+          formData.set("kunde_art", kundeArt);
+          formData.set("customer_id", kundeArt === "konto" ? (customerId ?? "") : "");
+          formData.set("customer_label", kundeArt === "frei" ? gast.name.trim() : "");
+          formData.set("customer_street", kundeArt === "frei" ? gast.strasse.trim() : "");
+          formData.set("customer_zip", kundeArt === "frei" ? gast.plz.trim() : "");
+          formData.set("customer_city", kundeArt === "frei" ? gast.ort.trim() : "");
           formData.set("items", JSON.stringify(positionenPayload(positionen)));
-          formData.set("apply_condition", konditionAn ? "1" : "0");
+          formData.set("apply_condition", konditionAn && !lieferschein ? "1" : "0");
           formData.set("delivery_address", deliveryAddress);
           formData.set("delivery_method", deliveryAddress.trim() ? "shipping" : "pickup");
           formAction(formData);
@@ -352,9 +491,13 @@ export function InvoiceForm({
                           };
                         })
                       }
-                      onEnter={() => document.getElementById(id("preis"))?.focus()}
+                      onEnter={() =>
+                        document.getElementById(lieferschein ? EINGABE_ID : id("preis"))?.focus()
+                      }
                     />
                   </div>
+                  {/* Ein Lieferschein trägt keine Preise: Feld und Summe entfallen. */}
+                  {lieferschein ? null : (
                   <div className="w-32 space-y-1">
                     <Label htmlFor={id("preis")} className="text-xs">
                       Preis / Stück (€)
@@ -375,9 +518,12 @@ export function InvoiceForm({
                       onEnter={() => document.getElementById(EINGABE_ID)?.focus()}
                     />
                   </div>
-                  <p className="w-24 pb-2 text-right text-sm font-medium tabular">
-                    {formatPrice(positionSumme(position))}
-                  </p>
+                  )}
+                  {lieferschein ? null : (
+                    <p className="w-24 pb-2 text-right text-sm font-medium tabular">
+                      {formatPrice(positionSumme(position))}
+                    </p>
+                  )}
                   <Button
                     type="button"
                     variant="ghost"
@@ -415,6 +561,7 @@ export function InvoiceForm({
           <Textarea id="notes" name="notes" rows={3} maxLength={2000} />
         </section>
 
+        {lieferschein ? null : (
         <section className="max-w-md space-y-2">
           <Label htmlFor="payment_key">Zahlung</Label>
           <select
@@ -444,7 +591,9 @@ export function InvoiceForm({
             Steht auf der Rechnung anstelle des Zahlungsziels.
           </p>
         </section>
+        )}
 
+        {lieferschein ? null : (
         <div className="space-y-2 rounded-md border border-border p-4">
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">Warenwert netto</span>
@@ -477,6 +626,7 @@ export function InvoiceForm({
             Die Umsatzsteuer wird beim Anlegen auf die Summe gerechnet.
           </p>
         </div>
+        )}
 
         {state.error ? (
           <p
@@ -488,12 +638,17 @@ export function InvoiceForm({
         ) : null}
 
         <div className="flex flex-wrap items-center gap-3">
-          <SubmitButton disabled={!customerId || fehler !== null} />
+          <SubmitButton
+            label={lieferschein ? "Lieferschein erstellen" : "Rechnung anlegen"}
+            disabled={kundeFehlt || fehler !== null}
+          />
           {positionen.length > 0 && fehler ? (
             <p className="text-sm text-muted-foreground">{fehler}</p>
           ) : null}
-          {positionen.length > 0 && !customerId ? (
-            <p className="text-sm text-muted-foreground">Kunde wählen.</p>
+          {positionen.length > 0 && kundeFehlt ? (
+            <p className="text-sm text-muted-foreground">
+              {kundeArt === "konto" ? "Kunde wählen." : "Name des Kunden angeben."}
+            </p>
           ) : null}
         </div>
       </form>

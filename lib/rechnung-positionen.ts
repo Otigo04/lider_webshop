@@ -127,14 +127,20 @@ export function belegSummen(positions: Position[], kundenSatz: number): BelegSum
   };
 }
 
-/** Erster Grund, warum sich die Rechnung noch nicht anlegen lässt; null = in Ordnung. */
-export function positionsFehler(positions: Position[]): string | null {
+/**
+ * Erster Grund, warum sich der Beleg noch nicht anlegen lässt; null = in
+ * Ordnung. Ein Lieferschein trägt keine Preise: dort wird keiner verlangt.
+ */
+export function positionsFehler(
+  positions: Position[],
+  options: { ohnePreise?: boolean } = {},
+): string | null {
   if (positions.length === 0) return "Noch keine Position.";
   for (const [i, p] of positions.entries()) {
     const nr = `Position ${i + 1}`;
     if (p.art === "frei" && !p.description.trim()) return `${nr}: Beschreibung fehlt.`;
     if (!(p.quantity >= 1) || !Number.isInteger(p.quantity)) return `${nr}: Menge fehlt.`;
-    if (!(p.unitPrice > 0)) return `${nr}: Preis fehlt.`;
+    if (!options.ohnePreise && !(p.unitPrice > 0)) return `${nr}: Preis fehlt.`;
   }
   return null;
 }

@@ -103,3 +103,13 @@ test("Prüfung vor dem Anlegen: nennt die erste fehlende Angabe", () => {
   assert.equal(positionsFehler([kat(0, 2)]), "Position 1: Menge fehlt.");
   assert.equal(positionsFehler([kat(1.5, 2)]), "Position 1: Menge fehlt.");
 });
+
+test("Lieferschein: kein Preis nötig, Menge und Beschreibung schon", () => {
+  assert.equal(positionsFehler([frei(1, 0)], { ohnePreise: true }), null);
+  assert.equal(positionsFehler([kat(1, 0)], { ohnePreise: true }), null);
+  assert.equal(
+    positionsFehler([frei(1, 0, { description: "" })], { ohnePreise: true }),
+    "Position 1: Beschreibung fehlt.",
+  );
+  assert.equal(positionsFehler([kat(0, 0)], { ohnePreise: true }), "Position 1: Menge fehlt.");
+});

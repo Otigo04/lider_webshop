@@ -132,7 +132,11 @@ export default async function AdminOrdersPage({
                       {order.customer?.company_name ||
                         order.customer?.full_name ||
                         order.customer?.email ||
+                        order.customer_label ||
                         "–"}
+                      {!order.customer && order.customer_label ? (
+                        <span className="block text-xs text-muted-foreground">ohne Konto</span>
+                      ) : null}
                       {order.customer?.customer_number ? (
                         <span className="block text-xs tabular text-muted-foreground">
                           {order.customer.customer_number}

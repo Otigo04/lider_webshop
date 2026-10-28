@@ -101,7 +101,11 @@ export default async function AdminInvoicesPage({
                     <td className="py-3 pr-4">
                       {invoice.customer?.company_name ||
                         invoice.customer?.full_name ||
+                        invoice.customer_label ||
                         "–"}
+                      {!invoice.customer && invoice.customer_label ? (
+                        <span className="block text-xs text-muted-foreground">ohne Konto</span>
+                      ) : null}
                       {invoice.customer?.customer_number ? (
                         <span className="block text-xs tabular text-muted-foreground">
                           {invoice.customer.customer_number}

@@ -28,7 +28,8 @@ export default async function NewInvoicePage() {
         Neue Rechnung
       </h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        Codes scannen oder Artikel suchen: was im Katalog steht, kommt als
+        Rechnung oder Lieferschein, für einen Kunden mit Konto oder nur mit
+        Namen. Codes scannen oder Artikel suchen: was im Katalog steht, kommt als
         Katalogposition, alles andere tippst du als freie Position.
       </p>
 

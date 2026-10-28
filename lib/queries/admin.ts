@@ -483,7 +483,7 @@ export async function getAdminInvoices(options?: {
   if (!term) return rows;
 
   return rows.filter((row) =>
-    [row.invoice_number, row.customer?.company_name, row.customer?.full_name]
+    [row.invoice_number, row.customer?.company_name, row.customer?.full_name, row.customer_label]
       .filter(Boolean)
       .some((value) => value!.toLowerCase().includes(term)),
   );

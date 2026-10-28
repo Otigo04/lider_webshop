@@ -41,7 +41,8 @@ export async function erzeugeStornoRechnung(
     .maybeSingle();
   if (error || !row) return { ok: false, error: "Die Rechnung wurde nicht gefunden." };
 
-  const invoice = row as unknown as Invoice & { customer: AppUser };
+  // customer ist null bei einem Beleg ohne Konto (Migration 080).
+  const invoice = row as unknown as Invoice & { customer: AppUser | null };
   if (invoice.status !== "cancelled" || !invoice.storno_number || !invoice.cancelled_at) {
     return { ok: false, error: "Die Rechnung ist nicht storniert." };
   }
@@ -112,7 +113,7 @@ export async function erzeugeStornoRechnung(
   await admin.from("invoices").update({ storno_file_path: pfad }).eq("id", invoice.id);
 
   let verschickt = false;
-  if (opts.mail) {
+  if (opts.mail && invoice.customer) {
     try {
       const mail = stornoEmail({
         originalNummer: invoice.invoice_number,

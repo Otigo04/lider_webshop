@@ -132,6 +132,32 @@ Früher gab es „Aus Katalog" und „Freie Rechnung" getrennt.
 - Alte freie Rechnungen (Typ `manual`, `invoice_items`) bleiben unverändert
   ansehenbar und stornierbar.
 
+### Rechnung oder Lieferschein, Kunde mit oder ohne Konto (Migration 080)
+
+Oben im Formular stehen zwei Wahlen:
+
+- **Belegart**: *Rechnung* (wie bisher) oder *Lieferschein*. Ein Lieferschein
+  trägt **keine Preise**: im Formular entfallen Preisfelder, Summen, Zahlung und
+  Sonderkondition, das PDF ist der bestehende Lieferschein (`hidePrices`). Er legt
+  eine **Bestellung ohne Rechnung** an (Bestand wird abgebucht) und öffnet das PDF
+  in einem neuen Tab. Eine **eigene Nummer gibt es nicht**: es gilt die
+  Bestellnummer `LG-…`, wie bisher. Die Rechnung dazu lässt sich später auf der
+  Bestellseite erzeugen („Rechnung erzeugen"), mit den dann gespeicherten Preisen.
+- **Kunde**: *mit Konto* (Auswahl wie bisher) oder *ohne Konto, nur Name* mit
+  optionaler Anschrift (Straße, PLZ, Ort). Ohne Konto sind `orders.customer_id`
+  und `invoices.customer_id` NULL, Name und Anschrift stehen als Text an der
+  Bestellung bzw. Rechnung (`customer_label`, `customer_street`, `customer_zip`,
+  `customer_city`); mindestens ein Name ist Pflicht (CHECK). Ohne Konto gibt es
+  **keine Sonderkondition und keine Mail** – die Rechnung wird gestellt und
+  abgelegt, aber nicht verschickt (`generateAndSendOrderInvoice(…, null)`). Kein
+  Kunde sieht diese Bestellung (RLS vergleicht `customer_id` mit `auth.uid()`).
+- Auf Beleg und Listen: `belegKunde()` in `lib/invoice.ts` nimmt das Profil,
+  sonst die Angaben an der Bestellung; Bestell- und Rechnungsliste markieren
+  „ohne Konto".
+- `create_admin_order()` bekam dafür vier Parameter (`p_customer_label`, …); die
+  alte Signatur entfällt. Der Aufruf schickt sie nur mit, wenn sie gebraucht
+  werden, so läuft ein Beleg mit Konto auch vor Migration 080.
+
 ---
 
 ## 📄 Lieferschein

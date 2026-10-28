@@ -83,10 +83,23 @@ export default async function AdminOrderDetailPage({
         <div>
           <dt className="text-muted-foreground">Kunde</dt>
           <dd className="mt-1">
-            {order.customer?.company_name || order.customer?.full_name || "–"}
+            {order.customer?.company_name ||
+              order.customer?.full_name ||
+              order.customer_label ||
+              "–"}
             {order.customer?.customer_number ? (
               <span className="ml-2 tabular text-muted-foreground">
                 {order.customer.customer_number}
+              </span>
+            ) : null}
+            {/* Ohne Konto (Migration 080): Anschrift steht an der Bestellung. */}
+            {!order.customer && order.customer_label ? (
+              <span className="block text-xs text-muted-foreground">
+                ohne Konto
+                {[order.customer_street, [order.customer_zip, order.customer_city].filter(Boolean).join(" ")]
+                  .filter(Boolean)
+                  .map((zeile) => ` · ${zeile}`)
+                  .join("")}
               </span>
             ) : null}
           </dd>

@@ -19,16 +19,20 @@ import type { AppUser, Order } from "@/lib/types";
  * Bestellung, die der Admin manuell für einen Kunden angelegt hat
  * (lib/actions/admin-invoices.ts). Fehler landen nur im Log: eine bereits
  * angelegte Bestellung darf daran nie scheitern.
+ *
+ * `customer` ist null bei einem Beleg ohne Konto (Migration 080): Name und
+ * Anschrift stehen dann an der Bestellung, es gibt keine Mailadresse – die
+ * Rechnung wird gestellt und abgelegt, aber nicht verschickt.
  */
 export async function generateAndSendOrderInvoice(
   orderId: string,
-  customer: AppUser,
+  customer: AppUser | null,
   options: { sendOrderConfirmation?: boolean; paymentNote?: string | null } = {},
 ): Promise<void> {
   const order = await getOrder(orderId);
   if (!order) return;
 
-  const fullOrder: Order = { ...order, customer };
+  const fullOrder: Order = { ...order, customer: customer ?? undefined };
   // Die Firmendaten stehen in beiden Mails (Bankverbindung, Anschrift) und im
   // PDF – einmal laden reicht.
   const company = await getCompanySettings();
@@ -36,7 +40,7 @@ export async function generateAndSendOrderInvoice(
   // Der Mailversand steht vor der Rechnung, darf sie aber nicht aufhalten:
   // wirft der Versand (Netzfehler beim Anbieter), entstünde sonst eine
   // Bestellung ganz ohne Rechnung.
-  if (options.sendOrderConfirmation ?? true) {
+  if (customer && (options.sendOrderConfirmation ?? true)) {
     try {
       const confirmation = orderConfirmationEmail(fullOrder, company);
       await sendEmail({ to: customer.email, ...confirmation });
@@ -89,6 +93,8 @@ export async function generateAndSendOrderInvoice(
   }
 
   await admin.from("invoices").update({ file_path: filePath }).eq("id", invoice.id);
+
+  if (!customer) return;
 
   try {
     const invoiceMail = invoiceEmail(fullOrder, invoice.invoice_number, company);

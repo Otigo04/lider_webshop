@@ -281,7 +281,13 @@ export interface OrderItem {
 
 export interface Order {
   id: string;
-  customer_id: string;
+  /** null bei einem Beleg für jemanden ohne Konto (Migration 080) */
+  customer_id: string | null;
+  /** Name, Anschrift: nur ohne Konto (Migration 080), sonst steht beides im Profil */
+  customer_label?: string | null;
+  customer_street?: string | null;
+  customer_zip?: string | null;
+  customer_city?: string | null;
   order_number: string;
   status: OrderStatus;
   /**
@@ -372,7 +378,12 @@ export interface Invoice {
   order_id: string | null;
   /** nur bei einer Rechnung zu einem Kassenverkauf gesetzt (type "pos") */
   pos_sale_id: string | null;
-  customer_id: string;
+  /** null bei einem Beleg für jemanden ohne Konto (Migration 080) */
+  customer_id: string | null;
+  customer_label?: string | null;
+  customer_street?: string | null;
+  customer_zip?: string | null;
+  customer_city?: string | null;
   type: InvoiceType;
   invoice_number: string;
   /** Pfad im Supabase-Storage-Bucket `invoices`, null bis PDF hochgeladen ist */
