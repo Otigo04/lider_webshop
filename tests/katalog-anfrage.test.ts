@@ -6,6 +6,7 @@ import {
   katalogPreis,
   type KatalogArtikel,
 } from "@/lib/katalog";
+import { buildKatalogHtml, type KatalogFirma } from "@/lib/katalog-bogen";
 
 let nr = 0;
 function artikel(mehr: Partial<KatalogArtikel> = {}): KatalogArtikel {
@@ -58,4 +59,62 @@ test("Ohne Preis und ohne Flag fehlt der Artikel weiter, mit Warnung", () => {
   const aufbau = katalogAufbau([ohne], { ...KATALOG_VORGABE, preisart: "grosshandel" });
   assert.deepEqual(aufbau.ohnePreis, [ohne.id]);
   assert.equal(aufbau.gedruckt, 0);
+});
+
+
+const FIRMA: KatalogFirma = {
+  name: "LIDER",
+  strasse: null,
+  plzOrt: null,
+  telefon: null,
+  email: null,
+  website: null,
+  ladenpreiseBrutto: false,
+};
+
+function html(
+  artikelListe: KatalogArtikel[],
+  layout: "liste" | "kacheln" | "gross",
+  preisart: "grosshandel" | "laden" | "ohne",
+): string {
+  const e = { ...KATALOG_VORGABE, layout, preisart, mitTitelseite: false, mitRueckseite: false };
+  const aufbau = katalogAufbau(artikelListe, e);
+  return buildKatalogHtml(aufbau, e, FIRMA, {
+    logo: null,
+    wappen: null,
+    wortmarke: null,
+    stand: new Date("2026-10-28T12:00:00Z"),
+    autoPrint: false,
+  });
+}
+
+test("Gedruckt steht „Preis auf Anfrage“, in allen Layouts und Preisarten außer „ohne“", () => {
+  const anfrage = artikel({ aufAnfrage: true, name: "Sonderartikel" });
+  for (const layout of ["liste", "kacheln", "gross"] as const) {
+    for (const preisart of ["grosshandel", "laden"] as const) {
+      const seite = html([anfrage, artikel()], layout, preisart);
+      assert.match(seite, /Preis auf Anfrage/, `${layout}/${preisart}`);
+      // Genau einmal: für den einen Artikel, nicht auch für den normalen.
+      assert.equal(seite.split("Preis auf Anfrage").length - 1, 1, `${layout}/${preisart}`);
+    }
+    assert.doesNotMatch(html([anfrage], layout, "ohne"), /Preis auf Anfrage/, `${layout}/ohne`);
+  }
+});
+
+test("Ein normaler Artikel druckt seinen Preis, nicht den Hinweis", () => {
+  const seite = html([artikel({ staffeln: [{ ab: 1, preis: 2 }] })], "kacheln", "grosshandel");
+  assert.doesNotMatch(seite, /Preis auf Anfrage/);
+  assert.match(seite, /2,00/);
+});
+
+test("Ausführungen eines Angebots: der Hinweis ersetzt die Preiszellen der einen Zeile", () => {
+  const gruppe = { gruppeId: "g1", gruppeName: "Lampe E27" };
+  const liste = [
+    artikel({ ...gruppe, name: "Lampe warmweiß" }),
+    artikel({ ...gruppe, name: "Lampe kaltweiß", aufAnfrage: true }),
+  ];
+  for (const layout of ["kacheln", "liste"] as const) {
+    const seite = html(liste, layout, "grosshandel");
+    assert.equal(seite.split("Preis auf Anfrage").length - 1, 1, layout);
+  }
 });

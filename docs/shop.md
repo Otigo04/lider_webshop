@@ -941,7 +941,10 @@ Artikel.
 - **Ohne Migration** läuft der Shop unverändert weiter (alle Preise sichtbar);
   „Preis auf Anfrage" setzen meldet dann, dass 077 fehlt.
 - **Kataloge** (`/admin/kataloge`): ein Artikel mit „Preis auf Anfrage" bleibt
-  im Heft, wird aber in jeder Preisart ohne Preis gedruckt (`aufAnfrage` in
+  im Heft; statt des Preises druckt `lib/katalog-bogen.ts` den Hinweis „Preis auf
+  Anfrage" – in Kachel und Groß neben dem Strichcode, in der Liste über die
+  Breite der drei Preisplätze, in der Ausführungs-Tabelle über die Preisspalten
+  der Zeile. Im Heft „ohne Preise" steht nichts (`aufAnfrage` in
   `KatalogArtikel`, `katalogPreis()` liefert null; `tests/katalog-anfrage.test.ts`).
   Er zählt nicht als „kein Preis", die Werkbank markiert ihn mit „Preis auf
   Anfrage". Gelesen in `lib/queries/kataloge.ts` direkt aus `products`, damit

@@ -187,6 +187,22 @@ function kennzeichen(artikel: KatalogArtikel, k: Kontext): string {
 }
 
 /**
+ * Preis auf Anfrage (Migration 077): statt eines Preises steht der Hinweis da,
+ * in jeder Preisart – nur im Heft „ohne Preise" nicht, dort gibt es überhaupt
+ * keine Preisangaben.
+ */
+const ANFRAGE_TEXT = "Preis auf Anfrage";
+
+function zeigeAnfrage(a: KatalogArtikel, k: Kontext): boolean {
+  return Boolean(a.aufAnfrage) && k.e.preisart !== "ohne";
+}
+
+/** Anstelle von `preisblock()` in Kachel und Groß. */
+function anfrageblock(): string {
+  return `<div class="preis anfrage"><div class="pz"></div><div class="pb">${ANFRAGE_TEXT}</div></div>`;
+}
+
+/**
  * Der große Preis einer Zelle samt Streichpreis.
  *
  * Im Prospekt Euro groß und Cent hochgestellt, wie am Regal (preisTeile()):
@@ -262,7 +278,7 @@ function kachel(block: ArtikelBlock, k: Kontext): string {
     <div class="name">${esc(a.name)}</div>
     <div class="nr">${nr}</div>
     <div class="kaufen">
-      ${preisblock(preis, k)}
+      ${zeigeAnfrage(a, k) ? anfrageblock() : preisblock(preis, k)}
       <div class="code">${k.e.zeigeBarcode ? strichbild(a.barcode, innen * (gross ? 0.5 : 0.57), gross ? 8 : 6) : ""}</div>
     </div>
     ${staffeln}
@@ -283,8 +299,12 @@ function kuerze(staffeln: KatalogStaffel[], max: number): KatalogStaffel[] {
 }
 
 /** Preisspalten der Liste: bis zu drei Staffeln, oder der eine Ladenpreis. */
-function listenpreise(preis: KatalogPreis | null, k: Kontext): string {
+function listenpreise(preis: KatalogPreis | null, k: Kontext, a: KatalogArtikel): string {
   if (k.e.preisart === "ohne") return "";
+  // Ein Hinweis über die Breite aller Preisplätze statt dreier leerer.
+  if (zeigeAnfrage(a, k)) {
+    return `<div class="lp anfrage"><span class="pz"></span><span class="pb">${ANFRAGE_TEXT}</span></div>`;
+  }
   const reduziert = k.e.zeigeKennzeichen ? (preis?.reduziert ?? null) : null;
 
   if (k.e.preisart === "laden") {
@@ -327,7 +347,7 @@ function listenzeile(block: ArtikelBlock, k: Kontext): string {
       <div class="nr">${zusatz}</div>
     </div>
     ${k.e.zeigeBarcode ? `<div class="code">${strichbild(a.barcode, 31, 6.2)}</div>` : ""}
-    ${listenpreise(preis, k)}
+    ${listenpreise(preis, k, a)}
   </div>`;
 }
 
@@ -380,7 +400,9 @@ function angebot(block: AngebotBlock, k: Kontext): string {
     .map((a, index) => {
       const preis = preise[index];
       const reduziert = k.e.zeigeKennzeichen ? (preis?.reduziert ?? null) : null;
-      const zellen = Array.from({ length: spalten }, (_, i) => {
+      const zellen = zeigeAnfrage(a, k) && spalten > 0
+        ? `<td class="r anfrage" colspan="${spalten}"><b>${ANFRAGE_TEXT}</b></td>`
+        : Array.from({ length: spalten }, (_, i) => {
         if (k.e.preisart === "laden") {
           return `<td class="r${reduziert ? " red" : ""}">${reduziert ? `<s>${esc(formatPrice(reduziert.vorher))}</s> ` : ""}<b>${preis ? esc(formatPrice(preis.preis)) : ""}</b></td>`;
         }
@@ -896,6 +918,9 @@ export function buildKatalogHtml(
   .l-gross .kachel .nr { font-size: 7.5pt; }
   .l-gross .kachel .kaufen { height: 12mm; margin-top: 1mm; }
   .l-gross .preis .pb { font-size: 20pt; }
+  /* Artikel auf Anfrage: ein Hinweis, keine Zahl – deutlich kleiner als ein Preis. */
+  .preis.anfrage .pb { font-size: 8pt; font-weight: 700; line-height: 1.2; letter-spacing: 0; }
+  .l-gross .preis.anfrage .pb { font-size: 11pt; }
   .staffeln { flex: none; height: ${mm(3.2 * 3)}; margin: 1mm 0 0; border-collapse: collapse; font-size: 7.5pt; display: block; }
   .staffeln td { padding: 0 4mm 0 0; line-height: 3.2mm; white-space: nowrap; }
   .staffeln td:first-child { color: ${GRAU}; }
@@ -918,6 +943,11 @@ export function buildKatalogHtml(
   .lp .pz b { color: ${ROT}; font-weight: 600; }
   .lp .pb { font-size: 9.5pt; font-weight: 800; line-height: 1.2; color: ${NAVY}; }
   .pa-laden .lp { width: 30mm; }
+  /* Hinweis über die Breite der drei Preisplätze (3 × 21 mm + 2 × 3 mm Abstand). */
+  .lp.anfrage { width: 69mm; }
+  .lp.anfrage .pb { font-size: 8pt; font-weight: 700; }
+  .pa-laden .lp.anfrage { width: 30mm; }
+  td.anfrage b { font-size: 7.5pt; white-space: nowrap; color: ${NAVY}; }
 
   /* --- Spaltenköpfe der Liste ----------------------------------------- */
   .listenkopf {
