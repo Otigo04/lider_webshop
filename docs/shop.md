@@ -895,3 +895,22 @@ bleiben unberührt.
 `components/site-search.tsx` – GET-Formular auf `/shop?q=` in Kopfleiste,
 Klappmenü und Startseite. Gesucht wird wortweise (`lib/search.ts`), auch für
 Besucher (ohne Preise).
+
+## 🔍 Bildvorschau (Verweilen auf dem Foto)
+
+`components/bild-vorschau.tsx`. Bleibt der Zeiger auf einem Foto, erscheint
+es groß in der Bildschirmmitte, wie die Vorschau bei Amazon.
+
+- **Kacheln** (`ProductCard`, `PublicProductCard`, `CatalogCard`): nach
+  `VORSCHAU_KACHEL_MS` (3,5 s). **Produktseite** (`ProductGallery`): sofort
+  (`VORSCHAU_SOFORT_MS`), das große Bild ist dort schon vorgeladen.
+- **Maus:** weg, sobald der Zeiger das Foto verlässt, die Seite scrollt oder
+  Escape kommt. Die Vorschau fängt keine Mausereignisse ab – Klick und Link
+  darunter bleiben wie sonst.
+- **Finger:** gedrückt halten (mindestens 350 ms). Die Vorschau steht, solange
+  der Finger liegt; der Klick beim Loslassen wird verschluckt, damit man nicht
+  versehentlich in die Produktseite springt. Wischt der Finger, wird abgebrochen.
+  Nicht auf einem echten Gerät geprüft: iOS zeigt bei langem Drücken auf einen
+  Link ggf. sein eigenes Menü (`-webkit-touch-callout: none` ist gesetzt).
+- Das große Bild lädt versteckt schon beim Draufzeigen, nicht erst beim
+  Erscheinen.

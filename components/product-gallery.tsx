@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import { BildVorschau, VORSCHAU_SOFORT_MS } from "@/components/bild-vorschau";
 import { ShopImage } from "@/components/shop-image";
 import { ImageOff } from "lucide-react";
 import {
@@ -47,7 +48,15 @@ export function ProductGallery({
 
   return (
     <div className="space-y-3">
-      <div className="relative aspect-square overflow-hidden rounded-md border border-border bg-muted">
+      {/* In der Produktansicht kommt die große Vorschau sofort (und ist schon
+          geladen); auf den Kacheln erst nach einigen Sekunden. */}
+      <BildVorschau
+        src={available[active]}
+        alt={alt}
+        verzoegerung={VORSCHAU_SOFORT_MS}
+        vorladen
+        className="relative aspect-square overflow-hidden rounded-md border border-border bg-muted"
+      >
         <ShopImage
           src={available[active]}
           alt={alt}
@@ -64,7 +73,7 @@ export function ProductGallery({
         ) : null}
         {ausverkauft ? <AusverkauftBand className="py-2 text-base" /> : null}
         {vorbestellbar ? <VorbestellBand className="py-2 text-base" /> : null}
-      </div>
+      </BildVorschau>
 
       {available.length > 1 ? (
         <div className="flex flex-wrap gap-2">

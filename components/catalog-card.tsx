@@ -1,3 +1,4 @@
+import { BildVorschau, VORSCHAU_KACHEL_MS } from "@/components/bild-vorschau";
 import { ShopImage } from "@/components/shop-image";
 import Link from "next/link";
 import { ImageOff } from "lucide-react";
@@ -36,7 +37,12 @@ export function CatalogCard({
         href={`/shop/product/${product.id}`}
         className="group flex w-full flex-col overflow-hidden rounded-md border border-border bg-card hover:border-foreground/30"
       >
-        <div className="relative aspect-square overflow-hidden border-b border-border bg-muted">
+        <BildVorschau
+          src={product.imageUrl}
+          alt={product.name}
+          verzoegerung={VORSCHAU_KACHEL_MS}
+          className="relative aspect-square overflow-hidden border-b border-border bg-muted"
+        >
           <ProductFlagBadges product={product} />
           {rabatt ? (
             <RabattBadge
@@ -58,7 +64,7 @@ export function CatalogCard({
               <span className="sr-only">Kein Foto hinterlegt</span>
             </div>
           )}
-        </div>
+        </BildVorschau>
 
         <div className="flex flex-1 flex-col p-4">
           <p className="code text-xs text-muted-foreground">{product.sku}</p>
