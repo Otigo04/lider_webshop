@@ -4,6 +4,7 @@ import { formatDate, formatPrice, toNumber } from "@/lib/format";
 import { AUTO_NAMEN, sichererLink, type Block, type NewsletterDokument } from "@/lib/newsletter";
 import { freeStock, reduzierung } from "@/lib/pricing";
 import { istNeu } from "@/lib/product-flags";
+import { anfrageIds } from "@/lib/queries/preis-auf-anfrage";
 import { siteUrl } from "@/lib/site";
 import type { CompanySettings } from "@/lib/types";
 
@@ -36,6 +37,8 @@ export interface NewsletterProdukt {
   hatBild: boolean;
   /** Anzeigepreis netto, null = kein Preis gepflegt */
   preis: number | null;
+  /** Preis auf Anfrage (Migration 077): kein Preis in der Mail */
+  aufAnfrage?: boolean;
   /** Ab welcher Menge der Preis gilt (1 = ohne Angabe) */
   ab: number;
   reduziert: { prozent: number; vorher: number } | null;
@@ -144,6 +147,16 @@ export async function ladeNewsletterInhalt(
       auto.set(b.id, treffer.slice(0, b.anzahl).map(zuProdukt));
     }
   }
+
+  // Preis auf Anfrage (Migration 077): in der Mail steht kein Preis.
+  const alle = [...produkte.values(), ...[...auto.values()].flat()];
+  const anfrage = await anfrageIds(supabase, [...new Set(alle.map((p) => p.id))]);
+  for (const p of alle) {
+    if (!anfrage.has(p.id)) continue;
+    p.preis = null;
+    p.reduziert = null;
+    p.aufAnfrage = true;
+  }
   return { produkte, auto };
 }
 
@@ -182,6 +195,9 @@ export function formatiereText(text: string, basis: string): string {
 }
 
 function preisZeile(p: NewsletterProdukt, mitPreis: boolean): string {
+  if (mitPreis && p.aufAnfrage) {
+    return `<div style="margin-top:6px;font-size:13px;font-weight:700;color:${NAVY};">Preis auf Anfrage</div>`;
+  }
   if (!mitPreis || p.preis === null) return "";
   const ab = p.ab > 1 ? `ab ${p.ab} Stk. ` : "";
   const alt = p.reduziert

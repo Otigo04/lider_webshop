@@ -903,6 +903,40 @@ bleiben unberührt.
 Klappmenü und Startseite. Gesucht wird wortweise (`lib/search.ts`), auch für
 Besucher (ohne Preise).
 
+## 💬 Preis auf Anfrage (Migration 077)
+
+Schalter am Artikel (`products.price_on_request`): Artikelformular „Preis auf
+Anfrage", Flags-Menü der Artikelliste und die Flags-Leiste für mehrere
+Artikel.
+
+- **Im Shop**: statt Preis und Warenkorb steht „Preis auf Anfrage". Auf der
+  Artikelseite ersetzt `components/preis-anfrage.tsx` den Kaufbereich: Knopf
+  „Preis anfragen" öffnet eine neue Mail an die Kontaktadresse aus den
+  Firmendaten, mit Artikelname und -nummer im Text (`lib/preisanfrage.ts`;
+  ohne Adresse führt der Knopf auf `/kontakt`). Gilt für Kunden und Besucher.
+- **Wo ausgeblendet wird**: zentral in den Abfragen (`lib/queries/products.ts`)
+  über `anfrageIds()` (`lib/queries/preis-auf-anfrage.ts`, Funktion
+  `preis_auf_anfrage()`): der Artikel kommt mit leeren Staffeln und ohne
+  Vorher-Preis an, die Karten zeigen dann ihren „kein Preis"-Fall. Ebenso
+  Newsletter-Artikel (Text „Preis auf Anfrage") und „Erneut bestellen"
+  (landet unter „nicht mehr lieferbar").
+- **Nicht bestellbar, auch nicht per alten Warenkorb**: BEFORE-INSERT-Trigger
+  auf `order_items` (wie bei der Vorbestellung); `create_order()` bleibt
+  unverändert. Admins (Rechnung aus Katalog) sind ausgenommen.
+- **Die Preise bleiben am Artikel gepflegt** (die Staffel ist weiter
+  Pflicht im Formular): Kasse, Rechnung aus Katalog und Preisschild rechnen
+  damit. Ausgeblendet wird nur im Shop, und nur in der Anzeige: ein
+  angemeldeter Kunde könnte die Staffeln über die REST-Schnittstelle lesen.
+- **Artikelbearbeitung** lädt den Artikel mit `getProduct(id, { preiseBehalten:
+  true })`. Sonst kämen die Staffeln leer an und würden beim Speichern die
+  echten überschreiben.
+- **Ohne Migration** läuft der Shop unverändert weiter (alle Preise sichtbar);
+  „Preis auf Anfrage" setzen meldet dann, dass 077 fehlt.
+- **Nicht angepasst**: Kataloge (`/admin/kataloge`) und Preisschilder drucken
+  den Preis weiter, wie er am Artikel steht.
+
+---
+
 ## 🔍 Bildvorschau (Verweilen auf dem Foto)
 
 `components/bild-vorschau.tsx`. Bleibt der Zeiger auf einem Foto, erscheint

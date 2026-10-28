@@ -122,6 +122,7 @@ const massenSchema = z.object({
     is_topseller: z.boolean().optional(),
     is_restposten: z.boolean().optional(),
     is_preorder: z.boolean().optional(),
+    price_on_request: z.boolean().optional(),
   }),
   eigene: z.record(z.string().uuid(), z.boolean()),
   ware: z.enum(["A", "B", ""]).optional(),

@@ -122,6 +122,12 @@ export interface Product {
   is_preorder: boolean;
   /** Hinweis zur erwarteten Lieferung, z. B. „voraussichtlich KW 45" */
   preorder_note: string | null;
+  /**
+   * Preis auf Anfrage (Migration 077). Im Shop kein Preis und nicht bestellbar;
+   * die Abfragen in lib/queries/products.ts leeren dafür Staffeln und
+   * Vorher-Preis. Fehlt die Spalte noch, ist der Wert undefined.
+   */
+  price_on_request?: boolean;
   /** Folgt automatisch product_images (Trigger, Migration 020) – kein manueller Schalter. */
   has_image: boolean;
   /**

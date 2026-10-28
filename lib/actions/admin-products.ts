@@ -36,6 +36,8 @@ const productSchema = z.object({
   /** Vorbestellbar bei freiem Bestand 0 (Migration 066) */
   is_preorder: z.boolean(),
   preorder_note: z.string().trim().max(120, "Hinweis ist zu lang").optional(),
+  /** Preis auf Anfrage (Migration 077): im Shop kein Preis, nicht bestellbar */
+  price_on_request: z.boolean().optional(),
   stock_available: z.coerce.number().int().min(0),
   /** Ladenpreis für Privatkunden an der Kasse. Leer = nicht gepflegt. */
   retail_price: z.preprocess(
@@ -167,6 +169,23 @@ export async function saveProduct(
     created_by: admin.id,
   });
 
+  // Preis auf Anfrage (Migration 077) getrennt vom Rest: fehlt die Spalte noch,
+  // soll das Speichern aller anderen Artikel nicht daran scheitern. Nur wer das
+  // Flag setzen will, bekommt dann die Meldung.
+  if (!upsertError && data.price_on_request !== undefined) {
+    const { error: anfrageFehler } = await supabase
+      .from("products")
+      .update({ price_on_request: data.price_on_request })
+      .eq("id", data.id);
+    if (anfrageFehler && data.price_on_request) {
+      console.error("[admin] Preis auf Anfrage:", anfrageFehler.message);
+      return {
+        error:
+          "Der Artikel ist gespeichert, „Preis auf Anfrage“ ließ sich aber nicht setzen. Ist Migration 077 eingespielt?",
+      };
+    }
+  }
+
   if (upsertError) {
     console.error("[admin] Artikel speichern:", upsertError.message);
     return {
@@ -262,7 +281,13 @@ export async function saveProduct(
   return { success: "Artikel gespeichert." };
 }
 
-const PRODUCT_FLAGS = ["is_new", "is_topseller", "is_restposten", "is_preorder"] as const;
+const PRODUCT_FLAGS = [
+  "is_new",
+  "is_topseller",
+  "is_restposten",
+  "is_preorder",
+  "price_on_request",
+] as const;
 export type ProductFlag = (typeof PRODUCT_FLAGS)[number];
 
 const flagSchema = z.object({

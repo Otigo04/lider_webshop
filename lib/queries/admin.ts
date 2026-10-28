@@ -558,3 +558,19 @@ export async function getAccessRequest(id: string): Promise<AccessRequest | null
   }
   return (data as AccessRequest) ?? null;
 }
+
+/**
+ * Steht der Artikel auf „Preis auf Anfrage" (Migration 077)? Eigene Abfrage
+ * für die Artikelbearbeitung: getProduct() kennt die Spalte nicht, und fehlt
+ * sie noch, soll die Seite trotzdem laden (dann false).
+ */
+export async function getProductPreisAufAnfrage(id: string): Promise<boolean> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("products")
+    .select("price_on_request")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) return false;
+  return Boolean((data as { price_on_request?: boolean } | null)?.price_on_request);
+}

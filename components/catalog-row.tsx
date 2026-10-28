@@ -84,7 +84,9 @@ export function CatalogRow({
               </>
             )
           ) : (
-            <span className="text-xs text-muted-foreground">Preis nach Anmeldung</span>
+            <span className="text-xs text-muted-foreground">
+              {product.price_on_request ? "Preis auf Anfrage" : "Preis nach Anmeldung"}
+            </span>
           )}
         </span>
       </span>

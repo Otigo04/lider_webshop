@@ -65,7 +65,8 @@ Die Leiste unten (`components/admin/massen-leiste.tsx`) hat zwei Reiter:
 „Aufschlag" (unten beschrieben) und „Flags" (`flags-massen-panel.tsx`).
 
 **Flags für mehrere Artikel**: je Flag „–" (nicht anfassen), „Setzen" oder
-„Entfernen" – feste Flags (Neuheit, Topseller, Restposten, Vorbestellbar), die
+„Entfernen" – feste Flags (Neuheit, Topseller, Restposten, Vorbestellbar,
+Preis auf Anfrage), die
 Güteklasse Restposten und die eigenen Flags aus den Einstellungen. Es ändert
 sich nur, was gewählt ist: eine Neuheit zu setzen nimmt keinem Artikel den
 Topseller. Regeln in `lib/flags-massen.ts` (`tests/flags-massen.test.ts`),

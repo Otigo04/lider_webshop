@@ -71,6 +71,7 @@ interface ProductFormProps {
     restposten_ware: "A" | "B" | null;
     is_preorder: boolean;
     preorder_note: string | null;
+    price_on_request?: boolean;
     stock_available: number;
     retail_price: number | null;
     /** Einkaufspreis aus product_costs (Migration 047); nur für Admins */
@@ -272,6 +273,7 @@ export function ProductForm({
     restposten_ware: null as "A" | "B" | null,
     is_preorder: false,
     preorder_note: "",
+    price_on_request: false,
     stock_available: 0,
     retail_price: retailPrice.trim(),
     cost_price: costPrice.trim(),
@@ -304,6 +306,7 @@ export function ProductForm({
             : null) as "A" | "B" | null,
           is_preorder: formData.get("is_preorder") === "on",
           preorder_note: String(formData.get("preorder_note") ?? ""),
+          price_on_request: formData.get("price_on_request") === "on",
           stock_available: String(formData.get("stock_available") ?? "0"),
         };
         formData.set("payload", JSON.stringify(merged));
@@ -491,6 +494,24 @@ export function ProductForm({
             placeholder="Hinweis für Kunden, z. B. voraussichtlich KW 45"
             aria-label="Hinweis zur Vorbestellung"
           />
+        </div>
+
+        <div className="space-y-1 sm:col-span-2">
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="price_on_request"
+              name="price_on_request"
+              defaultChecked={product?.price_on_request ?? false}
+            />
+            <Label htmlFor="price_on_request" className="font-normal">
+              Preis auf Anfrage
+            </Label>
+          </div>
+          <p className="pl-6 text-xs text-muted-foreground">
+            Im Shop steht statt des Preises „Preis auf Anfrage“ mit einem Knopf, der
+            eine Mail an euch öffnet. Der Artikel lässt sich nicht bestellen. Die
+            Preisstaffeln oben bleiben für Kasse und Rechnung erhalten.
+          </p>
         </div>
       </section>
 

@@ -784,6 +784,7 @@ export default async function AdminProductsPage({
                           is_topseller: product.is_topseller,
                           is_restposten: product.is_restposten,
                           is_preorder: product.is_preorder,
+                          price_on_request: product.price_on_request ?? false,
                         }}
                         customFlags={customFlags}
                         restpostenWare={product.restposten_ware}

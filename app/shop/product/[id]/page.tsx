@@ -10,6 +10,7 @@ import { ProductGallery } from "@/components/product-gallery";
 import { ProductRail } from "@/components/product-rail";
 import { PublicProductCard } from "@/components/public-product-card";
 import { ProductVariantPicker } from "@/components/product-variant-picker";
+import { PreisAnfrage } from "@/components/preis-anfrage";
 import { ProductPurchase } from "@/components/product-purchase";
 import { PublicPurchaseCta } from "@/components/public-purchase-cta";
 import { StockBadge } from "@/components/stock-badge";
@@ -209,13 +210,22 @@ export default async function ProductPage({
             />
 
             <div className="mt-8">
-              <PublicPurchaseCta
-                priceFrom={product.priceFrom}
-                priceTo={product.priceTo}
-                minOrderQuantity={product.minOrderQuantity}
-                listPrice={product.list_price}
-                retailPrice={product.retail_price}
-              />
+              {product.price_on_request ? (
+                <PreisAnfrage
+                  name={product.name}
+                  sku={product.sku}
+                  email={kontakt.email}
+                  phone={kontakt.phone}
+                />
+              ) : (
+                <PublicPurchaseCta
+                  priceFrom={product.priceFrom}
+                  priceTo={product.priceTo}
+                  minOrderQuantity={product.minOrderQuantity}
+                  listPrice={product.list_price}
+                  retailPrice={product.retail_price}
+                />
+              )}
             </div>
 
             <ProductDelivery
@@ -377,20 +387,29 @@ export default async function ProductPage({
           />
 
           <div className="mt-8">
-            <ProductPurchase
-              productId={product.id}
-              productName={product.name}
-              productSku={product.sku}
-              tiers={product.variants}
-              freeStock={free}
-              vorbestellung={
-                vorbestellbar ? { hinweis: product.preorder_note } : null
-              }
-              listPrice={product.list_price}
-              retailPrice={product.retail_price}
-              imagePath={firstImagePath(product.images)}
-              vatRate={company.pos_vat_rate}
-            />
+            {product.price_on_request ? (
+              <PreisAnfrage
+                name={product.name}
+                sku={product.sku}
+                email={company.email}
+                phone={company.phone}
+              />
+            ) : (
+              <ProductPurchase
+                productId={product.id}
+                productName={product.name}
+                productSku={product.sku}
+                tiers={product.variants}
+                freeStock={free}
+                vorbestellung={
+                  vorbestellbar ? { hinweis: product.preorder_note } : null
+                }
+                listPrice={product.list_price}
+                retailPrice={product.retail_price}
+                imagePath={firstImagePath(product.images)}
+                vatRate={company.pos_vat_rate}
+              />
+            )}
           </div>
 
           <ProductDelivery

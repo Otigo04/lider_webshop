@@ -7,7 +7,7 @@ import {
   getProductAttributeValueIds,
   getProductAttributes,
 } from "@/lib/queries/attributes";
-import { getProductCost } from "@/lib/queries/admin";
+import { getProductCost, getProductPreisAufAnfrage } from "@/lib/queries/admin";
 import { getGroupOptions } from "@/lib/queries/groups";
 import { getCategories, getProduct } from "@/lib/queries/products";
 
@@ -24,9 +24,9 @@ export default async function EditProductPage({
 }: PageProps<"/admin/products/[id]/edit">) {
   const { id } = await params;
 
-  const [product, categories, attributes, attributeValueIds, groupOptions, costPrice] =
+  const [product, categories, attributes, attributeValueIds, groupOptions, costPrice, aufAnfrage] =
     await Promise.all([
-      getProduct(id),
+      getProduct(id, { preiseBehalten: true }),
       getCategories(),
       getProductAttributes(),
       getProductAttributeValueIds(id),
@@ -34,6 +34,7 @@ export default async function EditProductPage({
       // Eigene Abfrage, weil getProduct() auch die öffentliche Artikelseite
       // speist – siehe getProductCost().
       getProductCost(id),
+      getProductPreisAufAnfrage(id),
     ]);
   if (!product) notFound();
 
@@ -68,6 +69,7 @@ export default async function EditProductPage({
             restposten_ware: product.restposten_ware,
             is_preorder: product.is_preorder,
             preorder_note: product.preorder_note,
+            price_on_request: aufAnfrage,
             stock_available: product.stock_available,
             retail_price: product.retail_price,
             cost_price: costPrice,

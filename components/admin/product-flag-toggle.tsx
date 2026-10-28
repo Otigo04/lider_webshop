@@ -28,6 +28,7 @@ const FLAG_LABELS: Record<ProductFlag, string> = {
   is_topseller: "Topseller",
   is_restposten: "Restposten",
   is_preorder: "Vorbestellbar",
+  price_on_request: "Preis auf Anfrage",
 };
 
 /**

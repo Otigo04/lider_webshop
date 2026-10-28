@@ -1,0 +1,28 @@
+/*
+ * „Preis auf Anfrage" (Migration 077): der Knopf öffnet eine neue Mail an die
+ * Kontaktadresse aus den Firmendaten, mit Artikelname und -nummer im Text. Ohne
+ * gepflegte Adresse führt der Knopf auf die Kontaktseite – nie ins Leere.
+ */
+
+export function preisAnfrageLink(
+  email: string | null | undefined,
+  name: string,
+  sku: string,
+): string {
+  const adresse = email?.trim();
+  if (!adresse || /[\s,;<>]/.test(adresse)) return "/kontakt";
+  const betreff = `Preisanfrage: ${name} (${sku})`;
+  const text = [
+    "Guten Tag,",
+    "",
+    "bitte nennen Sie mir den Preis für diesen Artikel:",
+    "",
+    name,
+    `Artikelnummer: ${sku}`,
+    "",
+    "Gewünschte Menge: ",
+    "",
+    "Vielen Dank",
+  ].join("\r\n");
+  return `mailto:${adresse}?subject=${encodeURIComponent(betreff)}&body=${encodeURIComponent(text)}`;
+}

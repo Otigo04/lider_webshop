@@ -5,7 +5,13 @@
  * Oberfläche rufen dieselbe Funktion – die Vorschau zählt, was später gilt.
  */
 
-export const FESTE_FLAGS = ["is_new", "is_topseller", "is_restposten", "is_preorder"] as const;
+export const FESTE_FLAGS = [
+  "is_new",
+  "is_topseller",
+  "is_restposten",
+  "is_preorder",
+  "price_on_request",
+] as const;
 export type FesterFlag = (typeof FESTE_FLAGS)[number];
 
 export const FESTE_FLAG_LABELS: Record<FesterFlag, string> = {
@@ -13,6 +19,7 @@ export const FESTE_FLAG_LABELS: Record<FesterFlag, string> = {
   is_topseller: "Topseller",
   is_restposten: "Restposten",
   is_preorder: "Vorbestellbar",
+  price_on_request: "Preis auf Anfrage",
 };
 
 /** Was mit einem Flag passiert: nichts, setzen, entfernen. */

@@ -96,7 +96,7 @@ export function CatalogCard({
               )
             ) : (
               <p className="text-xs text-muted-foreground">
-                Preis nach Anmeldung
+                {product.price_on_request ? "Preis auf Anfrage" : "Preis nach Anmeldung"}
               </p>
             )}
             {/* „Abnahme ab 1 Stück" sagt nichts – der Hinweis erscheint erst,

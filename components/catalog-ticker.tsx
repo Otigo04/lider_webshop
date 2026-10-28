@@ -119,7 +119,7 @@ function TickerCard({
           </span>
         ) : (
           <span className="mt-0.5 block text-xs text-surface-dark-muted">
-            Preis nach Anmeldung
+            {product.price_on_request ? "Preis auf Anfrage" : "Preis nach Anmeldung"}
           </span>
         )}
       </span>

@@ -2,6 +2,7 @@ import "server-only";
 import { INVOICE_BUCKET } from "@/lib/constants";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { anfrageIds } from "@/lib/queries/preis-auf-anfrage";
 import { freeStock, minOrderQuantity } from "@/lib/pricing";
 import { firstImagePath } from "@/lib/queries/products";
 import type {
@@ -137,6 +138,8 @@ export async function getNachbestellung(items: OrderItem[]): Promise<Nachbestell
     images: ProductImage[] | null;
   };
   const artikel = (data ?? []) as unknown as Zeile[];
+  // Preis auf Anfrage (Migration 077): lässt sich nicht erneut bestellen.
+  const anfrage = await anfrageIds(supabase, artikel.map((a) => a.id));
   const nachId = new Map(artikel.map((a) => [a.id, a]));
   const nachSku = new Map(artikel.map((a) => [a.sku, a]));
 
@@ -153,7 +156,14 @@ export async function getNachbestellung(items: OrderItem[]): Promise<Nachbestell
     const min = minOrderQuantity(tiers);
 
     // Dieselben Regeln wie im Sortiment: aktiv, mit Foto, mit Preis, auf Lager.
-    if (!a || !a.is_active || !a.has_image || tiers.length === 0 || frei < min) {
+    if (
+      !a ||
+      !a.is_active ||
+      !a.has_image ||
+      tiers.length === 0 ||
+      frei < min ||
+      anfrage.has(a.id)
+    ) {
       fehlend.push(item.product_name);
       continue;
     }

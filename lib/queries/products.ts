@@ -1,3 +1,4 @@
+import { anfrageIds } from "@/lib/queries/preis-auf-anfrage";
 import "server-only";
 import type { ProductFlag } from "@/lib/actions/admin-products";
 import { createClient } from "@/lib/supabase/server";
@@ -57,6 +58,8 @@ export interface PublicProductListItem {
   is_topseller: boolean;
   is_restposten: boolean;
   restposten_ware: RestpostenWare | null;
+  /** Preis auf Anfrage (Migration 077): keine Preise, nicht bestellbar */
+  price_on_request?: boolean;
   /** Aufnahmedatum – trägt zusammen mit is_new das Neu-Label (lib/product-flags.ts) */
   created_at: string;
   imageUrl: string | null;
@@ -349,9 +352,25 @@ export async function getProducts(options?: {
 
   // Alle Titelbilder in einem Rutsch signieren statt pro Artikel einzeln.
   const coverPaths = rows.map((row) => firstImagePath(row.images));
-  const urls = await getImageUrls(coverPaths);
+  const [urls, anfrage] = await Promise.all([
+    getImageUrls(coverPaths),
+    anfrageIds(supabase, rows.map((row) => row.id)),
+  ]);
 
   return rows.map((row, index) => {
+    // Preis auf Anfrage (Migration 077): ohne Staffeln und Vorher-Preise kommt
+    // der Artikel an – dort, wo kein Preis da ist, steht „Preis auf Anfrage".
+    if (anfrage.has(row.id)) {
+      return {
+        ...row,
+        price_on_request: true,
+        variants: [],
+        list_price: null,
+        retail_price: null,
+        imageUrl: urls[index],
+        imagePath: coverPaths[index],
+      };
+    }
     const variants = row.variants ?? [];
     return {
       ...row,
@@ -394,7 +413,17 @@ export async function getKundenKauftenAuch(
   return items.sort((a, b) => (rang.get(a.id) ?? 0) - (rang.get(b.id) ?? 0));
 }
 
-export async function getProduct(id: string): Promise<ProductDetail | null> {
+export async function getProduct(
+  id: string,
+  optionen?: {
+    /**
+     * Staffeln und Vorher-Preis auch bei „Preis auf Anfrage" behalten. Nur für
+     * die Artikelbearbeitung im Admin: das Formular speichert die Staffeln als
+     * Sollzustand, leere würden die echten Preise überschreiben.
+     */
+    preiseBehalten?: boolean;
+  },
+): Promise<ProductDetail | null> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("products")
@@ -415,7 +444,24 @@ export async function getProduct(id: string): Promise<ProductDetail | null> {
   };
 
   const images = sortImages(row.images ?? []);
-  const imageUrls = await getImageUrls(images.map((image) => image.file_path));
+  const [imageUrls, anfrage] = await Promise.all([
+    getImageUrls(images.map((image) => image.file_path)),
+    optionen?.preiseBehalten ? new Set<string>() : anfrageIds(supabase, [row.id]),
+  ]);
+
+  // Preis auf Anfrage (Migration 077): keine Staffeln, kein Vorher-Preis.
+  if (anfrage.has(row.id)) {
+    return {
+      ...row,
+      price_on_request: true,
+      variants: [],
+      list_price: null,
+      retail_price: null,
+      images,
+      category: row.category ?? null,
+      imageUrls,
+    };
+  }
 
   const variants = row.variants ?? [];
   return {
@@ -487,9 +533,10 @@ export async function getPublicProducts(options?: {
   }
 
   const ids = (products ?? []).map((p) => p.id as string);
-  const [coverPaths, preise, gruppen] = await Promise.all([
+  const [coverPaths, preise, anfrage, gruppen] = await Promise.all([
     firstImagePathsFor(supabase, ids),
     priceRangesFor(supabase, ids),
+    anfrageIds(supabase, ids),
     groupNamesFor(
       supabase,
       (products ?? []).map((p) => (p.group_id as string | null) ?? null),
@@ -498,7 +545,8 @@ export async function getPublicProducts(options?: {
   const urls = await getImageUrls(ids.map((id) => coverPaths.get(id) ?? null));
 
   return (products ?? []).map((row, index) => {
-    const preis = preise.get(row.id as string);
+    const aufAnfrage = anfrage.has(row.id as string);
+    const preis = aufAnfrage ? undefined : preise.get(row.id as string);
     const groupId = (row.group_id as string | null) ?? null;
     return {
       id: row.id as string,
@@ -517,8 +565,9 @@ export async function getPublicProducts(options?: {
       priceFrom: preis?.min_unit_price ?? null,
       priceTo: preis?.max_unit_price ?? null,
       minOrderQuantity: preis?.min_order_quantity ?? null,
-      list_price: (row.list_price as number | null) ?? null,
-      retail_price: bezugFuer(row, preis),
+      list_price: aufAnfrage ? null : ((row.list_price as number | null) ?? null),
+      retail_price: aufAnfrage ? null : bezugFuer(row, preis),
+      price_on_request: aufAnfrage,
     };
   });
 }
@@ -744,9 +793,10 @@ export async function getLandingData(perSection = 8): Promise<LandingData> {
       ),
     ),
   ];
-  const [coverPaths, preise, gruppenNamen] = await Promise.all([
+  const [coverPaths, preise, anfrage, gruppenNamen] = await Promise.all([
     firstImagePathsFor(supabase, ids),
     priceRangesFor(supabase, ids),
+    anfrageIds(supabase, ids),
     groupNamesFor(
       supabase,
       rows.map((row) => (row.group_id as string | null) ?? null),
@@ -757,7 +807,8 @@ export async function getLandingData(perSection = 8): Promise<LandingData> {
 
   const zuArtikel = (row: (typeof rows)[number]): PublicProductListItem => {
     const id = row.id as string;
-    const preis = preise.get(id);
+    const aufAnfrage = anfrage.has(id);
+    const preis = aufAnfrage ? undefined : preise.get(id);
     const groupId = (row.group_id as string | null) ?? null;
     return {
       id,
@@ -777,8 +828,9 @@ export async function getLandingData(perSection = 8): Promise<LandingData> {
       priceFrom: preis?.min_unit_price ?? null,
       priceTo: preis?.max_unit_price ?? null,
       minOrderQuantity: preis?.min_order_quantity ?? null,
-      list_price: (row.list_price as number | null) ?? null,
-      retail_price: bezugFuer(row, preis),
+      list_price: aufAnfrage ? null : ((row.list_price as number | null) ?? null),
+      retail_price: aufAnfrage ? null : bezugFuer(row, preis),
+      price_on_request: aufAnfrage,
     };
   };
 
@@ -893,11 +945,13 @@ export async function getPublicProduct(id: string): Promise<PublicProductDetail 
     .eq("product_id", id);
 
   const images = sortImages((imageRows ?? []) as ProductImage[]);
-  const [imageUrls, preise] = await Promise.all([
+  const [imageUrls, preise, anfrage] = await Promise.all([
     getImageUrls(images.map((image) => image.file_path)),
     priceRangesFor(supabase, [id]),
+    anfrageIds(supabase, [id]),
   ]);
-  const preis = preise.get(id);
+  const aufAnfrage = anfrage.has(id);
+  const preis = aufAnfrage ? undefined : preise.get(id);
 
   const row = data as unknown as {
     id: string;
@@ -936,8 +990,9 @@ export async function getPublicProduct(id: string): Promise<PublicProductDetail 
     priceFrom: preis?.min_unit_price ?? null,
     priceTo: preis?.max_unit_price ?? null,
     minOrderQuantity: preis?.min_order_quantity ?? null,
-    list_price: row.list_price,
-    retail_price: bezugFuer(row, preis),
+    list_price: aufAnfrage ? null : row.list_price,
+    retail_price: aufAnfrage ? null : bezugFuer(row, preis),
+    price_on_request: aufAnfrage,
   };
 }
 
