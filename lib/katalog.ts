@@ -116,6 +116,11 @@ export interface KatalogArtikel {
   topseller: boolean;
   bildUrl: string | null;
   merkmale: { merkmal: string; wert: string }[];
+  /**
+   * Preis auf Anfrage (Migration 077): bleibt im Katalog, wird aber ohne Preis
+   * gedruckt – in jeder Preisart. Fehlt die Angabe, gilt „nein".
+   */
+  aufAnfrage?: boolean;
 }
 
 // --- Preis -------------------------------------------------------------------
@@ -149,7 +154,7 @@ export function katalogPreis(
   artikel: KatalogArtikel,
   preisart: KatalogPreisart,
 ): KatalogPreis | null {
-  if (preisart === "ohne") return null;
+  if (preisart === "ohne" || artikel.aufAnfrage) return null;
 
   if (preisart === "laden") {
     if (artikel.laden === null || !(artikel.laden > 0)) return null;
@@ -438,7 +443,9 @@ function baueAbschnitte(
     }
 
     const mitPreis = mitglieder.filter((a) => {
-      if (preisart === "ohne" || katalogPreis(a, preisart) !== null) return true;
+      // Preis auf Anfrage steht ohne Preis im Heft; das ist gewollt und keine
+      // Warnung „Artikel ohne Preis" wert.
+      if (preisart === "ohne" || a.aufAnfrage || katalogPreis(a, preisart) !== null) return true;
       ohnePreis.push(a.id);
       return false;
     });

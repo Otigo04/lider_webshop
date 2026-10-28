@@ -287,9 +287,10 @@ export async function getKatalogArtikel(
         (a, b) => a.display_order - b.display_order,
       )[0]?.file_path ?? null,
   );
-  const [urls, merkmale] = await Promise.all([
+  const [urls, merkmale, aufAnfrage] = await Promise.all([
     signiere(bildPfade),
     ladeMerkmale(rows.map((r) => r.id), ids !== undefined),
+    ladeAufAnfrage(supabase),
   ]);
 
   const jetzt = new Date();
@@ -317,11 +318,40 @@ export async function getKatalogArtikel(
     topseller: row.is_topseller,
     bildUrl: urls[index],
     merkmale: merkmale.get(row.id) ?? [],
+    aufAnfrage: aufAnfrage.has(row.id),
   }));
 
   if (!ids) return artikel;
   const nachId = new Map(artikel.map((a) => [a.id, a]));
   return ids.flatMap((id) => nachId.get(id) ?? []);
+}
+
+/**
+ * Artikel mit „Preis auf Anfrage" (Migration 077). Alle gekennzeichneten statt
+ * einer Abfrage je Auswahl: es sind wenige, und eine `.in()`-Liste mit
+ * tausend Kennungen wäre mehr Aufwand als das Ergebnis. Fehlt die Spalte noch,
+ * ist die Menge leer – der Katalog druckt dann wie bisher.
+ */
+async function ladeAufAnfrage(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+): Promise<Set<string>> {
+  const ids = new Set<string>();
+  for (let von = 0; ; von += SEITENGROESSE) {
+    const { data, error } = await supabase
+      .from("products")
+      .select("id")
+      .eq("price_on_request", true)
+      .order("id")
+      .range(von, von + SEITENGROESSE - 1);
+    if (error) {
+      // 42703: Spalte unbekannt, Migration 077 fehlt.
+      if (error.code !== "42703") console.error("[kataloge] Preis auf Anfrage:", error.message);
+      return new Set();
+    }
+    for (const z of data ?? []) ids.add(z.id as string);
+    if ((data ?? []).length < SEITENGROESSE) break;
+  }
+  return ids;
 }
 
 /** Signed URLs in Blöcken – tausend Pfade in einem Aufruf sind einer zu viel. */

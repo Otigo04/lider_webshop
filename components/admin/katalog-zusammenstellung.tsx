@@ -204,6 +204,7 @@ export function KatalogZusammenstellung({
                 const marken = [
                   fehlt.foto.has(a.id) ? { text: "kein Foto", ernst: true } : null,
                   fehlt.preis.has(a.id) ? { text: "kein Preis", ernst: true } : null,
+                  a.aufAnfrage ? { text: "Preis auf Anfrage", ernst: false } : null,
                   !istBald(a) && a.bestand <= 0 ? { text: "ausverkauft", ernst: false } : null,
                   !a.aktiv ? { text: "ausgeblendet", ernst: false } : null,
                 ].filter((m) => m !== null);

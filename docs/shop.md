@@ -940,8 +940,14 @@ Artikel.
   echten überschreiben.
 - **Ohne Migration** läuft der Shop unverändert weiter (alle Preise sichtbar);
   „Preis auf Anfrage" setzen meldet dann, dass 077 fehlt.
-- **Nicht angepasst**: Kataloge (`/admin/kataloge`) und Preisschilder drucken
-  den Preis weiter, wie er am Artikel steht.
+- **Kataloge** (`/admin/kataloge`): ein Artikel mit „Preis auf Anfrage" bleibt
+  im Heft, wird aber in jeder Preisart ohne Preis gedruckt (`aufAnfrage` in
+  `KatalogArtikel`, `katalogPreis()` liefert null; `tests/katalog-anfrage.test.ts`).
+  Er zählt nicht als „kein Preis", die Werkbank markiert ihn mit „Preis auf
+  Anfrage". Gelesen in `lib/queries/kataloge.ts` direkt aus `products`, damit
+  auch ausgeblendete Artikel stimmen.
+- **Nicht angepasst**: Preisschilder drucken den Preis weiter, wie er am
+  Artikel steht (Regalschild im Laden).
 
 ---
 
