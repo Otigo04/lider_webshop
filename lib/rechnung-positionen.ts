@@ -144,3 +144,47 @@ export function positionsFehler(
   }
   return null;
 }
+
+/**
+ * Positionen einer bestehenden Bestellung als Formularzeilen – damit sich ein
+ * Beleg bearbeiten lässt, ohne alles noch einmal einzugeben. Eine Position mit
+ * Artikelnummer, die es im Katalog noch gibt, wird eine Katalogzeile (Preis und
+ * Menge wie gebucht, der Preis gilt als von Hand gesetzt: eine neue Menge soll
+ * ihn nicht still ändern). Alles andere – freie Positionen, gelöschte Artikel –
+ * wird eine freie Zeile mit Name, Menge, Preis und Barcode.
+ */
+export function positionenAusBestellung(
+  items: {
+    product_sku: string;
+    product_name: string;
+    quantity: number | string;
+    unit_price: number | string;
+    barcode?: string | null;
+  }[],
+  produkte: { id: string; sku: string }[],
+): Position[] {
+  const nachSku = new Map(produkte.map((p) => [p.sku, p.id]));
+  return items.map((item, i): Position => {
+    const produktId = item.product_sku ? nachSku.get(item.product_sku) : undefined;
+    const quantity = Number(item.quantity);
+    const unitPrice = Number(item.unit_price);
+    if (produktId) {
+      return {
+        art: "katalog",
+        key: `alt-${i}`,
+        productId: produktId,
+        quantity,
+        unitPrice,
+        preisManuell: true,
+      };
+    }
+    return {
+      art: "frei",
+      key: `alt-${i}`,
+      barcode: item.barcode?.trim() ?? "",
+      description: item.product_name,
+      quantity,
+      unitPrice,
+    };
+  });
+}

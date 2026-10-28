@@ -151,6 +151,26 @@ Oben im Formular stehen zwei Wahlen:
   Preise kommen beim Zeichnen aus der Bestellung, beide Fassungen lassen sich
   jederzeit neu öffnen. Vermerk: „Preise netto, ohne Umsatzsteuer. Dieser
   Lieferschein ist keine Rechnung."
+- **Bearbeiten** (Migration 081): auf der Bestellseite „Rechnung bearbeiten" bzw.
+  „Lieferschein bearbeiten" (`/kasse/rechnungen/bearbeiten/[orderId]`). Dasselbe
+  Formular, **alle bisherigen Positionen schon eingetragen**
+  (`positionenAusBestellung()`): wer etwas ergänzt, tippt nur das Neue. Kunde und
+  Belegart stehen fest; ohne Konto sind Name und Anschrift änderbar.
+  - **Lieferschein** (Bestellung ohne Rechnung): wird an Ort und Stelle geändert,
+    Nummer `LG-…` bleibt (`update_admin_order`). Bestand: erst die alten
+    Katalogmengen zurück, dann die neuen ab – netto die Differenz.
+  - **Rechnung**: wird **nie überschrieben**. Beim Speichern entsteht eine neue
+    Bestellung mit neuer Rechnung (neue Nummern, Mail an Kunden mit Konto), danach
+    wird die alte storniert (`cancel_invoice`, Stornorechnung mit Grund „Geändert,
+    ersetzt durch Rechnung LD…", Mail an Kunden mit Konto) und ihr Bestand
+    zurückgebucht (`restore_order_stock`, einmal je Bestellung). Die neue Rechnung
+    kommt zuerst: ein Fehler in den Angaben fällt auf, bevor etwas storniert ist.
+    Scheitert der Storno danach, steht in der Meldung, welche Rechnung von Hand zu
+    stornieren ist. Ist die alte Rechnung schon bezahlt, bleibt die Erstattung wie
+    beim normalen Storno Handarbeit.
+  - Der Bestand wird über die **Artikelnummer** der Position zurückgebucht; eine
+    Katalogposition behält ihre Staffel (`product_variant_id`) jetzt auch mit
+    überschriebenem Preis.
 - **Kunde**: *mit Konto* (Auswahl wie bisher) oder *ohne Konto, nur Name* mit
   optionaler Anschrift (Straße, PLZ, Ort). Ohne Konto sind `orders.customer_id`
   und `invoices.customer_id` NULL, Name und Anschrift stehen als Text an der

@@ -4,6 +4,7 @@ import {
   belegSummen,
   findeArtikel,
   istCode,
+  positionenAusBestellung,
   positionenPayload,
   positionsFehler,
   stufenpreis,
@@ -112,4 +113,25 @@ test("Lieferschein: kein Preis nötig, Menge und Beschreibung schon", () => {
     "Position 1: Beschreibung fehlt.",
   );
   assert.equal(positionsFehler([kat(0, 0)], { ohnePreise: true }), "Position 1: Menge fehlt.");
+});
+
+test("Bearbeiten: Positionen der Bestellung kommen als Zeilen zurück", () => {
+  const produkte = [{ id: "p1", sku: "12-0001" }];
+  const z = positionenAusBestellung(
+    [
+      { product_sku: "12-0001", product_name: "Anti Stress Fisch", quantity: 12, unit_price: "2.50" },
+      { product_sku: "", product_name: "Lieferung", quantity: 1, unit_price: 10, barcode: " 4006381333931 " },
+      { product_sku: "99-9999", product_name: "Gelöschter Artikel", quantity: 2, unit_price: 3 },
+    ],
+    produkte,
+  );
+  assert.equal(z[0].art, "katalog");
+  assert.equal(z[0].art === "katalog" && z[0].productId, "p1");
+  assert.equal(z[0].unitPrice, 2.5);
+  assert.equal(z[0].art === "katalog" && z[0].preisManuell, true);
+  assert.equal(z[1].art, "frei");
+  assert.equal(z[1].art === "frei" && z[1].barcode, "4006381333931");
+  assert.equal(z[2].art, "frei");
+  assert.equal(z[2].art === "frei" && z[2].description, "Gelöschter Artikel");
+  assert.equal(new Set(z.map((p) => p.key)).size, 3, "Schlüssel sind eindeutig");
 });

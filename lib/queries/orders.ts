@@ -63,19 +63,24 @@ export async function getOrders(options?: {
 }
 
 /**
- * Angaben zu einem Kunden ohne Konto (Migration 080). Eigene Spaltenliste, die
- * nur angehängt wird, wenn es die Spalten gibt: der Checkout liest Bestellungen
- * über dieselbe Funktion, und eine fehlende Migration darf ihn nicht kippen.
+ * Angaben zu einem Kunden ohne Konto (Migration 080) und der Barcode einer
+ * freien Position (Migration 079). Beides hängt nur an, wenn es die Spalten
+ * gibt: der Checkout liest Bestellungen über dieselbe Funktion, und eine
+ * fehlende Migration darf ihn nicht kippen.
  */
 const GAST_SPALTEN = "customer_label, customer_street, customer_zip, customer_city";
+const ORDER_COLUMNS_MIT_BARCODE = ORDER_COLUMNS.replace(
+  "is_preorder, created_at",
+  "is_preorder, barcode, created_at",
+);
 
 async function ladeBestellung(id: string, zusatz = "") {
   const supabase = await createClient();
   const abfrage = (spalten: string) =>
     supabase.from("orders").select(`${spalten}${zusatz}`).eq("id", id).maybeSingle();
 
-  let ergebnis = await abfrage(`${ORDER_COLUMNS}, ${GAST_SPALTEN}`);
-  // 42703: Spalte unbekannt, Migration 080 fehlt – dann ohne die Gast-Angaben.
+  let ergebnis = await abfrage(`${ORDER_COLUMNS_MIT_BARCODE}, ${GAST_SPALTEN}`);
+  // 42703: Spalte unbekannt (Migration 079/080 fehlt) – dann ohne die neuen Spalten.
   if (ergebnis.error?.code === "42703") ergebnis = await abfrage(ORDER_COLUMNS);
   return ergebnis;
 }

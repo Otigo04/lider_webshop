@@ -5,6 +5,7 @@ import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { generateAndSendOrderInvoice } from "@/lib/actions/invoicing";
+import { erzeugeStornoRechnung } from "@/lib/storno-erzeugen";
 import type { AdminFormState } from "@/lib/actions/admin-categories";
 import {
   isZahlungsvermerkKey,
@@ -24,8 +25,12 @@ export interface InvoiceActionState {
   error?: string;
   orderId?: string;
   invoiceId?: string;
-  /** Was angelegt wurde: Rechnung oder Lieferschein (ohne Preise) */
+  /** Was angelegt wurde: Rechnung oder Lieferschein */
   beleg?: "rechnung" | "lieferschein";
+  /** Beim Ändern: Nummer der Rechnung, die storniert und ersetzt wurde */
+  ersetzt?: string;
+  /** Etwas Nebensächliches, das nicht geklappt hat – die Änderung gilt trotzdem */
+  hinweis?: string;
 }
 
 /** Katalogartikel: Preis aus der Staffel, es sei denn, `unit_price` überschreibt ihn. */
@@ -100,19 +105,10 @@ const catalogSchema = z
     }
   });
 
-/**
- * Admin legt einen Beleg für einen Kunden an: Bestellung plus Rechnung oder,
- * als Lieferschein, Bestellung ohne Rechnung und ohne Preise. Katalogartikel
- * und freie Positionen in einer Liste; der Kunde hat ein Konto oder steht nur
- * mit Namen da (Migration 080). Läuft danach in dieselbe Rechnungs-Pipeline
- * wie der normale Checkout.
- */
-export async function createInvoiceOrder(
-  _prevState: InvoiceActionState,
-  formData: FormData,
-): Promise<InvoiceActionState> {
-  await requireAdmin();
+type BelegDaten = z.infer<typeof catalogSchema>;
 
+/** Formularfelder lesen und prüfen – für Anlegen und Ändern dieselbe Stelle. */
+function belegAusFormular(formData: FormData): { error: string } | { d: BelegDaten } {
   let rawItems: unknown;
   try {
     rawItems = JSON.parse(String(formData.get("items") ?? "[]"));
@@ -134,17 +130,18 @@ export async function createInvoiceOrder(
     delivery_method: formData.get("delivery_method") || "pickup",
     apply_condition: formData.get("apply_condition") !== "0",
   });
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  return { d: parsed.data };
+}
 
-  if (!parsed.success) {
-    return { error: parsed.error.issues[0].message };
-  }
-
-  const d = parsed.data;
+/**
+ * Parameter für create_admin_order / update_admin_order. Die Angaben ohne
+ * Konto gehen nur mit, wenn es sie gibt: so läuft ein Aufruf für ein Konto auch,
+ * solange Migration 080 noch fehlt.
+ */
+function belegParameter(d: BelegDaten) {
   const ohneKonto = d.kunde_art === "frei";
-
-  const supabase = await createClient();
-  const { data, error } = await supabase.rpc("create_admin_order", {
-    p_customer_id: ohneKonto ? null : d.customer_id,
+  return {
     p_items: d.items,
     p_notes: d.notes ?? null,
     p_delivery_address: d.delivery_address ?? null,
@@ -152,8 +149,6 @@ export async function createInvoiceOrder(
     // Ohne Konto gibt es keine Sonderkondition; beim Lieferschein ohne Preise
     // schickt das Formular „0" (es gibt keine Beträge, die sie senken könnte).
     p_apply_condition: !ohneKonto && d.apply_condition,
-    // Die Angaben ohne Konto nur dann mitschicken, wenn es sie gibt: so läuft
-    // ein Aufruf für ein Konto auch, solange Migration 080 noch fehlt.
     ...(ohneKonto
       ? {
           p_customer_label: d.customer_label ?? null,
@@ -162,13 +157,28 @@ export async function createInvoiceOrder(
           p_customer_city: d.customer_city ?? null,
         }
       : {}),
+  };
+}
+
+/**
+ * Bestellung anlegen und, bei einer Rechnung, die Rechnung stellen und
+ * verschicken. Gemeinsam für „Neue Rechnung" und das Ersetzen einer
+ * Rechnung beim Bearbeiten.
+ */
+async function legeBelegAn(
+  d: BelegDaten,
+  formData: FormData,
+): Promise<{ error: string } | { orderId: string; beleg: "rechnung" | "lieferschein" }> {
+  const ohneKonto = d.kunde_art === "frei";
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("create_admin_order", {
+    p_customer_id: ohneKonto ? null : d.customer_id,
+    ...belegParameter(d),
   });
 
   if (error || !data) {
     console.error("[admin] create_admin_order:", error?.message);
-    return {
-      error: error?.message || "Die Bestellung konnte nicht angelegt werden.",
-    };
+    return { error: error?.message || "Die Bestellung konnte nicht angelegt werden." };
   }
 
   const order = data as { id: string; order_number: string };
@@ -207,6 +217,132 @@ export async function createInvoiceOrder(
   revalidatePath("/admin/orders");
   revalidatePath("/kasse/rechnungen");
   return { orderId: order.id, beleg: "rechnung" };
+}
+
+/**
+ * Admin legt einen Beleg für einen Kunden an: Bestellung plus Rechnung oder,
+ * als Lieferschein, Bestellung ohne Rechnung. Katalogartikel und freie
+ * Positionen in einer Liste; der Kunde hat ein Konto oder steht nur mit Namen
+ * da (Migration 080). Läuft danach in dieselbe Rechnungs-Pipeline wie der
+ * normale Checkout.
+ */
+export async function createInvoiceOrder(
+  _prevState: InvoiceActionState,
+  formData: FormData,
+): Promise<InvoiceActionState> {
+  await requireAdmin();
+  const gelesen = belegAusFormular(formData);
+  if ("error" in gelesen) return { error: gelesen.error };
+  return legeBelegAn(gelesen.d, formData);
+}
+
+/**
+ * Beleg ändern (Migration 081).
+ *
+ * - **Lieferschein** (Bestellung ohne Rechnung): wird an Ort und Stelle
+ *   geändert, die Nummer bleibt, der Bestand bucht die Differenz.
+ * - **Rechnung**: wird nie überschrieben. Die geänderte Fassung entsteht als
+ *   neue Bestellung mit neuer Rechnung; erst danach wird die alte storniert
+ *   (Stornorechnung wie gewohnt) und ihr Bestand zurückgebucht – netto bleibt die
+ *   Differenz. So scheitert nichts Halbes: ein Fehler in den Angaben fällt
+ *   auf, bevor irgendetwas storniert ist.
+ */
+export async function updateInvoiceOrder(
+  _prevState: InvoiceActionState,
+  formData: FormData,
+): Promise<InvoiceActionState> {
+  await requireAdmin();
+
+  const orderId = String(formData.get("order_id") ?? "");
+  if (!z.string().uuid().safeParse(orderId).success) {
+    return { error: "Keine Bestellung ausgewählt." };
+  }
+  const gelesen = belegAusFormular(formData);
+  if ("error" in gelesen) return { error: gelesen.error };
+  const d = gelesen.d;
+
+  const supabase = await createClient();
+  const { data: alt, error: altFehler } = await supabase
+    .from("orders")
+    .select("id, status, order_number")
+    .eq("id", orderId)
+    .maybeSingle();
+  if (altFehler || !alt) {
+    console.error("[admin] Bestellung zum Ändern laden:", altFehler?.message);
+    return { error: "Die Bestellung konnte nicht geladen werden." };
+  }
+  if (alt.status === "cancelled") {
+    return { error: "Die Bestellung ist storniert und lässt sich nicht ändern." };
+  }
+
+  const { data: rechnung } = await supabase
+    .from("invoices")
+    .select("id, invoice_number")
+    .eq("order_id", orderId)
+    .neq("status", "cancelled")
+    .maybeSingle();
+
+  // --- Lieferschein: an Ort und Stelle -------------------------------------
+  if (!rechnung) {
+    const { error } = await supabase.rpc("update_admin_order", {
+      p_order_id: orderId,
+      ...belegParameter(d),
+    });
+    if (error) {
+      console.error("[admin] update_admin_order:", error.message);
+      return { error: error.message || "Der Lieferschein konnte nicht geändert werden." };
+    }
+    revalidatePath("/admin/orders");
+    revalidatePath(`/admin/orders/${orderId}`);
+    return { orderId, beleg: "lieferschein" };
+  }
+
+  // --- Rechnung: neu stellen, alte stornieren --------------------------------
+  const neu = await legeBelegAn({ ...d, beleg: "rechnung" }, formData);
+  if ("error" in neu) return { error: neu.error };
+
+  const { data: neueRechnung } = await supabase
+    .from("invoices")
+    .select("invoice_number")
+    .eq("order_id", neu.orderId)
+    .maybeSingle();
+  const neueNummer = neueRechnung?.invoice_number ?? "die neue Rechnung";
+
+  const { error: stornoFehler } = await supabase.rpc("cancel_invoice", {
+    p_invoice_id: rechnung.id,
+    p_reason: `Geändert, ersetzt durch Rechnung ${neueNummer}`,
+  });
+  if (stornoFehler) {
+    console.error("[admin] Storno beim Ändern:", stornoFehler.message);
+    revalidatePath("/admin/orders");
+    revalidatePath("/kasse/rechnungen");
+    return {
+      error: `Die neue Rechnung ${neueNummer} ist angelegt, die alte (${rechnung.invoice_number}) ließ sich aber nicht stornieren: ${stornoFehler.message} Bitte die alte Rechnung auf ihrer Bestellseite von Hand stornieren.`,
+    };
+  }
+
+  // Stornorechnung (PDF, auf Wunsch Mail an Kunden mit Konto) und Bestand der
+  // alten Bestellung zurück. Beides darf die Änderung nicht mehr kippen.
+  const hinweise: string[] = [];
+  const pdf = await erzeugeStornoRechnung(rechnung.id, { mail: d.kunde_art === "konto" });
+  if (!pdf.ok) hinweise.push(`Das PDF der Stornorechnung fehlt noch: ${pdf.error}`);
+  const { error: bestandFehler } = await supabase.rpc("restore_order_stock", {
+    p_order_id: orderId,
+  });
+  if (bestandFehler) {
+    console.error("[admin] Bestand zurückbuchen:", bestandFehler.message);
+    hinweise.push("Der Bestand der alten Bestellung konnte nicht zurückgebucht werden.");
+  }
+
+  revalidatePath("/admin/orders");
+  revalidatePath(`/admin/orders/${orderId}`);
+  revalidatePath("/kasse/rechnungen");
+  return {
+    orderId: neu.orderId,
+    beleg: "rechnung",
+    ersetzt: rechnung.invoice_number,
+    ...(hinweise.length > 0 ? { hinweis: hinweise.join(" ") } : {}),
+  };
 }
 
 /**

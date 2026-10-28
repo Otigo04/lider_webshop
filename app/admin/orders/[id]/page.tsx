@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCompanySettings } from "@/lib/queries/settings";
-import { ChevronLeft, FileText, Printer } from "lucide-react";
+import { ChevronLeft, FileText, Pencil, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CreateInvoiceButton } from "@/components/admin/create-invoice-button";
 import { NotifyReadyButton } from "@/components/admin/notify-ready-button";
@@ -252,6 +252,18 @@ export default async function AdminOrderDetailPage({
           die Frage, ob auch das zweite Blatt rausgekommen ist.
         */}
         <div className="mt-3 flex flex-wrap items-center gap-2">
+          {/* Ändern (Migration 081): ein Lieferschein an Ort und Stelle, eine
+              Rechnung als neue Rechnung mit Storno der alten. */}
+          {order.status !== "cancelled" ? (
+            <Button asChild size="sm" variant="secondary">
+              <Link href={`/kasse/rechnungen/bearbeiten/${order.id}`}>
+                <Pencil className="size-4" aria-hidden />
+                {invoice && invoice.status !== "cancelled"
+                  ? "Rechnung bearbeiten"
+                  : "Lieferschein bearbeiten"}
+              </Link>
+            </Button>
+          ) : null}
           {invoice ? (
             <Button asChild size="sm">
               <a

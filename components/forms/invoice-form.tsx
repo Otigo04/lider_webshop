@@ -5,7 +5,11 @@ import { useRouter } from "next/navigation";
 import { useFormStatus } from "react-dom";
 import { PenLine, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { createInvoiceOrder, type InvoiceActionState } from "@/lib/actions/admin-invoices";
+import {
+  createInvoiceOrder,
+  updateInvoiceOrder,
+  type InvoiceActionState,
+} from "@/lib/actions/admin-invoices";
 import { CustomerCombobox } from "@/components/admin/customer-combobox";
 import { NumericInput } from "@/components/numeric-input";
 import { Button } from "@/components/ui/button";
@@ -86,49 +90,80 @@ const EINGABE_ID = "rechnung-eingabe";
  * Gebucht wird immer als Bestellung samt Rechnung (create_admin_order,
  * Migration 079): Katalogzeilen buchen Bestand ab und bekommen die
  * Sonderkondition, freie Zeilen nicht.
+ *
+ * Mit `bearbeiten` öffnet das Formular einen bestehenden Beleg mit allen
+ * bisherigen Positionen (Migration 081): Beleg und Kunde stehen fest, geändert
+ * werden Positionen, Anschrift ohne Konto, Anmerkungen und Zahlung. Ein
+ * Lieferschein wird an Ort und Stelle geändert; eine Rechnung wird neu gestellt
+ * und die alte storniert (`updateInvoiceOrder`).
  */
 export function InvoiceForm({
   customers,
   products,
   konditionen = {},
+  bearbeiten,
 }: {
   customers: AppUser[];
   products: AdminProductRow[];
   /** Sonderkondition je Kunden-ID in Prozent (Migration 054/056) */
   konditionen?: Record<string, number>;
+  bearbeiten?: {
+    orderId: string;
+    orderNumber: string;
+    /** Nummer der gestellten Rechnung; null = Lieferschein (Bestellung ohne Rechnung) */
+    rechnungsNummer: string | null;
+    customerId: string | null;
+    kundeName: string;
+    gast: { name: string; strasse: string; plz: string; ort: string };
+    positionen: Position[];
+    notes: string;
+    deliveryAddress: string;
+    zahlungsvermerk: string | null;
+  };
 }) {
   const router = useRouter();
   // Rechnung oder Lieferschein (ohne Preise), Kunde mit Konto oder nur mit Namen.
-  const [beleg, setBeleg] = useState<"rechnung" | "lieferschein">("rechnung");
-  const [kundeArt, setKundeArt] = useState<"konto" | "frei">("konto");
+  const [beleg, setBeleg] = useState<"rechnung" | "lieferschein">(
+    bearbeiten && !bearbeiten.rechnungsNummer ? "lieferschein" : "rechnung",
+  );
+  const [kundeArt, setKundeArt] = useState<"konto" | "frei">(
+    bearbeiten && !bearbeiten.customerId ? "frei" : "konto",
+  );
   // Lieferschein mit Preisen: Stückpreise, Summen und Nettosumme, ohne Steuer.
   const [mitPreisen, setMitPreisen] = useState(false);
-  const [customerId, setCustomerId] = useState<string | null>(null);
-  const [gast, setGast] = useState({ name: "", strasse: "", plz: "", ort: "" });
+  const [customerId, setCustomerId] = useState<string | null>(bearbeiten?.customerId ?? null);
+  const [gast, setGast] = useState(
+    bearbeiten?.gast ?? { name: "", strasse: "", plz: "", ort: "" },
+  );
   const [konditionAn, setKonditionAn] = useState(true);
-  const [positionen, setPositionen] = useState<Position[]>([]);
+  const [positionen, setPositionen] = useState<Position[]>(bearbeiten?.positionen ?? []);
   const [eingabe, setEingabe] = useState("");
   // Feld, das nach dem nächsten Rendern den Cursor bekommt (kein State: das
   // Ergebnis hängt nur am Rendern, das die Eingabe ohnehin auslöst).
   const fokusId = useRef<string | null>(null);
-  const [deliveryAddress, setDeliveryAddress] = useState("");
-  const [zahlKey, setZahlKey] = useState<ZahlungsvermerkKey>("ziel");
-  const [zahlFrei, setZahlFrei] = useState("");
+  const [deliveryAddress, setDeliveryAddress] = useState(bearbeiten?.deliveryAddress ?? "");
+  const [zahlKey, setZahlKey] = useState<ZahlungsvermerkKey>(
+    bearbeiten?.zahlungsvermerk ? "frei" : "ziel",
+  );
+  const [zahlFrei, setZahlFrei] = useState(bearbeiten?.zahlungsvermerk ?? "");
 
   const [state, formAction] = useActionState<InvoiceActionState, FormData>(
-    createInvoiceOrder,
+    bearbeiten ? updateInvoiceOrder : createInvoiceOrder,
     {},
   );
 
   useEffect(() => {
     if (!state.orderId) return;
+    if (state.hinweis) toast.warning(state.hinweis, { duration: 12000 });
     if (state.beleg === "lieferschein") {
-      toast.success("Lieferschein angelegt.");
+      toast.success(bearbeiten ? "Lieferschein geändert." : "Lieferschein angelegt.");
       // Der Lieferschein ist eine Datei zum Drucken: gleich in einem eigenen Tab auf.
       window.open(
         `/admin/orders/${state.orderId}/dokumente?art=lieferschein${mitPreisen ? "&preise=1" : ""}`,
         "_blank",
       );
+    } else if (state.ersetzt) {
+      toast.success(`Neue Rechnung gestellt, ${state.ersetzt} storniert.`);
     } else {
       toast.success("Rechnung angelegt.");
     }
@@ -244,6 +279,22 @@ export function InvoiceForm({
 
   return (
     <div className="space-y-8">
+      {bearbeiten ? (
+        <section className="space-y-2 rounded-md border border-border bg-muted/40 p-4 text-sm">
+          <p className="font-medium">
+            {bearbeiten.rechnungsNummer
+              ? `Rechnung ${bearbeiten.rechnungsNummer} ändern`
+              : `Lieferschein ${bearbeiten.orderNumber} ändern`}
+          </p>
+          <p className="text-muted-foreground">
+            Alle bisherigen Positionen stehen unten schon drin – ergänze, was dazukommt, oder
+            ändere Mengen und Preise.{" "}
+            {bearbeiten.rechnungsNummer
+              ? "Beim Speichern wird eine neue Rechnung mit neuer Nummer gestellt und die alte storniert (Stornorechnung wie gewohnt). Der Bestand bucht nur die Differenz."
+              : "Die Nummer bleibt, der Bestand bucht nur die Differenz."}
+          </p>
+        </section>
+      ) : (
       <section className="space-y-2">
         <Label>Was soll angelegt werden?</Label>
         <div className="flex flex-wrap items-center gap-3">
@@ -262,27 +313,38 @@ export function InvoiceForm({
               : "Rechnung mit Preisen und Steuer; sie wird dem Kunden per Mail geschickt, wenn er ein Konto hat."}
           </p>
         </div>
-        {lieferschein ? (
-          <label className="flex items-start gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={mitPreisen}
-              onChange={(event) => setMitPreisen(event.target.checked)}
-              className="mt-0.5 size-4 accent-[var(--brand)]"
-            />
-            <span>
-              Mit Preisen
-              <span className="block text-xs text-muted-foreground">
-                Stückpreis und Summe je Position, am Ende die Nettosumme – ohne Steuer. Ohne Häkchen
-                trägt der Lieferschein keine Preise.
-              </span>
-            </span>
-          </label>
-        ) : null}
       </section>
+      )}
+
+          {lieferschein ? (
+            <label className="flex items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={mitPreisen}
+                onChange={(event) => setMitPreisen(event.target.checked)}
+                className="mt-0.5 size-4 accent-[var(--brand)]"
+              />
+              <span>
+                Mit Preisen
+                <span className="block text-xs text-muted-foreground">
+                  Stückpreis und Summe je Position, am Ende die Nettosumme – ohne Steuer. Ohne Häkchen
+                  trägt der Lieferschein keine Preise.
+                </span>
+              </span>
+            </label>
+          ) : null}
 
       <section className="max-w-2xl space-y-2">
         <Label>Kunde</Label>
+        {bearbeiten && kundeArt === "konto" ? (
+          <p className="text-sm">
+            {bearbeiten.kundeName}
+            <span className="block text-xs text-muted-foreground">
+              Der Kunde lässt sich beim Bearbeiten nicht wechseln.
+            </span>
+          </p>
+        ) : null}
+        {bearbeiten ? null : (
         <Wahl
           name="Kundenart"
           wert={kundeArt}
@@ -292,10 +354,13 @@ export function InvoiceForm({
             { wert: "frei", label: "Ohne Konto, nur Name" },
           ]}
         />
+        )}
         {kundeArt === "konto" ? (
-          <div className="max-w-md pt-1">
-            <CustomerCombobox customers={customers} value={customerId} onChange={setCustomerId} />
-          </div>
+          bearbeiten ? null : (
+            <div className="max-w-md pt-1">
+              <CustomerCombobox customers={customers} value={customerId} onChange={setCustomerId} />
+            </div>
+          )
         ) : (
           <div className="grid gap-3 pt-1 sm:grid-cols-[2fr_2fr_1fr_2fr]">
             <div className="space-y-1 sm:col-span-4">
@@ -356,6 +421,7 @@ export function InvoiceForm({
 
       <form
         action={(formData) => {
+          if (bearbeiten) formData.set("order_id", bearbeiten.orderId);
           formData.set("beleg", beleg);
           formData.set("kunde_art", kundeArt);
           formData.set("customer_id", kundeArt === "konto" ? (customerId ?? "") : "");
@@ -584,7 +650,13 @@ export function InvoiceForm({
 
         <section className="space-y-2">
           <Label htmlFor="notes">Anmerkungen</Label>
-          <Textarea id="notes" name="notes" rows={3} maxLength={2000} />
+          <Textarea
+            id="notes"
+            name="notes"
+            rows={3}
+            maxLength={2000}
+            defaultValue={bearbeiten?.notes ?? ""}
+          />
         </section>
 
         {lieferschein ? null : (
@@ -667,7 +739,15 @@ export function InvoiceForm({
 
         <div className="flex flex-wrap items-center gap-3">
           <SubmitButton
-            label={lieferschein ? "Lieferschein erstellen" : "Rechnung anlegen"}
+            label={
+              bearbeiten
+                ? bearbeiten.rechnungsNummer
+                  ? "Neue Rechnung stellen, alte stornieren"
+                  : "Änderungen speichern"
+                : lieferschein
+                  ? "Lieferschein erstellen"
+                  : "Rechnung anlegen"
+            }
             disabled={kundeFehlt || fehler !== null}
           />
           {positionen.length > 0 && fehler ? (
