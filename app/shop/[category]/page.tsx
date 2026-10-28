@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { HomeSlider } from "@/components/home-slider";
 import { ShopView } from "@/components/shop-view";
+import { getActiveCategoryBanners } from "@/lib/queries/category-banners";
 import { getCategoryBySlug } from "@/lib/queries/products";
 import { loadShopPage } from "@/lib/queries/shop-page";
 
@@ -37,10 +39,13 @@ export default async function CategoryPage({
   const category = await getCategoryBySlug(slug);
   if (!category) notFound();
 
-  const daten = await loadShopPage({
-    searchParams: await searchParams,
-    categoryId: category.id,
-  });
+  const [daten, banner] = await Promise.all([
+    loadShopPage({
+      searchParams: await searchParams,
+      categoryId: category.id,
+    }),
+    getActiveCategoryBanners(category.id),
+  ]);
 
   // In der Kategorie zählt die Kategorie, nicht der Gesamtkatalog.
   const gesamt =
@@ -48,15 +53,39 @@ export default async function CategoryPage({
     0;
 
   return (
-    <ShopView
-      {...daten}
-      totalCount={gesamt}
-      products={daten.kundenArtikel}
-      publicProducts={daten.besucherArtikel}
-      activeSlug={category.slug}
-      action={`/shop/${category.slug}`}
-      heading={category.name}
-      description={category.description}
-    />
+    <>
+      {/* Banner der Warengruppe (Migration 075, gepflegt unter
+          /admin/startseite/gruppen). Ohne laufendes Banner fällt der Block
+          ganz weg – kein Platzhalter. */}
+      {banner.length > 0 ? (
+        <div className="mx-auto max-w-6xl px-4 pt-6">
+          <div className="overflow-hidden rounded-md border border-border">
+            <HomeSlider
+              format="gruppe"
+              slides={banner.map((b) => ({
+                id: b.id,
+                title: b.title,
+                subtitle: b.subtitle,
+                ctaLabel: b.cta_label,
+                href: b.link_url,
+                imageUrl: b.imageUrl!,
+                mobileImageUrl: b.mobileImageUrl,
+                tone: b.tone,
+              }))}
+            />
+          </div>
+        </div>
+      ) : null}
+      <ShopView
+        {...daten}
+        totalCount={gesamt}
+        products={daten.kundenArtikel}
+        publicProducts={daten.besucherArtikel}
+        activeSlug={category.slug}
+        action={`/shop/${category.slug}`}
+        heading={category.name}
+        description={category.description}
+      />
+    </>
   );
 }

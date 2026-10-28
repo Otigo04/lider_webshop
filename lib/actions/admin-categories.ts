@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
+import { PRODUCT_BUCKET } from "@/lib/constants";
 import { slugify } from "@/lib/slug";
 import { createClient } from "@/lib/supabase/server";
 
@@ -92,6 +93,14 @@ export async function deleteCategory(
   if (!id) return { error: "Keine Kategorie ausgewählt." };
 
   const supabase = await createClient();
+
+  // Banner der Warengruppe gehen per ON DELETE CASCADE mit – ihre Bilder im
+  // Storage nicht. Pfade vorher merken, aufräumen erst nach erfolgreichem Löschen.
+  const { data: bannerBilder } = await supabase
+    .from("category_banners")
+    .select("image_path, mobile_image_path")
+    .eq("category_id", id);
+
   const { error } = await supabase.from("categories").delete().eq("id", id);
 
   if (error) {
@@ -104,6 +113,13 @@ export async function deleteCategory(
           ? "An dieser Kategorie hängen noch Artikel. Erst umhängen oder löschen."
           : "Die Kategorie konnte nicht gelöscht werden.",
     };
+  }
+
+  const bannerPfade = (bannerBilder ?? []).flatMap((b) =>
+    [b.image_path, b.mobile_image_path].filter((p): p is string => Boolean(p)),
+  );
+  if (bannerPfade.length > 0) {
+    await supabase.storage.from(PRODUCT_BUCKET).remove(bannerPfade);
   }
 
   revalidatePath("/admin/categories");

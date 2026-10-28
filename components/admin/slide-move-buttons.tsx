@@ -4,6 +4,7 @@ import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
+import { moveBanner } from "@/lib/actions/category-banners";
 import { moveSlide } from "@/lib/actions/home-slides";
 
 /** Reihenfolge der Werbebilder: ein Schritt nach oben oder unten. */
@@ -11,8 +12,11 @@ export function SlideMoveButtons({
   id,
   oben,
   unten,
+  gruppe = false,
 }: {
   id: string;
+  /** Banner einer Warengruppe statt Werbebild der Startseite */
+  gruppe?: boolean;
   oben: boolean;
   unten: boolean;
 }) {
@@ -21,7 +25,7 @@ export function SlideMoveButtons({
 
   function schieben(richtung: "hoch" | "runter") {
     starten(async () => {
-      const ergebnis = await moveSlide(id, richtung);
+      const ergebnis = await (gruppe ? moveBanner : moveSlide)(id, richtung);
       if (ergebnis.error) toast.error(ergebnis.error);
       router.refresh();
     });

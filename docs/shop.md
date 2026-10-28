@@ -535,6 +535,33 @@ angezeigt von `components/home-slider.tsx` ganz oben auf der Startseite.
   Pausenknopf, bei `prefers-reduced-motion` kein Autowechsel. Wischen,
   Pfeiltasten. Ein einzelnes Bild = Banner ohne Steuerung.
 
+## 🖼️ Banner der Warengruppen
+
+Migration 075, Tabelle `category_banners` (Aufbau wie `home_slides`, dazu
+`category_id` mit `ON DELETE CASCADE`). Gepflegt unter
+`/admin/startseite/gruppen`, angezeigt ganz oben auf `/shop/[category]`.
+
+- **Mehrere Banner je Warengruppe**, gleiche Bedienung wie der Startseiten-
+  Slider: Text optional, Knopf mit Link, Textfarbe, Telefonbild, Laufzeit,
+  an/aus, Reihenfolge (nur innerhalb der Warengruppe). Ohne laufendes Banner
+  fällt der Block ganz weg – kein Platzhalter, kein leerer Rahmen.
+- **Ein Slider für beide**: `HomeSlider` hat die Prop `format`. `"gruppe"`
+  ist 5:1 (Telefon 5:2, wenn ein Telefonbild oder Text da ist), kleinere
+  Schrift, im Shop in Inhaltsbreite mit Rand statt randlos. Kein zweiter
+  Slider daneben.
+- **Ein Editor, eine Verwaltung**: `SlideEditor` (Prop `ziel`) und
+  `SlideVerwaltung` bedienen Startseite und Warengruppen. Prüfung und
+  Laufzeitrechnung (ganze Tage in Berlin) stehen in `lib/slide-form.ts`,
+  getestet in `tests/slide-form.test.ts`. Der Editor warnt beim Hochladen,
+  wenn das Bild mehr als 5 % vom Format abweicht.
+- **Bilder** im Bucket `products` unter `kategorien-banner/<uuid>.<ext>`, für
+  alle lesbar (eigene Storage-Policy), weil Warengruppenseiten öffentlich sind.
+  Löscht man ein Banner oder die Warengruppe, räumen die Server Actions die
+  Dateien mit auf.
+- **Menü links** unter `/admin/startseite` (`app/admin/startseite/layout.tsx`):
+  „Werbebilder Startseite" und „Banner der Warengruppen". Weitere Unterpunkte
+  kommen dort als Eintrag dazu.
+
 ## E-Mail-Bestätigung neuer Konten (Migration 058)
 
 Konten sind bis zum Klick auf den Bestätigungslink gesperrt

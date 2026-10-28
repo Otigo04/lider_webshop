@@ -192,7 +192,8 @@ CREATE TABLE product_images (
 - `/admin/customers` – Kundenliste (Suche, Filter, Kondition, Umsatz)
 - `/admin/customers/[id]` – Kundenakte: Stammdaten, Sonderkondition, persönliche Gutscheine, Bestellungen
 - `/admin/gutscheine` – Gutscheine / Aktionscodes mit Einlösungen
-- `/admin/startseite` – Werbebilder (Slider) ganz oben auf der Startseite
+- `/admin/startseite` – Werbebilder (Slider) ganz oben auf der Startseite, Menü links;
+  `/admin/startseite/gruppen` – Banner oben auf der Seite einer Warengruppe (Migration 075)
 - `/admin/products` – Produktverwaltung
 - `/admin/gruppen` – Angebote mit Ausführungen (Farbe, Größe, Wattzahl)
 - `/admin/kassenbuch` – Tageskasse von Hand (Bargeld, Karte, Großhandel je Tag), unabhängig von der Kasse (Migration 057)

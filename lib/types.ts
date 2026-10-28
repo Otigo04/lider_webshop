@@ -220,6 +220,11 @@ export interface HomeSlide {
   order_index: number;
 }
 
+/** Banner oben auf der Seite einer Warengruppe (Migration 075) */
+export interface CategoryBanner extends HomeSlide {
+  category_id: string;
+}
+
 /** Gutschein / Aktionscode (Migration 054) */
 export interface Voucher {
   id: string;

@@ -19,14 +19,17 @@ export interface EinstellungenEintrag {
  */
 export function EinstellungenNav({
   eintraege,
+  label = "Einstellungen",
 }: {
   eintraege: EinstellungenEintrag[];
+  /** Name der Navigation für Screenreader */
+  label?: string;
 }) {
   const pfad = usePathname();
 
   return (
     <nav
-      aria-label="Einstellungen"
+      aria-label={label}
       className="flex flex-wrap gap-1 lg:sticky lg:top-24 lg:w-60 lg:shrink-0 lg:flex-col lg:self-start"
     >
       {eintraege.map((eintrag) => {

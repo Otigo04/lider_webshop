@@ -44,7 +44,19 @@ const DAUER_MS = 6500;
  * - Läuft im Hintergrund-Tab nicht weiter.
  * - Ein einzelnes Bild ist ein Banner: keine Pfeile, keine Punkte.
  */
-export function HomeSlider({ slides }: { slides: Slide[] }) {
+export function HomeSlider({
+  slides,
+  format = "start",
+}: {
+  slides: Slide[];
+  /**
+   * "start": 3:1 ganz oben auf der Startseite. "gruppe": flacheres 5:1 für das
+   * Banner einer Warengruppe, kleinere Schrift – die Artikel sollen direkt
+   * darunter sichtbar bleiben.
+   */
+  format?: "start" | "gruppe";
+}) {
+  const gruppe = format === "gruppe";
   const [aktiv, setAktiv] = useState(0);
   const [pausiert, setPausiert] = useState(false);
   const [schwebt, setSchwebt] = useState(false);
@@ -77,7 +89,7 @@ export function HomeSlider({ slides }: { slides: Slide[] }) {
   return (
     <section
       aria-roledescription="Karussell"
-      aria-label="Aktuelle Angebote"
+      aria-label={gruppe ? "Angebote dieser Warengruppe" : "Aktuelle Angebote"}
       className="relative isolate overflow-hidden bg-surface-dark"
       onMouseEnter={() => setSchwebt(true)}
       onMouseLeave={() => setSchwebt(false)}
@@ -108,7 +120,13 @@ export function HomeSlider({ slides }: { slides: Slide[] }) {
       <div
         className={cn(
           "relative mx-auto w-full max-w-[1920px]",
-          telefonHoch ? "aspect-[6/5] sm:aspect-[3/1]" : "aspect-[3/1]",
+          gruppe
+            ? telefonHoch
+              ? "aspect-[5/2] sm:aspect-[5/1]"
+              : "aspect-[5/1]"
+            : telefonHoch
+              ? "aspect-[6/5] sm:aspect-[3/1]"
+              : "aspect-[3/1]",
         )}
       >
         {slides.map((slide, index) => {
@@ -157,23 +175,43 @@ export function HomeSlider({ slides }: { slides: Slide[] }) {
                     )}
                   />
                   <div className="absolute inset-0 flex items-end sm:items-center">
-                    <div className="mx-auto w-full max-w-6xl px-4 pb-14 sm:pb-0">
+                    <div
+                      className={cn(
+                        "mx-auto w-full max-w-6xl px-4",
+                        gruppe ? "pb-8 sm:pb-0" : "pb-14 sm:pb-0",
+                      )}
+                    >
                       <div
                         className={cn(
                           "max-w-md lg:max-w-lg",
                           hell ? "text-foreground" : "text-white",
                         )}
                       >
-                        <span aria-hidden className="mb-3 block h-1 w-12 rounded-full bg-gold" />
+                        <span
+                          aria-hidden
+                          className={cn(
+                            "block h-1 w-12 rounded-full bg-gold",
+                            gruppe ? "mb-2" : "mb-3",
+                          )}
+                        />
                         {slide.title ? (
-                          <h2 className="text-2xl font-bold leading-tight tracking-tight sm:text-3xl lg:text-4xl">
+                          <h2
+                            className={cn(
+                              "font-bold leading-tight tracking-tight",
+                              gruppe
+                                ? "text-lg sm:text-xl lg:text-2xl"
+                                : "text-2xl sm:text-3xl lg:text-4xl",
+                            )}
+                          >
                             {slide.title}
                           </h2>
                         ) : null}
                         {slide.subtitle ? (
                           <p
                             className={cn(
-                              "mt-2 text-sm sm:text-base lg:text-lg",
+                              gruppe
+                                ? "mt-1 text-xs sm:text-sm"
+                                : "mt-2 text-sm sm:text-base lg:text-lg",
                               hell ? "text-foreground/80" : "text-white/85",
                             )}
                           >
@@ -183,7 +221,8 @@ export function HomeSlider({ slides }: { slides: Slide[] }) {
                         {slide.href && slide.ctaLabel ? (
                           <span
                             className={cn(
-                              "mt-5 inline-flex items-center gap-2 rounded-md px-4 py-2.5 text-sm font-semibold shadow-sm transition-colors",
+                              "inline-flex items-center gap-2 rounded-md text-sm font-semibold shadow-sm transition-colors",
+                              gruppe ? "mt-3 px-3 py-1.5" : "mt-5 px-4 py-2.5",
                               hell
                                 ? "bg-brand text-brand-foreground group-hover:bg-brand-hover"
                                 : "bg-gold text-gold-foreground group-hover:bg-gold/85",

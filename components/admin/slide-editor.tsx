@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useFormStatus } from "react-dom";
 import { ImagePlus, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
+import { saveBanner } from "@/lib/actions/category-banners";
 import { saveSlide } from "@/lib/actions/home-slides";
 import type { AdminFormState } from "@/lib/actions/admin-categories";
 import { createClient } from "@/lib/supabase/client";
@@ -52,8 +53,38 @@ function berlinTag(iso: string | null, minusEinTag = false): string {
   return new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Berlin" }).format(t);
 }
 
+/** Wohin ein Bild gehört: Startseite (3:1) oder Banner einer Warengruppe (5:1). */
+export type SlideZiel =
+  | { art: "start" }
+  | { art: "gruppe"; categoryId: string; slug: string };
+
+const EINSTELLUNG = {
+  start: {
+    ordner: "startseite",
+    verhaeltnis: 3,
+    format: "3:1",
+    beispiel: "z. B. 1920 × 640 px",
+    telefon: "Etwa 1080 × 900 px (6:5).",
+    ort: "der Startseite",
+    zeigen: "Auf der Startseite zeigen",
+    anlegen: "Werbebild anlegen",
+    zurueck: "/admin/startseite",
+  },
+  gruppe: {
+    ordner: "kategorien-banner",
+    verhaeltnis: 5,
+    format: "5:1",
+    beispiel: "z. B. 1920 × 384 px",
+    telefon: "Etwa 1080 × 432 px (5:2).",
+    ort: "der Warengruppe",
+    zeigen: "Auf der Seite der Warengruppe zeigen",
+    anlegen: "Banner anlegen",
+    zurueck: "/admin/startseite/gruppen",
+  },
+} as const;
+
 /**
- * Bildfeld: lädt direkt aus dem Browser nach startseite/<uuid>.<ext>, wie das
+ * Bildfeld: lädt direkt aus dem Browser nach <ordner>/<uuid>.<ext>, wie das
  * Kachelbild der Warengruppe. Die alte Datei räumt die Server Action beim
  * Speichern auf.
  */
@@ -64,6 +95,8 @@ function BildFeld({
   onChange,
   pflicht,
   hochformat,
+  ordner,
+  verhaeltnis,
 }: {
   label: string;
   hinweis: string;
@@ -71,6 +104,8 @@ function BildFeld({
   onChange: (bild: Bild | null) => void;
   pflicht?: boolean;
   hochformat?: boolean;
+  ordner: string;
+  verhaeltnis: number;
 }) {
   const eingabe = useRef<HTMLInputElement>(null);
   const [laedt, setLaedt] = useState(false);
@@ -86,16 +121,16 @@ function BildFeld({
       toast.error("Das Bild ist größer als 5 MB.");
       return;
     }
-    // Die Fläche auf der Startseite ist 3:1. Ein anderes Format wird
+    // Die Fläche ist 3:1 bzw. 5:1. Ein anderes Format wird
     // beschnitten – das soll man beim Hochladen erfahren, nicht erst dort.
     if (!hochformat) {
       try {
         const maße = await createImageBitmap(datei);
-        const verhaeltnis = maße.width / maße.height;
+        const bildVerhaeltnis = maße.width / maße.height;
         maße.close();
-        if (Math.abs(verhaeltnis - 3) / 3 > 0.05) {
+        if (Math.abs(bildVerhaeltnis - verhaeltnis) / verhaeltnis > 0.05) {
           toast.warning(
-            `Das Bild ist ${verhaeltnis.toLocaleString("de-DE", { maximumFractionDigits: 2 })}:1, die Fläche 3:1. Es wird ${verhaeltnis < 3 ? "oben und unten" : "links und rechts"} beschnitten.`,
+            `Das Bild ist ${bildVerhaeltnis.toLocaleString("de-DE", { maximumFractionDigits: 2 })}:1, die Fläche ${verhaeltnis}:1. Es wird ${bildVerhaeltnis < verhaeltnis ? "oben und unten" : "links und rechts"} beschnitten.`,
             { duration: 10000 },
           );
         }
@@ -107,7 +142,7 @@ function BildFeld({
     // Endung aus dem Typ, nicht aus dem Namen – mit „.jfif" fiele der Pfad
     // beim Speichern durch die Prüfung („Ungültiger Bildpfad").
     const endung = ENDUNG[typ];
-    const pfad = `startseite/${crypto.randomUUID()}.${endung}`;
+    const pfad = `${ordner}/${crypto.randomUUID()}.${endung}`;
     const supabase = createClient();
     const { error } = await supabase.storage
       .from(PRODUCT_BUCKET)
@@ -134,8 +169,9 @@ function BildFeld({
       <div
         className={cn(
           "relative overflow-hidden rounded-md border border-dashed border-border bg-muted/40",
-          hochformat ? "aspect-square w-32" : "aspect-[3/1] w-full",
+          hochformat ? "aspect-square w-32" : "w-full",
         )}
+        style={hochformat ? undefined : { aspectRatio: `${verhaeltnis} / 1` }}
       >
         {bild ? (
           <>
@@ -191,11 +227,19 @@ function BildFeld({
   );
 }
 
-function SubmitButton({ isEdit, disabled }: { isEdit: boolean; disabled: boolean }) {
+function SubmitButton({
+  isEdit,
+  disabled,
+  anlegen,
+}: {
+  isEdit: boolean;
+  disabled: boolean;
+  anlegen: string;
+}) {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" disabled={pending || disabled} className="w-full">
-      {pending ? "Wird gespeichert …" : isEdit ? "Änderungen speichern" : "Werbebild anlegen"}
+      {pending ? "Wird gespeichert …" : isEdit ? "Änderungen speichern" : anlegen}
     </Button>
   );
 }
@@ -204,12 +248,18 @@ export function SlideEditor({
   slide,
   imageUrl,
   mobileImageUrl,
+  ziel = { art: "start" },
 }: {
   slide?: HomeSlide;
   imageUrl?: string | null;
   mobileImageUrl?: string | null;
+  ziel?: SlideZiel;
 }) {
   const isEdit = Boolean(slide);
+  const einst = EINSTELLUNG[ziel.art];
+  const speichern = ziel.art === "gruppe" ? saveBanner : saveSlide;
+  const zurueck =
+    ziel.art === "gruppe" ? `${einst.zurueck}?gruppe=${ziel.slug}` : einst.zurueck;
   const router = useRouter();
 
   const [bild, setBild] = useState<Bild | null>(
@@ -230,7 +280,7 @@ export function SlideEditor({
   // gespeicherte Bild noch im Formular, und ein zweiter Klick legte es doppelt an.
   const [state, formAction] = useActionState<AdminFormState, FormData>(
     async (vorher, formData) => {
-      const ergebnis = await saveSlide(vorher, formData);
+      const ergebnis = await speichern(vorher, formData);
       if (ergebnis.success && !isEdit) {
         setBild(null);
         setMobil(null);
@@ -249,13 +299,16 @@ export function SlideEditor({
     if (state.error) toast.error(state.error);
     if (!state.success) return;
     toast.success(state.success);
-    router.push("/admin/startseite");
+    router.push(zurueck);
     router.refresh();
-  }, [state, router]);
+  }, [state, router, zurueck]);
 
   return (
     <form action={formAction} className="space-y-5">
       {slide ? <input type="hidden" name="id" value={slide.id} /> : null}
+      {ziel.art === "gruppe" ? (
+        <input type="hidden" name="category_id" value={ziel.categoryId} />
+      ) : null}
       <input type="hidden" name="image_path" value={bild?.pfad ?? ""} />
       <input type="hidden" name="mobile_image_path" value={mobil?.pfad ?? ""} />
       <input type="hidden" name="tone" value={tone} />
@@ -265,6 +318,7 @@ export function SlideEditor({
           <p className="text-sm font-medium">Vorschau</p>
           <div className="overflow-hidden rounded-md border border-border">
             <HomeSlider
+              format={ziel.art === "gruppe" ? "gruppe" : "start"}
               slides={[
                 {
                   id: "vorschau",
@@ -281,7 +335,7 @@ export function SlideEditor({
           </div>
           {link && cta ? (
             <p className="text-xs text-muted-foreground">
-              Der Knopf erscheint auf der Startseite, in der Vorschau ist er ohne Link nur angedeutet.
+              Der Knopf erscheint auf {einst.ort}, in der Vorschau ist er ohne Link nur angedeutet.
             </p>
           ) : null}
         </div>
@@ -289,10 +343,12 @@ export function SlideEditor({
 
       <BildFeld
         label="Bild (Desktop)"
-        hinweis="Querformat 3:1, z. B. 1920 × 640 px, max. 5 MB. Wird ganz gezeigt."
+        hinweis={`Querformat ${einst.format}, ${einst.beispiel}, max. 5 MB. Wird ganz gezeigt.`}
         bild={bild}
         onChange={setBild}
         pflicht
+        ordner={einst.ordner}
+        verhaeltnis={einst.verhaeltnis}
       />
       <p className="text-sm text-muted-foreground">
         Bild wählen und speichern genügt. Alles Weitere ist freiwillig – steht
@@ -397,10 +453,12 @@ export function SlideEditor({
         <div className="space-y-5 border-t border-border p-3">
           <BildFeld
             label="Bild fürs Telefon"
-            hinweis="Etwa 1080 × 900 px (6:5). Ohne wird das Desktop-Bild beschnitten."
+            hinweis={`${einst.telefon} Ohne wird das Desktop-Bild beschnitten.`}
             bild={mobil}
             onChange={setMobil}
             hochformat
+            ordner={einst.ordner}
+            verhaeltnis={einst.verhaeltnis}
           />
 
           <div className="grid grid-cols-2 gap-3">
@@ -433,10 +491,10 @@ export function SlideEditor({
           defaultChecked={slide?.is_active ?? true}
           className="size-4 accent-[var(--brand)]"
         />
-        Auf der Startseite zeigen
+        {einst.zeigen}
       </label>
 
-      <SubmitButton isEdit={isEdit} disabled={!bild} />
+      <SubmitButton isEdit={isEdit} disabled={!bild} anlegen={einst.anlegen} />
     </form>
   );
 }
