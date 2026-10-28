@@ -107,8 +107,11 @@ export function ProductCard({
             </p>
           ) : null}
 
+          {/* max-sm:hidden statt hidden + sm:block: sm:block überschriebe das
+              display:-webkit-box von line-clamp, und die Beschreibung stünde
+              ungekürzt da. */}
           {product.description ? (
-            <p className="mt-1.5 hidden line-clamp-2 text-sm text-muted-foreground sm:block">
+            <p className="mt-1.5 line-clamp-2 text-sm text-muted-foreground max-sm:hidden">
               {product.description}
             </p>
           ) : null}
