@@ -18,7 +18,7 @@ export function ProductGrid({
   }
 
   return (
-    <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-3">
       {/* Versatz nur über die ersten Reihen, damit lange Listen nicht warten. */}
       {products.map((product, index) => (
         <Reveal key={product.id} delay={(index % 6) * 55} className="flex">

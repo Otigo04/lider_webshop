@@ -74,9 +74,9 @@ export function ProductCard({
               src={product.imageUrl}
               alt={product.name}
               fill
-              sizes="(min-width: 1024px) 320px, (min-width: 768px) 45vw, 90vw"
+              sizes="(min-width: 1024px) 320px, (min-width: 768px) 45vw, 50vw"
               className={cn(
-                "object-contain p-4 transition-transform duration-500 group-hover:scale-[1.04]",
+                "object-contain p-2 sm:p-4 transition-transform duration-500 group-hover:scale-[1.04]",
                 ausverkauft && ausverkauftBild,
               )}
             />
@@ -90,14 +90,14 @@ export function ProductCard({
           {vorbestellbar ? <VorbestellBand /> : null}
         </div>
 
-        <div className="flex flex-1 flex-col p-4">
-          <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-1 flex-col p-3 sm:p-4">
+          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
             <p className="code text-xs text-muted-foreground">{product.sku}</p>
             {/* Ausverkauft und Vorbestellbar sagt schon das Band auf dem Foto. */}
             {ausverkauft || vorbestellbar ? null : <StockBadge free={free} />}
           </div>
 
-          <h3 className="mt-2 font-semibold leading-snug group-hover:underline">
+          <h3 className="mt-2 text-sm font-semibold leading-snug group-hover:underline sm:text-base">
             {titel}
           </h3>
 
@@ -108,13 +108,13 @@ export function ProductCard({
           ) : null}
 
           {product.description ? (
-            <p className="mt-1.5 line-clamp-2 text-sm text-muted-foreground">
+            <p className="mt-1.5 hidden line-clamp-2 text-sm text-muted-foreground sm:block">
               {product.description}
             </p>
           ) : null}
 
           {/* Preisblock unten bündig, damit er über alle Karten auf einer Linie steht */}
-          <div className={cn("mt-auto border-t border-border pt-3", schnellKauf && "pr-12")}>
+          <div className={cn("mt-auto border-t border-border pt-3", schnellKauf && "pr-10 sm:pr-12")}>
             {range ? (
               <>
                 {/* Die Mindestmenge steht nur dort, wo sie eine Auflage ist –
@@ -142,7 +142,7 @@ export function ProductCard({
                   />
                 ) : (
                   <p className="mt-1 flex items-baseline gap-1">
-                    <span className="text-xl font-bold tabular">
+                    <span className="text-lg font-bold tabular sm:text-xl">
                       {formatPrice(range.from)}
                     </span>
                     {range.to !== null ? (
@@ -177,7 +177,7 @@ export function ProductCard({
           freeStock={free}
           vorbestellung={vorbestellbar ? { hinweis: product.preorder_note } : null}
           imagePath={product.imagePath ?? null}
-          className="absolute bottom-4 right-4 z-10"
+          className="absolute bottom-3 right-3 z-10 size-9 sm:bottom-4 sm:right-4 sm:size-10"
         />
       ) : null}
     </div>

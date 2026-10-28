@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { SlidersHorizontal, X } from "lucide-react";
+import { FilterDetails } from "@/components/filter-details";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -54,8 +55,8 @@ interface ShopFilterPanelProps {
  *
  * Ein reines GET-Formular: jeder Filter landet als Parameter in der Adresse,
  * damit sich eine Auswahl verschicken lässt und der Zurück-Knopf tut, was er
- * soll. Kein JavaScript nötig – auf schmalen Bildschirmen klappt ein
- * <details> die Spalte zusammen.
+ * soll. Das Formular selbst braucht kein JavaScript. Auf schmalen Bildschirmen
+ * klappt FilterDetails die Spalte zusammen, eingeklappt als Vorgabe.
  *
  * Die Kategorien sind Links statt Formularfeldern, weil jede Kategorie eine
  * eigene Adresse hat (/shop/spielwaren). Die gesetzten Filter wandern über
@@ -92,7 +93,7 @@ export function ShopFilterPanel({
 
   return (
     <aside className="lg:w-64 lg:shrink-0">
-      <details open className="group">
+      <FilterDetails>
         <summary className="flex cursor-pointer list-none items-center justify-between rounded-md border border-border px-4 py-3 lg:hidden [&::-webkit-details-marker]:hidden">
           <span className="flex items-center gap-2 font-medium">
             <SlidersHorizontal className="size-4" aria-hidden />
@@ -361,7 +362,7 @@ export function ShopFilterPanel({
             </div>
           </form>
         </div>
-      </details>
+      </FilterDetails>
     </aside>
   );
 }

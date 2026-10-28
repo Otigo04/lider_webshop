@@ -54,8 +54,8 @@ export function PublicProductCard({
               src={product.imageUrl}
               alt={product.name}
               fill
-              sizes="(min-width: 1024px) 320px, (min-width: 768px) 45vw, 90vw"
-              className="object-contain p-4 transition-transform duration-500 group-hover:scale-[1.04]"
+              sizes="(min-width: 1024px) 320px, (min-width: 768px) 45vw, 50vw"
+              className="object-contain p-2 sm:p-4 transition-transform duration-500 group-hover:scale-[1.04]"
             />
           ) : (
             <div className="flex h-full items-center justify-center text-muted-foreground">
@@ -65,10 +65,10 @@ export function PublicProductCard({
           )}
         </div>
 
-        <div className="flex flex-1 flex-col p-4">
+        <div className="flex flex-1 flex-col p-3 sm:p-4">
           <p className="code text-xs text-muted-foreground">{product.sku}</p>
 
-          <h3 className="mt-2 font-semibold leading-snug group-hover:underline">
+          <h3 className="mt-2 text-sm font-semibold leading-snug group-hover:underline sm:text-base">
             {titel}
           </h3>
 
@@ -79,7 +79,7 @@ export function PublicProductCard({
           ) : null}
 
           {product.description ? (
-            <p className="mt-1.5 line-clamp-2 text-sm text-muted-foreground">
+            <p className="mt-1.5 hidden line-clamp-2 text-sm text-muted-foreground sm:block">
               {product.description}
             </p>
           ) : null}
@@ -98,7 +98,7 @@ export function PublicProductCard({
                     {hatPreisspanne(product.priceFrom, product.priceTo) ? (
                       <span className="text-xs text-muted-foreground">ab</span>
                     ) : null}
-                    <span className="text-xl font-bold tabular">
+                    <span className="text-lg font-bold tabular sm:text-xl">
                       {formatPrice(product.priceFrom)}
                     </span>
                     <span className="text-xs text-muted-foreground">

@@ -232,14 +232,13 @@ export default async function HomePage() {
 
       {/* ---------------------------------------------------------------- Hero */}
       <section className="relative isolate overflow-hidden bg-surface-dark text-surface-dark-foreground">
-        <div aria-hidden className="hero-backdrop" />
-        <div aria-hidden className="dot-grid absolute inset-0 -z-0 opacity-60" />
+        <div aria-hidden className="hero-clean" />
 
         <div className="relative mx-auto grid max-w-6xl gap-12 px-4 py-16 lg:grid-cols-[1.1fr_1fr] lg:items-center lg:gap-16 lg:py-24">
           <div>
             <h1 className="headline enter text-4xl font-bold leading-[1.08] sm:text-6xl">
               Spielzeug, Multimedia und Handyzubehör
-              <span className="block bg-gradient-to-r from-gold-bright via-gold to-gold-bright bg-clip-text text-transparent">
+              <span className="block text-gold-bright">
                 im Großhandel
               </span>
             </h1>

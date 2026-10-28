@@ -530,6 +530,47 @@
     background: radial-gradient(circle, rgba(184, 114, 28, 0.75) 0%, transparent 68%);
     animation: drift-b 26s ease-in-out infinite alternate;
   }
+  /* Kopfbereich der Startseite: ruhige Fläche statt Farbwolken. Rechts eine
+     schräg geschnittene, etwas hellere Marinefläche hinter der Auslage, eine
+     feine Goldkante darunter. Nichts bewegt sich, nichts verläuft. */
+  .hero-clean {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .hero-clean::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    width: 52%;
+    background: #1a2a4d;
+    clip-path: polygon(22% 0, 100% 0, 100% 100%, 0 100%);
+  }
+  .hero-clean::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 3px;
+    background: var(--gold);
+  }
+  @media (max-width: 1023px) {
+    .hero-clean::before { display: none; }
+  }
+
+  /* Filterspalte ab Desktopbreite: der Inhalt bleibt sichtbar, auch bevor
+     FilterDetails das Element geöffnet hat (kein Aufblitzen beim Laden). */
+  @media (min-width: 1024px) {
+    .filter-details::details-content {
+      content-visibility: visible;
+      display: block;
+    }
+  }
+
   .dot-grid {
     background-image: radial-gradient(rgba(255, 255, 255, 0.09) 1px, transparent 1px);
     background-size: 22px 22px;
