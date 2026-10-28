@@ -59,9 +59,25 @@ wird: nicht aufs Preisschild, nicht auf Bon, Beleg, Z-Bon oder Rechnung.
   Zwang. Dieselbe Funktion, zwei Aufrufer, zwei Erwartungen: die Grenze
   gehört an den Aufrufer, der sie braucht, nicht an die gemeinsame Funktion.
 
+### Leiste für mehrere Artikel: Aufschlag und Flags
+
+Die Leiste unten (`components/admin/massen-leiste.tsx`) hat zwei Reiter:
+„Aufschlag" (unten beschrieben) und „Flags" (`flags-massen-panel.tsx`).
+
+**Flags für mehrere Artikel**: je Flag „–" (nicht anfassen), „Setzen" oder
+„Entfernen" – feste Flags (Neuheit, Topseller, Restposten, Vorbestellbar), die
+Güteklasse Restposten und die eigenen Flags aus den Einstellungen. Es ändert
+sich nur, was gewählt ist: eine Neuheit zu setzen nimmt keinem Artikel den
+Topseller. Regeln in `lib/flags-massen.ts` (`tests/flags-massen.test.ts`),
+geschrieben von `flagsMassenAendern()` (`lib/actions/product-flags.ts`) in
+Päckchen zu 100: feste Flags und Güteklasse in einem Update, eigene Flags als
+Upsert bzw. Delete in `product_flag_links`. Wie beim einzelnen Artikel setzt
+eine Güteklasse das Restposten-Flag mit, und „Restposten entfernen" löscht die
+Klasse; beides zugleich widerspricht sich und wird abgewiesen.
+
 ### Aufschlag auf den Einkauf für mehrere Artikel
 
-`components/admin/aufschlag-leiste.tsx`, `aufschlagAnwenden()`
+`components/admin/massen-leiste.tsx`, `aufschlagAnwenden()`
 (`lib/actions/admin-products.ts`), Rechnung in `lib/aufschlag.ts`
 (`tests/aufschlag.test.ts`). In der Artikelliste Artikel ankreuzen (oder
 Kopfzeilen-Häkchen für alle angezeigten), unten erscheint die Leiste.

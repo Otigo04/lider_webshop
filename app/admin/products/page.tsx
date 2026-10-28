@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Layers, Pencil, Plus, ScanBarcode, Search, Trash2, Undo2 } from "lucide-react";
-import { AufschlagLeiste } from "@/components/admin/aufschlag-leiste";
+import { MassenLeiste } from "@/components/admin/massen-leiste";
 import { ArtikelBildZelle } from "@/components/admin/artikel-bild-zelle";
 import { ArtikelListeMerker } from "@/components/admin/artikel-liste-merker";
 import { ConfirmAction } from "@/components/admin/confirm-action";
@@ -527,7 +527,7 @@ export default async function AdminProductsPage({
         EH = Einzelhandel, vorher = Streichpreis, EK = Einkauf, nur intern)
         und der Bestand lassen sich direkt in der Tabelle ändern – anklicken,
         tippen, Enter. Mehrere Artikel ankreuzen: unten erscheint die Leiste
-        für einen Aufschlag auf den Einkauf.
+        für einen Aufschlag auf den Einkauf oder für Flags auf einmal.
       </p>
 
       {products.length === 0 ? (
@@ -839,7 +839,7 @@ export default async function AdminProductsPage({
       )}
 
       <ArtikelListeMerker />
-      <AufschlagLeiste />
+      <MassenLeiste customFlags={customFlags} />
     </div>
   );
 }

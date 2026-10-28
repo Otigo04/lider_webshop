@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { Percent, X } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Flag, Percent, X } from "lucide-react";
+import { FlagsMassenPanel } from "@/components/admin/flags-massen-panel";
 import { NumericInput } from "@/components/numeric-input";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,6 +17,8 @@ import {
   type Rundung,
 } from "@/lib/aufschlag";
 import { formatPrice } from "@/lib/format";
+import type { ProductFlagDef } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 const WAHL = "input[data-artikel-wahl]";
 const ALLE = "input[data-artikel-alle]";
@@ -26,8 +30,9 @@ function gewaehlt(): string[] {
 }
 
 /**
- * Leiste unten in der Artikelliste: Artikel per Häkchen auswählen, Aufschlag
- * auf den Einkaufspreis festlegen, Vorschau ansehen, übernehmen.
+ * Leiste unten in der Artikelliste: Artikel per Häkchen auswählen, dann
+ * entweder Aufschlag auf den Einkaufspreis festlegen (Vorschau, übernehmen)
+ * oder Flags für alle auf einmal setzen und entfernen.
  *
  * Die Häkchen liegen als schlichte Checkboxen in der (serverseitig gerenderten)
  * Tabelle; die Leiste liest sie aus dem Dokument. So bleibt die Liste eine
@@ -36,7 +41,9 @@ function gewaehlt(): string[] {
  * Gerechnet wird ausschließlich auf dem Server (`aufschlagAnwenden`): die
  * Vorschau zeigt, was beim Übernehmen geschrieben wird, aus derselben Funktion.
  */
-export function AufschlagLeiste() {
+export function MassenLeiste({ customFlags }: { customFlags: ProductFlagDef[] }) {
+  const router = useRouter();
+  const [modus, setModus] = useState<"aufschlag" | "flags">("aufschlag");
   const [anzahl, setAnzahl] = useState(0);
   const [prozent, setProzent] = useState<number>(AUFSCHLAG_STANDARD.prozent);
   const [mindest, setMindest] = useState<number>(AUFSCHLAG_STANDARD.mindestEuro);
@@ -75,6 +82,17 @@ export function AufschlagLeiste() {
     return () => document.removeEventListener("change", beiAenderung);
   }, []);
 
+  function auswahlAufheben() {
+    document
+      .querySelectorAll<HTMLInputElement>(`${WAHL}, ${ALLE}`)
+      .forEach((box) => {
+        box.checked = false;
+        box.indeterminate = false;
+      });
+    setAnzahl(0);
+    setVorschau(null);
+  }
+
   function parameter(uebernehmen: boolean) {
     return {
       ids: gewaehlt(),
@@ -101,7 +119,7 @@ export function AufschlagLeiste() {
         setMeldung(ergebnis.error);
         return;
       }
-      setVorschau(null);
+      auswahlAufheben();
       setMeldung(
         `${ergebnis.geschrieben ?? 0} Preise geändert` +
           (ergebnis.fehlgeschlagen
@@ -109,13 +127,6 @@ export function AufschlagLeiste() {
             : "") +
           ".",
       );
-      document
-        .querySelectorAll<HTMLInputElement>(`${WAHL}, ${ALLE}`)
-        .forEach((box) => {
-          box.checked = false;
-          box.indeterminate = false;
-        });
-      setAnzahl(0);
     });
   }
 
@@ -123,7 +134,19 @@ export function AufschlagLeiste() {
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-30 border-t-2 border-brand bg-card shadow-lg">
-      {vorschau?.zeilen ? (
+      {anzahl > 0 && modus === "flags" ? (
+        <FlagsMassenPanel
+          customFlags={customFlags}
+          anzahl={anzahl}
+          holeIds={gewaehlt}
+          onFertig={(text) => {
+            auswahlAufheben();
+            setMeldung(text);
+            router.refresh();
+          }}
+        />
+      ) : null}
+      {modus === "aufschlag" && vorschau?.zeilen ? (
         <div className="mx-auto max-h-72 max-w-7xl overflow-y-auto border-b border-border px-4 py-3">
           {vorschau.zeilen.length === 0 ? (
             <p className="text-sm text-muted-foreground">
@@ -193,76 +216,105 @@ export function AufschlagLeiste() {
               {anzahl} gewählt
             </p>
 
-            <label className="text-xs text-muted-foreground">
-              Aufschlag auf EK (%)
-              <NumericInput
-                dezimal
-                value={prozent}
-                onChange={(wert) => {
-                  setProzent(wert);
-                  setVorschau(null);
-                }}
-                className="mt-1 w-24 text-right text-foreground"
-                aria-label="Aufschlag in Prozent"
-              />
-            </label>
-
-            <label className="text-xs text-muted-foreground">
-              mindestens (€)
-              <NumericInput
-                dezimal
-                value={mindest}
-                onChange={(wert) => {
-                  setMindest(wert);
-                  setVorschau(null);
-                }}
-                className="mt-1 w-24 text-right text-foreground"
-                aria-label="Mindestaufschlag in Euro"
-              />
-            </label>
-
-            <label className="text-xs text-muted-foreground">
-              Runden
-              <select
-                value={rundung}
-                onChange={(event) => {
-                  setRundung(event.target.value as Rundung);
-                  setVorschau(null);
-                }}
-                className="mt-1 block h-9 rounded-md border border-input bg-transparent px-2 text-sm text-foreground"
-              >
-                {RUNDUNGEN.map((wert) => (
-                  <option key={wert} value={wert}>
-                    {RUNDUNG_LABELS[wert]}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={zeigeVorschau}
-                disabled={laeuft}
-              >
-                <Percent className="size-4" aria-hidden /> Vorschau
-              </Button>
-              <Button
-                type="button"
-                onClick={uebernehmen}
-                disabled={laeuft || !vorschau?.zeilen?.length}
-                title={
-                  vorschau?.zeilen?.length
-                    ? undefined
-                    : "Erst die Vorschau ansehen"
-                }
-              >
-                {vorschau?.zeilen?.length
-                  ? `${vorschau.zeilen.length} Preise übernehmen`
-                  : "Übernehmen"}
-              </Button>
+            <div role="group" aria-label="Was soll geändert werden?" className="mb-0.5 inline-flex rounded-md border border-border p-0.5">
+              {(
+                [
+                  ["aufschlag", "Aufschlag", Percent],
+                  ["flags", "Flags", Flag],
+                ] as const
+              ).map(([wert, label, Icon]) => (
+                <button
+                  key={wert}
+                  type="button"
+                  aria-pressed={modus === wert}
+                  onClick={() => setModus(wert)}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-sm font-medium transition-colors",
+                    modus === wert
+                      ? "bg-brand text-brand-foreground"
+                      : "text-muted-foreground hover:bg-muted",
+                  )}
+                >
+                  <Icon className="size-3.5" aria-hidden />
+                  {label}
+                </button>
+              ))}
             </div>
+
+            {modus === "aufschlag" ? (
+              <>
+                <label className="text-xs text-muted-foreground">
+                  Aufschlag auf EK (%)
+                  <NumericInput
+                    dezimal
+                    value={prozent}
+                    onChange={(wert) => {
+                      setProzent(wert);
+                      setVorschau(null);
+                    }}
+                    className="mt-1 w-24 text-right text-foreground"
+                    aria-label="Aufschlag in Prozent"
+                  />
+                </label>
+
+                <label className="text-xs text-muted-foreground">
+                  mindestens (€)
+                  <NumericInput
+                    dezimal
+                    value={mindest}
+                    onChange={(wert) => {
+                      setMindest(wert);
+                      setVorschau(null);
+                    }}
+                    className="mt-1 w-24 text-right text-foreground"
+                    aria-label="Mindestaufschlag in Euro"
+                  />
+                </label>
+
+                <label className="text-xs text-muted-foreground">
+                  Runden
+                  <select
+                    value={rundung}
+                    onChange={(event) => {
+                      setRundung(event.target.value as Rundung);
+                      setVorschau(null);
+                    }}
+                    className="mt-1 block h-9 rounded-md border border-input bg-transparent px-2 text-sm text-foreground"
+                  >
+                    {RUNDUNGEN.map((wert) => (
+                      <option key={wert} value={wert}>
+                        {RUNDUNG_LABELS[wert]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={zeigeVorschau}
+                    disabled={laeuft}
+                  >
+                    <Percent className="size-4" aria-hidden /> Vorschau
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={uebernehmen}
+                    disabled={laeuft || !vorschau?.zeilen?.length}
+                    title={
+                      vorschau?.zeilen?.length
+                        ? undefined
+                        : "Erst die Vorschau ansehen"
+                    }
+                  >
+                    {vorschau?.zeilen?.length
+                      ? `${vorschau.zeilen.length} Preise übernehmen`
+                      : "Übernehmen"}
+                  </Button>
+                </div>
+              </>
+            ) : null}
           </>
         ) : null}
 
@@ -275,14 +327,7 @@ export function AufschlagLeiste() {
         <button
           type="button"
           onClick={() => {
-            document
-              .querySelectorAll<HTMLInputElement>(`${WAHL}, ${ALLE}`)
-              .forEach((box) => {
-                box.checked = false;
-                box.indeterminate = false;
-              });
-            setAnzahl(0);
-            setVorschau(null);
+            auswahlAufheben();
             setMeldung(null);
           }}
           className="ml-auto pb-2 text-muted-foreground hover:text-foreground"

@@ -5,6 +5,7 @@ import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import type { AdminFormState } from "@/lib/actions/admin-categories";
+import { hatAenderung, produktSpalten, type FlagsAenderung } from "@/lib/flags-massen";
 
 const createFlagSchema = z.object({
   name: z.string().trim().min(1, "Name fehlt").max(60),
@@ -112,4 +113,85 @@ export async function toggleProductFlagLink(
 
   revalidatePath("/admin/products");
   return { success: "Gespeichert." };
+}
+
+const massenSchema = z.object({
+  ids: z.array(z.string().uuid()).min(1, "Keine Artikel gewählt.").max(1000, "Höchstens 1000 Artikel auf einmal."),
+  fest: z.object({
+    is_new: z.boolean().optional(),
+    is_topseller: z.boolean().optional(),
+    is_restposten: z.boolean().optional(),
+    is_preorder: z.boolean().optional(),
+  }),
+  eigene: z.record(z.string().uuid(), z.boolean()),
+  ware: z.enum(["A", "B", ""]).optional(),
+});
+
+export interface FlagsMassenErgebnis {
+  error?: string;
+  /** Artikel, bei denen geschrieben wurde */
+  artikel?: number;
+}
+
+/**
+ * Flags für mehrere Artikel auf einmal (Leiste unten in der Artikelliste).
+ * Nur was angegeben ist, wird geändert; alles andere bleibt, wie es ist. Die
+ * festen Flags und die Güteklasse gehen in einem Update nach `products`, die
+ * eigenen Flags als Zuordnungen nach `product_flag_links` – setzen ist ein
+ * Upsert (schon gesetzte stören nicht), entfernen ein Delete.
+ */
+export async function flagsMassenAendern(
+  input: z.input<typeof massenSchema>,
+): Promise<FlagsMassenErgebnis> {
+  await requireAdmin();
+
+  const parsed = massenSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const { ids } = parsed.data;
+  const aenderung: FlagsAenderung = {
+    fest: parsed.data.fest,
+    eigene: parsed.data.eigene,
+    ware: parsed.data.ware,
+  };
+  if (!hatAenderung(aenderung)) return { error: "Nichts zu ändern ausgewählt." };
+
+  const spalten = produktSpalten(aenderung);
+  if ("fehler" in spalten) return { error: spalten.fehler };
+
+  const supabase = await createClient();
+
+  // In Päckchen: `.in()` steht in der Adresse der Anfrage, und mehrere hundert
+  // IDs sprengen deren Längengrenze.
+  for (let i = 0; i < ids.length; i += 100) {
+    const paket = ids.slice(i, i + 100);
+
+    if (Object.keys(spalten.spalten).length > 0) {
+      const { error } = await supabase.from("products").update(spalten.spalten).in("id", paket);
+      if (error) {
+        console.error("[admin] Flags sammeln (products):", error.message);
+        return { error: "Die Flags konnten nicht gespeichert werden." };
+      }
+    }
+
+    for (const [flagId, an] of Object.entries(aenderung.eigene)) {
+      const { error } = an
+        ? await supabase
+            .from("product_flag_links")
+            .upsert(
+              paket.map((productId) => ({ product_id: productId, flag_id: flagId })),
+              { onConflict: "product_id,flag_id", ignoreDuplicates: true },
+            )
+        : await supabase.from("product_flag_links").delete().eq("flag_id", flagId).in("product_id", paket);
+      if (error) {
+        console.error("[admin] Flags sammeln (Zuordnung):", error.message);
+        return { error: "Die eigenen Flags konnten nicht vollständig gespeichert werden." };
+      }
+    }
+  }
+
+  revalidatePath("/admin/products");
+  revalidatePath("/admin");
+  revalidatePath("/shop");
+  revalidatePath("/");
+  return { artikel: ids.length };
 }
