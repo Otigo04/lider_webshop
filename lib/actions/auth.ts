@@ -1,5 +1,6 @@
 "use server";
 
+import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -10,6 +11,7 @@ import { zielNachLogin } from "@/lib/profil-ziel";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { createVerification, markUnverified, sendVerification } from "@/lib/verification";
+import { meldeNeuenKunden } from "@/lib/push";
 
 export interface LoginState {
   error?: string;
@@ -270,6 +272,18 @@ export async function signUp(
       .eq("id", data.user.id);
     if (nlFehler) console.error("[auth] Newsletter-Häkchen:", nlFehler.message);
   }
+
+  // Mitteilung an die Admin-Geräte: ein neues Konto hat sich registriert (noch
+  // unbestätigt – aktiv wird es erst über den Link der Bestätigungsmail).
+  const neueId = data.user.id;
+  after(() =>
+    meldeNeuenKunden({
+      id: neueId,
+      firma: company_name,
+      name: full_name,
+      ort: parsed.data.billing_city,
+    }),
+  );
 
   return {
     success:

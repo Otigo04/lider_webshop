@@ -1,5 +1,6 @@
 "use server";
 
+import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth";
@@ -8,6 +9,7 @@ import { generateAndSendOrderInvoice } from "@/lib/actions/invoicing";
 import { composeAddress } from "@/lib/address";
 import { profilLuecken } from "@/lib/profil";
 import { normalisiereCode } from "@/lib/rabatt";
+import { meldeNeueBestellung } from "@/lib/push";
 
 export interface CheckoutState {
   error?: string;
@@ -196,6 +198,21 @@ export async function createOrder(
   revalidatePath("/shop");
 
   const created = data as { id: string; order_number: string };
+
+  /*
+   * Mitteilung an die Admin-Geräte. Nur für Kundenbestellungen: bestellt der
+   * Admin selbst über den Shop, weiß er es. after() lässt die Antwort an den
+   * Kunden nicht auf den Push warten; meldeNeueBestellung wirft nie.
+   */
+  if (user.role === "customer") {
+    after(() =>
+      meldeNeueBestellung({
+        id: created.id,
+        orderNumber: created.order_number,
+        kunde: user.company_name || user.full_name || user.email,
+      }),
+    );
+  }
 
   // Rechnung + Mailversand dürfen eine bereits angelegte Bestellung nie
   // scheitern lassen – Fehler landen nur im Log, der Kunde bekommt seine
