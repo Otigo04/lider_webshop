@@ -82,7 +82,13 @@ export async function sendeAnGeraet(
         return "entfernt";
       }
       const msg = err instanceof Error ? err.message : String(err);
-      console.error("[push] sendeAnGeraet:", msg);
+      // Die Meldung von web-push ist allgemein („Received unexpected response
+      // code"); den eigentlichen Grund (z. B. BadJwtToken, VapidPkHashMismatch)
+      // liefern Apple/Google nur im Antwortinhalt. Ohne Status und Inhalt wäre
+      // ein 401/403 in den Logs nicht zu deuten.
+      const rohInhalt = (err as { body?: unknown } | null)?.body;
+      const inhalt = rohInhalt == null ? "" : String(rohInhalt).slice(0, 300);
+      console.error("[push] Versand fehlgeschlagen:", status ?? "", msg, inhalt);
       return "fehler";
     }
   } catch (err) {
