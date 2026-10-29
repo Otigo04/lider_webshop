@@ -720,9 +720,11 @@ den Newsletter aus Bausteinen und schickt ihn über Resend an alle Abonnenten.
   (Zeitbudget 240 s) „Versand fortsetzen“; keiner bekommt die Mail zweimal.
   „Fehlgeschlagene wiederholen“ versucht gescheiterte Zustellungen neu.
   „Verschickt“ erst, wenn mindestens eine Mail rausging.
-- **Voraussetzung**: `RESEND_API_KEY` und `EMAIL_FROM` mit verifizierter Domain.
-  Mit der Standardadresse `onboarding@resend.dev` nimmt Resend nur die eigene
-  Adresse an.
+- **Voraussetzung**: `RESEND_API_KEY` und `EMAIL_FROM` mit verifizierter Domain
+  (produktiv `LIDER <noreply@lider-berlin.de>`). Absender und Antwortadresse
+  stehen in `lib/email-adressen.ts`: gesendet wird von `noreply@`, jede Mail
+  trägt `o.tas@lider-berlin.de` als Reply-To und nennt die Adresse in der
+  Fußzeile (Transaktionsmails, Rechnung und Newsletter).
 - **Einzelversand** („An Einzelne senden“, `versendeEinzeln()`): an ausgewählte
   Kunden und/oder freie Adressen, unabhängig vom Abo, ohne den Status des
   Newsletters zu ändern (auch bei schon verschickten). Kunden bekommen ihren

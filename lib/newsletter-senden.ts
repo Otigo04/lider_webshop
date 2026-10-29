@@ -1,6 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import { getResendClient } from "@/lib/email";
+import { absender, ANTWORT_ADRESSE } from "@/lib/email-adressen";
 import { ladeNewsletterInhalt, baueNewsletterHtml, ABMELDE_PLATZHALTER } from "@/lib/newsletter-mail";
 import { dokumentSchema } from "@/lib/newsletter";
 import { abmeldeToken } from "@/lib/newsletter-token";
@@ -133,7 +134,7 @@ export async function versendeNewsletter(
   }
   if (!html) return { ok: false, error: "Das Dokument fehlt – bitte Entwurf neu öffnen." };
 
-  const from = process.env.EMAIL_FROM || "LIDER <onboarding@resend.dev>";
+  const from = absender();
 
   for (;;) {
     if (Date.now() - start > ZEITBUDGET_MS) break;
@@ -150,6 +151,7 @@ export async function versendeNewsletter(
       const einmal = abmeldeLink(z.user_id as string, "eintrag");
       return {
         from,
+        replyTo: ANTWORT_ADRESSE,
         to: z.email as string,
         subject: nl.subject as string,
         html: html!.replaceAll(ABMELDE_PLATZHALTER, abmeldeLink(z.user_id as string, "seite")),
@@ -320,12 +322,13 @@ export async function versendeEinzeln(
     { onConflict: "newsletter_id,email" },
   );
 
-  const from = process.env.EMAIL_FROM || "LIDER <onboarding@resend.dev>";
+  const from = absender();
   let gesendet = 0;
   for (let i = 0; i < offen.length; i += PAECKCHEN) {
     const teil = offen.slice(i, i + PAECKCHEN);
     const mails = teil.map((e) => ({
       from,
+      replyTo: ANTWORT_ADRESSE,
       to: e.email,
       subject: nl.subject as string,
       html: e.userId

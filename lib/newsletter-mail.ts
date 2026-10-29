@@ -1,5 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { ANTWORT_ADRESSE } from "@/lib/email-adressen";
 import { formatDate, formatPrice, toNumber } from "@/lib/format";
 import { AUTO_NAMEN, sichererLink, type Block, type NewsletterDokument } from "@/lib/newsletter";
 import { freeStock, reduzierung } from "@/lib/pricing";
@@ -329,7 +330,7 @@ ${inhalt}
         opts.abmeldeUrl
           ? `Sie erhalten diese E-Mail, weil Sie den Newsletter in Ihrem Kundenkonto aktiviert haben.
       <a href="${opts.abmeldeUrl}" style="color:${BLAU};text-decoration:underline;">Newsletter abbestellen</a>`
-          : "Diese E-Mail wurde Ihnen persönlich zugeschickt. Wenn Sie keine weiteren Nachrichten von uns wünschen, antworten Sie einfach auf diese Mail."
+          : `Diese E-Mail wurde Ihnen persönlich zugeschickt. Wenn Sie keine weiteren Nachrichten von uns wünschen, schreiben Sie uns an <a href="mailto:${ANTWORT_ADRESSE}" style="color:${BLAU};text-decoration:underline;">${ANTWORT_ADRESSE}</a>.`
       }
     </td></tr>
   </table>

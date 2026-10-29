@@ -2,6 +2,7 @@ import "server-only";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { Resend } from "resend";
+import { absender, ANTWORT_ADRESSE } from "@/lib/email-adressen";
 import { LOGO_CID } from "@/lib/emails/layout";
 
 /**
@@ -58,10 +59,11 @@ export async function sendEmail(options: SendEmailOptions): Promise<boolean> {
     return false;
   }
 
-  const from = process.env.EMAIL_FROM || "LIDER <onboarding@resend.dev>";
-
   const { error } = await resend.emails.send({
-    from,
+    from: absender(),
+    // Der Absender (noreply@) wird nicht gelesen; Antworten gehen an die
+    // Kontaktadresse, sonst liefe „Antworten" im Mailprogramm ins Leere.
+    replyTo: ANTWORT_ADRESSE,
     to: options.to,
     subject: options.subject,
     html: options.html,

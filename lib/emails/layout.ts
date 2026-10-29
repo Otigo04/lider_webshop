@@ -1,4 +1,5 @@
 import "server-only";
+import { ANTWORT_ADRESSE } from "@/lib/email-adressen";
 import { siteUrl as basisUrl } from "@/lib/site";
 
 /*
@@ -71,7 +72,7 @@ ${vorschau}
         <tr>
           <td style="padding:16px 32px 20px;border-top:1px solid ${LINIE};font-size:12px;line-height:1.7;color:${GRAU};">
             LIDER · Groß- und Einzelhandel<br>
-            Fragen? Antworten Sie einfach auf diese Nachricht.<br>
+            Fragen? Schreiben Sie uns an <a href="mailto:${ANTWORT_ADRESSE}" style="color:${GRAU};">${ANTWORT_ADRESSE}</a><br>
             <a href="${basis}/impressum" style="color:${GRAU};">Impressum</a> ·
             <a href="${basis}/datenschutz" style="color:${GRAU};">Datenschutz</a>
           </td>
