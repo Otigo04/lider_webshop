@@ -460,6 +460,32 @@ Wörter stehen drin, nur nicht nebeneinander.
 
 ---
 
+## 🔔 Admin-Push
+
+Web-Push für Admin-Konten bei neuer Kundenbestellung und neuer Registrierung.
+Spec: `docs/superpowers/specs/2026-10-29-admin-push-design.md`.
+
+- **Versand nach dem Buchen, nie davor:** `createOrder` und `signUp` rufen
+  `meldeNeueBestellung` / `meldeNeuenKunden` (`lib/push.ts`) über `after()`.
+  Der Versand wirft nie; eine Bestellung scheitert nie an einer Mitteilung.
+- **Nur Admin-Konten:** `waehleEmpfaenger()` (`lib/push-ziele.ts`) filtert auf
+  `role = 'admin'`, `is_active` und den Schalter des Geräts. Admin-eigene
+  Bestellungen (Telefon, Kasse, Rechnung aus Katalog) lösen nichts aus.
+- **Schalter je Gerät** in `push_subscriptions` (Migration 082), bedient unter
+  `/account`. Texte in `lib/push-text.ts`: nie Einkaufspreis, nie Positionen.
+- **Service Worker** `public/sw.js` zeigt jeden Push immer an (iOS entzieht
+  sonst das Abo). iPhone braucht die Web-App auf dem Home-Bildschirm
+  (`app/manifest.ts`).
+- Schlüssel `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`;
+  Einrichtung in `docs/betrieb.md`.
+- **Entfernen gilt pro Browser:** `Entfernen` auf dem eigenen Gerät setzt eine
+  Marke im Browser (`lider-push-abgemeldet`, `lib/push-client.ts`), die
+  `PushSync` beachtet; nur „aktivieren“ hebt sie auf. Ein von anderer Stelle
+  entferntes Gerät meldet sich beim nächsten Admin-Besuch wieder an.
+- **Regressionstest für den Worker:** `tests/sw-push.test.ts` lädt
+  `public/sw.js` in eine VM und prüft, dass jeder Push (auch `null`/ungültig)
+  genau eine Mitteilung zeigt.
+
 ---
 
 ## 📚 Vertiefung in `docs/`

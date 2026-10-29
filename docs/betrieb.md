@@ -55,3 +55,42 @@ Rechnungen und Buchungsbelege unterliegen gesetzlichen Aufbewahrungsfristen
 Steuerberater erfragen, die Fristen ändern sich). Die Datenbank löscht
 Rechnungen nie von selbst; `reset_pos_day_closings()` ist eine
 Einrichtungsfunktion und gehört nicht in den Produktivbetrieb.
+
+## Admin-Benachrichtigungen (Web-Push)
+
+**Einmalig einrichten**
+
+1. Migration `082_push_subscriptions.sql` einspielen (siehe oben).
+2. Schlüsselpaar erzeugen: `node -e 'console.log(require("web-push").generateVAPIDKeys())'`.
+3. In Vercel (Production **und** Preview) eintragen: `NEXT_PUBLIC_VAPID_PUBLIC_KEY`,
+   `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (= `https://www.lider-berlin.de`). Danach neu
+   deployen, weil der öffentliche Schlüssel beim Build in den Browsercode eingeht.
+   Lokal stehen sie in `.env.local`. Das Paar nicht tauschen, solange Geräte
+   angemeldet sind – alte Abos funktionieren mit einem neuen Paar nicht mehr.
+
+**Gerät anmelden**
+
+- *iPhone (iOS 16.4+):* in Safari die Shop-Adresse öffnen, anmelden, „Teilen →
+  Zum Home-Bildschirm“, die App „LIDER Admin“ **vom Home-Bildschirm** öffnen,
+  `/account` → Benachrichtigungen → „aktivieren“, Erlaubnis bestätigen. Dann
+  „Test senden“.
+- *Mac:* in Safari oder Chrome `/account` öffnen, aktivieren, Erlaubnis
+  bestätigen, „Test senden“. In den Systemeinstellungen unter „Mitteilungen“
+  muss der Browser Mitteilungen anzeigen dürfen und der Fokus darf sie nicht
+  stummschalten.
+
+**Wenn etwas ausbleibt**
+
+- Reiter „Bestellungen“ in der Verwaltung zeigt die Zahl der noch nicht
+  bearbeiteten Bestellungen (Status „Eingegangen“) – auch ohne Push.
+- `/account` → Benachrichtigungen: „Zuletzt erreicht“ je Gerät; „Test senden“
+  meldet, ob das Gerät noch erreichbar ist (sonst wird es entfernt, dann neu
+  aktivieren).
+- Vercel-Logs nach `[push]` durchsuchen. `VAPID-Schlüssel fehlen` heißt:
+  Variablen nicht gesetzt oder nicht neu deployt.
+- iPhone: Fokus-/Nicht-stören-Modus, ausgeschaltete Mitteilungen für die App in
+  den iPhone-Einstellungen, oder die App wurde vom Home-Bildschirm gelöscht.
+- Das Web-App-Manifest (`app/manifest.ts`) gilt für die ganze Seite: legt ein
+  Kunde den Shop auf den Home-Bildschirm, heißt das Symbol ebenfalls „LIDER
+  Admin“ und startet in `/admin` (Kunden werden von dort in den Shop
+  umgeleitet). Unschädlich, aber gut zu wissen.
