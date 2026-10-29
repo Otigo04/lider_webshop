@@ -46,6 +46,25 @@ export function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
   return bytes;
 }
 
+/**
+ * Wurde das Abo mit einem anderen VAPID-Schlüssel angelegt als dem aktuellen?
+ * Nur ein sicher festgestellter Unterschied zählt: Manche Browser liefern
+ * `options.applicationServerKey` als null, dann ist nichts vergleichbar und das
+ * Abo wird weiterverwendet, statt es grundlos zu ersetzen.
+ */
+export function schluesselAbweichend(
+  abo: ArrayBuffer | null | undefined,
+  aktuell: Uint8Array,
+): boolean {
+  if (!abo) return false;
+  const a = new Uint8Array(abo);
+  if (a.length !== aktuell.length) return true;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== aktuell[i]) return true;
+  }
+  return false;
+}
+
 export function pushUnterstuetzt(): boolean {
   return (
     typeof window !== "undefined" &&
@@ -79,11 +98,24 @@ export async function meldeAn(): Promise<PushSubscription> {
   const schluessel = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
   if (!schluessel) throw new Error("VAPID-Schlüssel fehlt");
   const registrierung = await holeRegistrierung();
+  const vapidSchluessel = urlBase64ToUint8Array(schluessel);
   const vorhanden = await registrierung.pushManager.getSubscription();
-  if (vorhanden) return vorhanden;
+  if (vorhanden) {
+    // Ein Abo, das mit einem anderen Schlüssel angelegt wurde (Schlüsselwechsel,
+    // Vorschau und Produktion auf demselben Ursprung), wird vom Push-Dienst mit
+    // 401/403 abgelehnt – das räumt der Versand nicht auf. Also ersetzen.
+    if (!schluesselAbweichend(vorhanden.options?.applicationServerKey, vapidSchluessel)) {
+      return vorhanden;
+    }
+    try {
+      await vorhanden.unsubscribe();
+    } catch {
+      /* Schlägt das Abmelden fehl, versucht subscribe() es trotzdem. */
+    }
+  }
   return registrierung.pushManager.subscribe({
     userVisibleOnly: true,
-    applicationServerKey: urlBase64ToUint8Array(schluessel),
+    applicationServerKey: vapidSchluessel,
   });
 }
 

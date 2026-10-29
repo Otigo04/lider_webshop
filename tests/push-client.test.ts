@@ -6,6 +6,7 @@ import {
   istIosGeraet,
   loescheAbmeldung,
   merkeAbmeldung,
+  schluesselAbweichend,
   urlBase64ToUint8Array,
 } from "@/lib/push-client";
 
@@ -61,6 +62,27 @@ test("VAPID-Schlüssel: base64url wird zu Bytes", () => {
   // 0xFB 0xFF → Standard-Base64 „+/8=" → URL-sicher ohne Auffüllung „-_8"
   assert.deepEqual([...urlBase64ToUint8Array("-_8")], [251, 255]);
   assert.deepEqual([...urlBase64ToUint8Array("AQID")], [1, 2, 3]);
+});
+
+// --- Schlüsselvergleich ------------------------------------------------------
+
+test("Schlüssel: gleiche Bytes weichen nicht ab", () => {
+  assert.equal(schluesselAbweichend(new Uint8Array([1, 2, 3]).buffer, new Uint8Array([1, 2, 3])), false);
+});
+
+test("Schlüssel: andere Länge weicht ab", () => {
+  assert.equal(schluesselAbweichend(new Uint8Array([1, 2]).buffer, new Uint8Array([1, 2, 3])), true);
+});
+
+test("Schlüssel: ein anderes Byte weicht ab", () => {
+  assert.equal(schluesselAbweichend(new Uint8Array([1, 2, 4]).buffer, new Uint8Array([1, 2, 3])), true);
+});
+
+test("Schlüssel: fehlender Schlüssel ist nicht vergleichbar, also keine Abweichung", () => {
+  // Manche Browser liefern options.applicationServerKey als null; dann wird
+  // das Abo weiterverwendet, statt es grundlos zu ersetzen.
+  assert.equal(schluesselAbweichend(null, new Uint8Array([1, 2, 3])), false);
+  assert.equal(schluesselAbweichend(undefined, new Uint8Array([1, 2, 3])), false);
 });
 
 // --- Abmelde-Merker (localStorage) -----------------------------------------
