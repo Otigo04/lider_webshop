@@ -16,7 +16,8 @@ Produktiv-Datenbank; 057 bis 073 anhand der Tabellen und Spalten geprüft)
 - [x] `071_oeffnungszeiten.sql`
 - [x] `072_zahlart_vorkasse.sql`
 - [x] `073_steuernummer_pflicht.sql`
-- [ ] `082_push_subscriptions.sql` (Admin-Push)
+- [x] `082_push_subscriptions.sql` (Admin-Push, eingespielt 2026-10-29, Tabelle und RLS geprüft;
+      `074` bis `081` sind hier nicht abgehakt – ihren Stand in der Datenbank noch prüfen)
 
 ## Vercel – Environment Variables (Production **und** Preview)
 
@@ -25,7 +26,8 @@ Produktiv-Datenbank; 057 bis 073 anhand der Tabellen und Spalten geprüft)
 - [ ] `NEXT_PUBLIC_SITE_URL` = echte Domain, ohne Schrägstrich am Ende
 - [ ] `RESEND_API_KEY`, `EMAIL_FROM` (Domain bei Resend per DNS verifiziert)
 - [ ] `AI_GATEWAY_API_KEY` (optional, nur KI-Fotoanalyse)
-- [ ] `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (Admin-Push, siehe docs/betrieb.md)
+- [x] `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (Admin-Push, siehe docs/betrieb.md;
+      gesetzt 2026-10-29 für Production und Preview)
 
 ## Supabase
 
