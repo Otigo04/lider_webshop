@@ -25,6 +25,9 @@ export const metadata: Metadata = {
   metadataBase: new URL(siteUrl()),
   title: { default: TITEL, template: "%s | LIDER" },
   description: BESCHREIBUNG,
+  // Home-Bildschirm-App auf dem iPhone (Admin-Benachrichtigungen, siehe
+  // app/manifest.ts). Das Symbol liefert app/apple-icon.png.
+  appleWebApp: { capable: true, title: "LIDER Admin", statusBarStyle: "default" },
   alternates: { canonical: "/" },
   // Search-Console-Bestätigung per Meta-Tag; Code kommt aus der Umgebung.
   verification: process.env.GOOGLE_SITE_VERIFICATION

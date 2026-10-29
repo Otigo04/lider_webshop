@@ -58,6 +58,15 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      {
+        // Der Worker darf nie aus dem Cache kommen: Änderungen an sw.js müssen
+        // beim nächsten Besuch greifen, sonst läuft ein alter Handler weiter.
+        source: "/sw.js",
+        headers: [
+          { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+          { key: "Content-Type", value: "application/javascript; charset=utf-8" },
+        ],
+      },
     ];
   },
 };

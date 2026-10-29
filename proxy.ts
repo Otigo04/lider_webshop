@@ -59,6 +59,10 @@ const MAINTENANCE_EXEMPT_PREFIXES = [
   "/versand",
   // Abmeldelink und Bilder des Newsletters müssen in jeder Mail funktionieren.
   "/newsletter",
+  // Service Worker und Manifest der Admin-Web-App: dürfen nie auf /wartung
+  // umgeleitet werden, sonst scheitert die Registrierung des Workers.
+  "/sw.js",
+  "/manifest.webmanifest",
 ];
 
 export async function proxy(request: NextRequest) {
