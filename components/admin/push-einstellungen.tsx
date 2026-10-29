@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -47,6 +47,10 @@ export function PushEinstellungen({ geraete }: { geraete: PushGeraet[] }) {
   const [zustand, setZustand] = useState<PushZustand | null>(null);
   const [dieses, setDieses] = useState<string | null>(null);
   const [beschaeftigt, setBeschaeftigt] = useState<string | null>(null);
+  // Stand der Geräteliste beim ersten Rendern: Die Erkennung unten läuft nur
+  // einmal und soll weder bei jedem Refresh neu laufen noch flackern, während
+  // nach einem „aktivieren“ router.refresh() noch unterwegs ist.
+  const geraeteAnfang = useRef(geraete);
 
   const liste = geraete.map((g) => ({
     ...g,
@@ -69,6 +73,14 @@ export function PushEinstellungen({ geraete }: { geraete: PushGeraet[] }) {
         } catch {
           endpoint = null;
         }
+      }
+      // /account liegt außerhalb des Admin-Layouts, hier repariert PushSync
+      // nichts. Kennt der Server das Abo des Browsers nicht (aufgeräumt,
+      // anderswo entfernt, Migration erst später eingespielt), gilt das Gerät
+      // als nicht angemeldet: Der Knopf „aktivieren“ erscheint und meldet es
+      // über den üblichen Weg neu an, die Erlaubnis liegt ja schon vor.
+      if (endpoint !== null && !geraeteAnfang.current.some((g) => g.endpoint === endpoint)) {
+        endpoint = null;
       }
       setDieses(endpoint);
       setZustand(
@@ -278,9 +290,9 @@ export function PushEinstellungen({ geraete }: { geraete: PushGeraet[] }) {
 
       {liste.length > 1 ? (
         <p className="text-xs text-muted-foreground">
-          Ein Gerät, das Sie von hier entfernen, meldet sich beim nächsten Besuch der
-          Verwaltung wieder an. Zum dauerhaften Abmelden dort „Entfernen“ wählen oder
-          beide Schalter ausschalten.
+          Ein anderes Gerät, das Sie von hier entfernen, meldet sich beim nächsten
+          Besuch der Verwaltung wieder an. Zum dauerhaften Abmelden dort „Entfernen“
+          wählen oder beide Schalter ausschalten.
         </p>
       ) : null}
     </div>
