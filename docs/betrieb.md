@@ -60,8 +60,10 @@ Einrichtungsfunktion und gehört nicht in den Produktivbetrieb.
 
 **Einmalig einrichten**
 
-1. Migration `082_push_subscriptions.sql` einspielen (siehe oben).
-2. Schlüsselpaar erzeugen: `node -e 'console.log(require("web-push").generateVAPIDKeys())'`.
+1. Migration `082_push_subscriptions.sql` einspielen (mit Backup, siehe oben).
+2. Schlüsselpaar erzeugen, im Projektordner und nach `npm install`:
+   `node -e 'console.log(require("web-push").generateVAPIDKeys())'`.
+   `publicKey` → `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `privateKey` → `VAPID_PRIVATE_KEY`.
 3. In Vercel (Production **und** Preview) eintragen: `NEXT_PUBLIC_VAPID_PUBLIC_KEY`,
    `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (= `https://www.lider-berlin.de`). Danach neu
    deployen, weil der öffentliche Schlüssel beim Build in den Browsercode eingeht.
@@ -91,6 +93,13 @@ Einrichtungsfunktion und gehört nicht in den Produktivbetrieb.
 - iPhone: Fokus-/Nicht-stören-Modus, ausgeschaltete Mitteilungen für die App in
   den iPhone-Einstellungen, oder die App wurde vom Home-Bildschirm gelöscht.
 - Das Web-App-Manifest (`app/manifest.ts`) gilt für die ganze Seite: legt ein
-  Kunde den Shop auf den Home-Bildschirm, heißt das Symbol ebenfalls „LIDER
+  Kunde den Shop auf den Home-Bildschirm, heißt die App ebenfalls „LIDER
   Admin“ und startet in `/admin` (Kunden werden von dort in den Shop
   umgeleitet). Unschädlich, aber gut zu wissen.
+- Abmelden hebt die Benachrichtigungen nicht auf. Auf einem Gerät, das auch
+  andere benutzen (z. B. der Laden-Mac), vor der Weitergabe unter `/account` das
+  Gerät „Entfernen“, sonst erscheinen Mitteilungen mit Kundennamen und Beträgen
+  weiter.
+- Wechselt das Schlüsselpaar, erkennt die App ein altes Abo am Gerät und meldet
+  es beim nächsten Besuch der Verwaltung neu an; Mitteilungen kommen dann erst
+  wieder, wenn das Gerät einmal die Verwaltung geöffnet hat.
