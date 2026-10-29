@@ -34,9 +34,15 @@ function konfiguriert(): boolean {
     vapidBereit = false;
     return false;
   }
-  webpush.setVapidDetails(subject, oeffentlich, privat);
-  vapidBereit = true;
-  return true;
+  try {
+    webpush.setVapidDetails(subject, oeffentlich, privat);
+    vapidBereit = true;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[push] VAPID-Konfiguration ungültig – Versand übersprungen:", msg);
+    vapidBereit = false;
+  }
+  return vapidBereit;
 }
 
 type Ziel = Pick<AboZeile, "id" | "endpoint" | "p256dh" | "auth">;
@@ -46,26 +52,42 @@ export async function sendeAnGeraet(
   abo: Ziel,
   nachricht: PushNachricht,
 ): Promise<SendeErgebnis> {
-  if (!konfiguriert()) return "nicht-konfiguriert";
-  const admin = createAdminClient();
   try {
-    await webpush.sendNotification(
-      { endpoint: abo.endpoint, keys: { p256dh: abo.p256dh, auth: abo.auth } },
-      JSON.stringify(nachricht),
-      { TTL: 24 * 60 * 60, urgency: "high", timeout: 10_000 },
-    );
-    await admin
-      .from("push_subscriptions")
-      .update({ zuletzt_ok: new Date().toISOString() })
-      .eq("id", abo.id);
-    return "gesendet";
-  } catch (err) {
-    const status = (err as { statusCode?: number }).statusCode;
-    if (istAboTot(status)) {
-      await admin.from("push_subscriptions").delete().eq("id", abo.id);
-      return "entfernt";
+    if (!konfiguriert()) return "nicht-konfiguriert";
+    const admin = createAdminClient();
+    try {
+      await webpush.sendNotification(
+        { endpoint: abo.endpoint, keys: { p256dh: abo.p256dh, auth: abo.auth } },
+        JSON.stringify(nachricht),
+        { TTL: 24 * 60 * 60, urgency: "high", timeout: 10_000 },
+      );
+      const { error: updateError } = await admin
+        .from("push_subscriptions")
+        .update({ zuletzt_ok: new Date().toISOString() })
+        .eq("id", abo.id);
+      if (updateError) {
+        console.error("[push] zuletzt_ok konnte nicht aktualisiert werden:", updateError.message);
+      }
+      return "gesendet";
+    } catch (err) {
+      const status = (err as { statusCode?: number } | null)?.statusCode;
+      if (istAboTot(status)) {
+        const { error: deleteError } = await admin
+          .from("push_subscriptions")
+          .delete()
+          .eq("id", abo.id);
+        if (deleteError) {
+          console.error("[push] abgelaufenes Abo konnte nicht gelöscht werden:", deleteError.message);
+        }
+        return "entfernt";
+      }
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[push] sendeAnGeraet:", msg);
+      return "fehler";
     }
-    console.error("[push] Versand fehlgeschlagen:", status ?? "", (err as Error).message);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[push] sendeAnGeraet:", msg);
     return "fehler";
   }
 }
@@ -84,7 +106,13 @@ export async function sendeAnAdmins(art: PushArt, nachricht: PushNachricht): Pro
       return;
     }
     const empfaenger = waehleEmpfaenger((data ?? []) as unknown as AboZeile[], art);
-    await Promise.allSettled(empfaenger.map((abo) => sendeAnGeraet(abo, nachricht)));
+    const results = await Promise.allSettled(empfaenger.map((abo) => sendeAnGeraet(abo, nachricht)));
+    results.forEach((result) => {
+      if (result.status === "rejected") {
+        const msg = result.reason instanceof Error ? result.reason.message : String(result.reason);
+        console.error("[push] Versand an Gerät abgelehnt:", msg);
+      }
+    });
   } catch (err) {
     console.error("[push] sendeAnAdmins:", err);
   }
