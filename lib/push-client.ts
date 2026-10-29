@@ -102,3 +102,40 @@ export function aboDaten(sub: PushSubscription): {
     userAgent: navigator.userAgent,
   };
 }
+
+/**
+ * Merker „auf diesem Gerät abgemeldet". Ohne ihn würde `PushSync` ein per
+ * „Entfernen" gelöschtes Gerät beim nächsten Besuch der Verwaltung sofort
+ * wieder anmelden, weil die Browser-Erlaubnis bestehen bleibt. Der Merker lebt
+ * nur in diesem Browser und wird erst durch den Klick auf „aktivieren"
+ * gelöscht. localStorage kann fehlen oder werfen (privater Modus, SSR, Node) –
+ * dann gilt das Gerät als nicht abgemeldet.
+ */
+const ABMELDE_SCHLUESSEL = "lider-push-abgemeldet";
+
+export function merkeAbmeldung(): void {
+  try {
+    if (typeof localStorage === "undefined") return;
+    localStorage.setItem(ABMELDE_SCHLUESSEL, "1");
+  } catch {
+    /* Ohne Speicher bleibt nur der Server-Stand; mehr geht nicht. */
+  }
+}
+
+export function loescheAbmeldung(): void {
+  try {
+    if (typeof localStorage === "undefined") return;
+    localStorage.removeItem(ABMELDE_SCHLUESSEL);
+  } catch {
+    /* Siehe merkeAbmeldung. */
+  }
+}
+
+export function istAbgemeldet(): boolean {
+  try {
+    if (typeof localStorage === "undefined") return false;
+    return localStorage.getItem(ABMELDE_SCHLUESSEL) === "1";
+  } catch {
+    return false;
+  }
+}

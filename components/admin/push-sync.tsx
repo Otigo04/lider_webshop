@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { abonniere } from "@/lib/actions/push";
-import { aboDaten, meldeAn, pushUnterstuetzt } from "@/lib/push-client";
+import { aboDaten, istAbgemeldet, meldeAn, pushUnterstuetzt } from "@/lib/push-client";
 
 /**
  * Hält das Push-Abo dieses Geräts frisch. Ist die Erlaubnis erteilt, wird bei
@@ -14,6 +14,9 @@ import { aboDaten, meldeAn, pushUnterstuetzt } from "@/lib/push-client";
 export function PushSync() {
   useEffect(() => {
     if (!pushUnterstuetzt() || Notification.permission !== "granted") return;
+    // Wer dieses Gerät bewusst entfernt hat, soll nicht stillschweigend
+    // zurückkehren – die Erlaubnis im Browser bleibt ja bestehen.
+    if (istAbgemeldet()) return;
     (async () => {
       const abo = await meldeAn();
       await abonniere(aboDaten(abo));

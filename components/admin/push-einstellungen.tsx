@@ -14,7 +14,9 @@ import {
   ermittleZustand,
   istIosGeraet,
   istInstalliert,
+  loescheAbmeldung,
   meldeAn,
+  merkeAbmeldung,
   pushUnterstuetzt,
   type PushZustand,
 } from "@/lib/push-client";
@@ -90,6 +92,8 @@ export function PushEinstellungen({ geraete }: { geraete: PushGeraet[] }) {
         setZustand(erlaubnis === "denied" ? "blockiert" : "erlaubnis-offen");
         return;
       }
+      // Der ausdrückliche Klick hebt eine frühere Abmeldung auf diesem Gerät auf.
+      loescheAbmeldung();
       const abo = await meldeAn();
       const antwort = await abonniere(aboDaten(abo));
       if (!antwort.ok) {
@@ -110,55 +114,77 @@ export function PushEinstellungen({ geraete }: { geraete: PushGeraet[] }) {
 
   async function schalten(g: PushGeraet, feld: Feld, an: boolean) {
     const schluessel = `${g.id}:${feld}`;
-    setVorlaeufig((alt) => ({ ...alt, [schluessel]: an }));
-    const antwort = await setzeSchalter({ id: g.id, feld, an });
-    if (!antwort.ok) {
-      // Zurück auf den Stand vom Server.
+    // Zurück auf den Stand vom Server: den vorläufigen Wert wegräumen.
+    const zuruecksetzen = () =>
       setVorlaeufig((alt) => {
         const rest = { ...alt };
         delete rest[schluessel];
         return rest;
       });
-      toast.error(antwort.error);
+    setVorlaeufig((alt) => ({ ...alt, [schluessel]: an }));
+    try {
+      const antwort = await setzeSchalter({ id: g.id, feld, an });
+      if (!antwort.ok) {
+        zuruecksetzen();
+        toast.error(antwort.error);
+      }
+    } catch (err) {
+      console.error("[push] schalten:", err);
+      zuruecksetzen();
+      toast.error("Das hat nicht geklappt. Bitte erneut versuchen.");
     }
   }
 
   async function testen(g: PushGeraet) {
     setBeschaeftigt(g.id);
-    const antwort = await testeGeraet({ id: g.id });
-    setBeschaeftigt(null);
-    if (!antwort.ok) {
-      toast.error(antwort.error);
-      return;
+    try {
+      const antwort = await testeGeraet({ id: g.id });
+      if (!antwort.ok) {
+        toast.error(antwort.error);
+        return;
+      }
+      if (antwort.ergebnis === "gesendet") toast.success("Test gesendet – er sollte gleich erscheinen.");
+      else if (antwort.ergebnis === "entfernt") {
+        toast.error("Dieses Gerät war nicht mehr erreichbar und wurde entfernt.");
+        router.refresh();
+      } else if (antwort.ergebnis === "nicht-konfiguriert") {
+        toast.error("Der Versand ist auf dem Server noch nicht eingerichtet.");
+      } else toast.error("Der Test konnte nicht zugestellt werden.");
+    } catch (err) {
+      console.error("[push] testen:", err);
+      toast.error("Das hat nicht geklappt. Bitte erneut versuchen.");
+    } finally {
+      setBeschaeftigt(null);
     }
-    if (antwort.ergebnis === "gesendet") toast.success("Test gesendet – er sollte gleich erscheinen.");
-    else if (antwort.ergebnis === "entfernt") {
-      toast.error("Dieses Gerät war nicht mehr erreichbar und wurde entfernt.");
-      router.refresh();
-    } else if (antwort.ergebnis === "nicht-konfiguriert") {
-      toast.error("Der Versand ist auf dem Server noch nicht eingerichtet.");
-    } else toast.error("Der Test konnte nicht zugestellt werden.");
   }
 
   async function entfernen(g: PushGeraet) {
     setBeschaeftigt(g.id);
-    const antwort = await entferneGeraet({ id: g.id });
-    if (!antwort.ok) {
-      setBeschaeftigt(null);
-      toast.error(antwort.error);
-      return;
-    }
-    if (g.endpoint === dieses) {
-      try {
-        await (await aktuellesAbo())?.unsubscribe();
-      } catch {
-        /* Der Server-Eintrag ist weg; mehr ist nicht nötig. */
+    try {
+      const antwort = await entferneGeraet({ id: g.id });
+      if (!antwort.ok) {
+        toast.error(antwort.error);
+        return;
       }
-      setDieses(null);
-      setZustand("erlaubnis-offen");
+      if (g.endpoint === dieses) {
+        // Die Browser-Erlaubnis bleibt bestehen; ohne Merker würde PushSync
+        // dieses Gerät beim nächsten Besuch wieder anmelden.
+        merkeAbmeldung();
+        try {
+          await (await aktuellesAbo())?.unsubscribe();
+        } catch {
+          /* Der Server-Eintrag ist weg; mehr ist nicht nötig. */
+        }
+        setDieses(null);
+        setZustand("erlaubnis-offen");
+      }
+      router.refresh();
+    } catch (err) {
+      console.error("[push] entfernen:", err);
+      toast.error("Das hat nicht geklappt. Bitte erneut versuchen.");
+    } finally {
+      setBeschaeftigt(null);
     }
-    setBeschaeftigt(null);
-    router.refresh();
   }
 
   return (
@@ -248,6 +274,14 @@ export function PushEinstellungen({ geraete }: { geraete: PushGeraet[] }) {
             </li>
           ))}
         </ul>
+      ) : null}
+
+      {liste.length > 1 ? (
+        <p className="text-xs text-muted-foreground">
+          Ein Gerät, das Sie von hier entfernen, meldet sich beim nächsten Besuch der
+          Verwaltung wieder an. Zum dauerhaften Abmelden dort „Entfernen“ wählen oder
+          beide Schalter ausschalten.
+        </p>
       ) : null}
     </div>
   );
