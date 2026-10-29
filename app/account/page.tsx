@@ -29,15 +29,21 @@ export default async function AccountPage() {
     .maybeSingle();
 
   // Nur Admins: Geräte für Benachrichtigungen (Migration 082). Fehlt die
-  // Tabelle noch, erscheint stattdessen ein Hinweis.
+  // Tabelle noch, erscheint ein Hinweis auf die Migration; jeder andere Fehler
+  // (Netz, Rechte) bekommt einen neutralen Text, damit niemand eine Migration
+  // einspielt, die gar nicht fehlt.
   let geraete: PushGeraet[] | null = null;
+  let geraeteFehler: "tabelle" | "sonst" | null = null;
   if (user.role === "admin") {
     const { data, error } = await (await createClient())
       .from("push_subscriptions")
       .select("id, endpoint, geraet, bei_bestellung, bei_neukunde, zuletzt_ok")
       .order("created_at");
-    if (error) console.error("[push] Geräteliste:", error.message);
-    else geraete = data as PushGeraet[];
+    if (error) {
+      console.error("[push] Geräteliste:", error.message);
+      // 42P01: Tabelle fehlt; PGRST205: Tabelle nicht im Schema-Cache.
+      geraeteFehler = error.code === "42P01" || error.code === "PGRST205" ? "tabelle" : "sonst";
+    } else geraete = data as PushGeraet[];
   }
 
   const [angebot, code] = await Promise.all([
@@ -144,10 +150,15 @@ export default async function AccountPage() {
           <div className="mt-4">
             {geraete ? (
               <PushEinstellungen geraete={geraete} />
-            ) : (
+            ) : geraeteFehler === "tabelle" ? (
               <p className="text-sm text-muted-foreground">
                 Benachrichtigungen sind noch nicht eingerichtet: Die Migration{" "}
                 <code>082_push_subscriptions.sql</code> fehlt in der Datenbank.
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Die Geräteliste konnte nicht geladen werden. Bitte die Seite später
+                erneut öffnen.
               </p>
             )}
           </div>
