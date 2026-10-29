@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
-import { KeyRound, MapPin, Newspaper, User } from "lucide-react";
+import { Bell, KeyRound, MapPin, Newspaper, User } from "lucide-react";
 import {
   AddressForm,
   PasswordForm,
   ProfileForm,
 } from "@/components/forms/account-forms";
+import { PushEinstellungen, type PushGeraet } from "@/components/admin/push-einstellungen";
 import { NewsletterForm } from "@/components/forms/newsletter-form";
 import { Button } from "@/components/ui/button";
 import { accentIndex } from "@/lib/accent-colors";
@@ -26,6 +27,18 @@ export default async function AccountPage() {
     .select("newsletter_abo")
     .eq("id", user.id)
     .maybeSingle();
+
+  // Nur Admins: Geräte für Benachrichtigungen (Migration 082). Fehlt die
+  // Tabelle noch, erscheint stattdessen ein Hinweis.
+  let geraete: PushGeraet[] | null = null;
+  if (user.role === "admin") {
+    const { data, error } = await (await createClient())
+      .from("push_subscriptions")
+      .select("id, endpoint, geraet, bei_bestellung, bei_neukunde, zuletzt_ok")
+      .order("created_at");
+    if (error) console.error("[push] Geräteliste:", error.message);
+    else geraete = data as PushGeraet[];
+  }
 
   const [angebot, code] = await Promise.all([
     getNewsletterAngebot(),
@@ -116,6 +129,27 @@ export default async function AccountPage() {
               code={code}
               anreiz={angebot ? angebotSatz(angebot) : null}
             />
+          </div>
+        </section>
+      ) : null}
+
+      {user.role === "admin" ? (
+        <section className="mt-6 rounded-md border border-border p-6">
+          <div className="flex items-center gap-3">
+            <span className="tag-4 flex size-8 items-center justify-center rounded-md">
+              <Bell className="size-4" aria-hidden />
+            </span>
+            <h2 className="font-medium">Benachrichtigungen</h2>
+          </div>
+          <div className="mt-4">
+            {geraete ? (
+              <PushEinstellungen geraete={geraete} />
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Benachrichtigungen sind noch nicht eingerichtet: Die Migration{" "}
+                <code>082_push_subscriptions.sql</code> fehlt in der Datenbank.
+              </p>
+            )}
           </div>
         </section>
       ) : null}

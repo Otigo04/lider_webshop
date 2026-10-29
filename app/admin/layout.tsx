@@ -1,5 +1,7 @@
 import { AdminTabs, type AdminTab } from "@/components/admin/admin-tabs";
+import { PushSync } from "@/components/admin/push-sync";
 import { requireAdmin } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
 
 /**
  * Entspricht dem AdminGuard aus dem Implementierungsplan. Als Layout statt als
@@ -42,8 +44,29 @@ const ADMIN_TABS: AdminTab[] = [
   },
 ];
 
+/**
+ * Bestellungen im Anfangsstatus „Eingegangen“ (create_order setzt 'submitted').
+ * Zweite Absicherung neben dem Push: bleibt eine Mitteilung einmal aus, steht
+ * die Zahl beim nächsten Öffnen der Verwaltung am Reiter „Bestellungen“.
+ */
+async function zaehleNeueBestellungen(): Promise<number> {
+  const { count, error } = await (await createClient())
+    .from("orders")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "submitted");
+  if (error) {
+    console.error("[admin] Zähler neue Bestellungen:", error.message);
+    return 0;
+  }
+  return count ?? 0;
+}
+
 export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
   await requireAdmin();
+  const neu = await zaehleNeueBestellungen();
+  const tabs = ADMIN_TABS.map((tab) =>
+    tab.href === "/admin/orders" && neu > 0 ? { ...tab, badge: neu } : tab,
+  );
 
   return (
     // Fast volle Fensterbreite: die Tabellen (Artikel mit acht Spalten) liefen
@@ -51,7 +74,8 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
     // während links und rechts Weißraum stand. Erst ab sehr breiten Schirmen
     // wird gedeckelt, damit Zeilen nicht endlos lang werden.
     <div className="mx-auto max-w-[120rem] px-4 py-8 sm:px-6 lg:px-8">
-      <AdminTabs tabs={ADMIN_TABS} />
+      <PushSync />
+      <AdminTabs tabs={tabs} />
       {children}
     </div>
   );

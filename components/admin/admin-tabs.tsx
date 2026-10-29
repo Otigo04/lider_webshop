@@ -31,6 +31,8 @@ export interface AdminTab {
   icon: keyof typeof ICONS;
   /** Hebt die Kasse als eigenständigen Arbeitsplatz hervor */
   hervorgehoben?: boolean;
+  /** Zahl neben dem Namen, z. B. ungesehene Bestellungen; 0/leer = keine */
+  badge?: number;
 }
 
 const ICONS = {
@@ -111,6 +113,12 @@ export function AdminTabs({ tabs }: { tabs: AdminTab[] }) {
           >
             <Icon className="size-4" aria-hidden />
             {tab.label}
+            {tab.badge ? (
+              <span className="ml-0.5 rounded-full bg-signal px-1.5 py-0.5 text-[0.6875rem] font-semibold leading-none text-signal-foreground tabular">
+                {tab.badge}
+                <span className="sr-only"> neu eingegangen</span>
+              </span>
+            ) : null}
           </Link>
         );
       })}
