@@ -111,7 +111,7 @@ Bestellungen im Anfangsstatus (siehe Abschnitt 4).
   - `entferneGeraet({ id })`
   - `testeGeraet({ id })`
 - **Umgebung:** `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`,
-  `VAPID_SUBJECT` (`mailto:` mit der Kontaktadresse aus den Firmendaten).
+  `VAPID_SUBJECT` (https-Adresse des Shops, `https://www.lider-berlin.de`; eine private Mailadresse geht nicht an die Push-Dienste von Apple/Google).
   Schlüsselpaar wird lokal erzeugt (`web-push generate-vapid-keys`) und in
   `.env.local` sowie in Vercel eingetragen. Das Eintragen in Vercel erfolgt nur
   nach ausdrücklicher Freigabe.
